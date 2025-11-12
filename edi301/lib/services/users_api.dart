@@ -1,0 +1,185 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../core/api_client_http.dart';
+import '../models/user.dart';
+import 'package:edi301/models/family_model.dart' as fm;
+
+class UsersApi {
+  final ApiHttp _http = ApiHttp();
+
+  Future<void> deleteSoft(int id) async {
+    final res = await _http.deleteJson('/api/users/$id');
+    if (res.statusCode >= 400) {
+      throw Exception('No se pudo eliminar: ${res.statusCode} ${res.body}');
+    }
+  }
+
+  /// Familias por documento (matrícula o numEmpleado)
+  Future<List<fm.Family>> familiasByDocumento({
+    int? matricula,
+    int? numEmpleado,
+  }) async {
+    final res = await _http.getJson(
+      '/api/users/familias/by-doc/search',
+      query: {
+        if (matricula != null) 'matricula': matricula,
+        if (numEmpleado != null) 'numEmpleado': numEmpleado,
+      },
+    );
+
+    final data = jsonDecode(res.body);
+    if (data is List) {
+      return data
+          .map((e) => fm.Family.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    }
+    if (data is Map && data.values.length == 1 && data.values.first is List) {
+      return (data.values.first as List)
+          .map((e) => fm.Family.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    }
+    return <fm.Family>[];
+  }
+
+  Future<User> registerAlumno({
+    required int matricula,
+    required String nombre,
+    required String apellido,
+    required String email,
+    required String contrasena,
+    String? estado,
+  }) async {
+    final payload = {
+      "TipoUsuario": "ALUMNO",
+      "Matricula": matricula,
+      "Nombre": nombre,
+      "Apellido": apellido,
+      "E_mail": email,
+      "Contrasena": contrasena,
+      "Estado": estado,
+    };
+    final res = await _http.postJson('/api/users/register', data: payload);
+    if (res.statusCode >= 400) {
+      throw Exception('Error ${res.statusCode}: ${res.body}');
+    }
+    final id = (jsonDecode(res.body) as Map)['IdUsuario'] as int;
+    return getById(id);
+  }
+
+  Future<User> registerEmpleado({
+    required int numEmpleado,
+    required String nombre,
+    required String apellido,
+    required String email,
+    required String contrasena,
+    String? estado,
+  }) async {
+    final payload = {
+      "TipoUsuario": "EMPLEADO",
+      "NumEmpleado": numEmpleado,
+      "Nombre": nombre,
+      "Apellido": apellido,
+      "E_mail": email,
+      "Contrasena": contrasena,
+      "Estado": estado,
+    };
+    final r = await _http.postJson('/api/users/register', data: payload);
+    if (r.statusCode >= 400) {
+      throw Exception('Error ${r.statusCode}: ${r.body}');
+    }
+    final id = (jsonDecode(r.body) as Map)['IdUsuario'] as int;
+    return getById(id);
+  }
+
+  Future<User> login(String email, String password) async {
+    final r = await _http.postJson(
+      '/api/users/login', // o '/api/auth/login' si así es tu ruta real
+      data: {"E_mail": email, "Contrasena": password},
+    );
+    if (r.statusCode >= 400) {
+      throw Exception('Error ${r.statusCode}: ${r.body}');
+    }
+
+    // <<<< aquí era jsonDecode (no jsonEncode)
+    final Map<String, dynamic> data =
+        jsonDecode(r.body) as Map<String, dynamic>;
+
+    final user = User.fromJson(data);
+
+    final token = (data['session_token'] ?? data['token'] ?? '').toString();
+    if (token.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('session_token', token);
+      await prefs.setString('user', jsonEncode(data));
+    }
+    return user;
+  }
+
+  Future<User> getById(int id) async {
+    final r = await _http.getJson('/api/users/$id');
+    if (r.statusCode >= 400) {
+      throw Exception('Error ${r.statusCode}: ${r.body}');
+    }
+
+    // <<<< aquí también era jsonDecode
+    final Map<String, dynamic> data =
+        jsonDecode(r.body) as Map<String, dynamic>;
+
+    return User.fromJson(data);
+  }
+
+  Future<List<User>> search({String? q, String? tipo}) async {
+    final r = await _http.getJson(
+      '/api/users',
+      query: {
+        if (q != null && q.isNotEmpty) 'q': q,
+        if (tipo != null && tipo.isNotEmpty) 'tipo': tipo,
+      },
+    );
+    if (r.statusCode >= 400) {
+      throw Exception('Error ${r.statusCode}: ${r.body}');
+    }
+    final decoded = jsonDecode(r.body);
+    if (decoded is List) {
+      return decoded
+          .map<User>((e) => User.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    if (decoded is Map &&
+        decoded.values.length == 1 &&
+        decoded.values.first is List) {
+      final list = decoded.values.first as List;
+      return list
+          .map<User>((e) => User.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+    return <User>[];
+  }
+
+  Future<User> update(
+    int id, {
+    String? nombre,
+    String? apellido,
+    String? estado,
+    bool? esActivo,
+    bool? esAdmin,
+  }) async {
+    final Map<String, dynamic> payload = <String, dynamic>{
+      if (nombre != null) "Nombre": nombre,
+      if (apellido != null) "Apellido": apellido,
+      if (estado != null) "Estado": estado,
+      if (esActivo != null) "es_Activo": esActivo,
+      if (esAdmin != null) "es_Admin": esAdmin,
+    };
+
+    final r = await _http.patchJson('/api/users/$id', data: payload);
+    if (r.statusCode >= 400) {
+      throw Exception('Error ${r.statusCode}: ${r.body}');
+    }
+
+    final Map<String, dynamic> data =
+        jsonDecode(r.body) as Map<String, dynamic>;
+    return User.fromJson(data);
+  }
+}

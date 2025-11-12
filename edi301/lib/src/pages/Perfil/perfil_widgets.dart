@@ -1,0 +1,255 @@
+import 'package:flutter/material.dart';
+
+class HeaderCard extends StatelessWidget {
+  const HeaderCard({
+    super.key,
+    required this.name,
+    required this.family,
+    required this.residence,
+    required this.status,
+    required this.avatarUrl,
+    required this.showAvatar,
+    required this.primary,
+    required this.statusColor,
+    required this.onToggleAvatar,
+  });
+
+  final String name, family, residence, status, avatarUrl;
+  final bool showAvatar;
+  final Color primary, statusColor;
+  final ValueChanged<bool> onToggleAvatar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Stack(
+        children: [
+          Container(height: 120, color: primary),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (showAvatar)
+                  CircleAvatar(
+                    radius: 44,
+                    backgroundColor: Colors.white,
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundImage: NetworkImage(avatarUrl),
+                    ),
+                  )
+                else
+                  const CircleAvatar(
+                    radius: 44,
+                    backgroundColor: Colors.white,
+                    child: Icon(Icons.person, size: 44, color: Colors.black54),
+                  ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.only(top: 40),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: -8,
+                          children: [
+                            Chip(
+                              label: Text(status),
+                              backgroundColor: statusColor.withOpacity(.15),
+                              labelStyle: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            Chip(
+                              label: Text('Residencia: $residence'),
+                              visualDensity: VisualDensity.compact,
+                              backgroundColor: Colors.white,
+                            ),
+                            Chip(
+                              label: Text('Familia: $family'),
+                              visualDensity: VisualDensity.compact,
+                              backgroundColor: Colors.white,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text(
+                              showAvatar ? 'Ocultar foto' : 'Mostrar foto',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                            const SizedBox(width: 8),
+                            Switch(
+                              value: showAvatar,
+                              activeColor: Colors.white,
+                              onChanged: onToggleAvatar,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SectionCard extends StatelessWidget {
+  const SectionCard({
+    super.key,
+    required this.title,
+    required this.children,
+    required this.primary,
+  });
+  final String title;
+  final List<Widget> children;
+  final Color primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 1.5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: primary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class InfoRow extends StatelessWidget {
+  const InfoRow({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
+  final String label, value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[700]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
+                ),
+                const SizedBox(height: 2),
+                SelectableText(value, style: textTheme.bodyMedium),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SettingsCard extends StatelessWidget {
+  const SettingsCard({
+    super.key,
+    required this.primary,
+    required this.notif,
+    required this.darkMode,
+    required this.showAvatar,
+    required this.bgRefresh,
+    required this.birthdayReminder,
+    required this.onChanged,
+  });
+
+  final Color primary;
+  final bool notif, darkMode, showAvatar, bgRefresh, birthdayReminder;
+  final void Function(String key, bool value) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 1.5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Column(
+        children: [
+          _divider(),
+          _switchTile(
+            icon: Icons.dark_mode_outlined,
+            title: 'Modo oscuro',
+            value: darkMode,
+            onChanged: (v) => onChanged('dark', v),
+          ),
+          _divider(),
+          _switchTile(
+            icon: Icons.cake_outlined,
+            title: 'Recordar cumpleaños',
+            value: birthdayReminder,
+            onChanged: (v) => onChanged('bd', v),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _divider() => const Divider(height: 1, indent: 16, endIndent: 16);
+
+  Widget _switchTile({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return SwitchListTile.adaptive(
+      value: value,
+      onChanged: onChanged,
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      secondary: Icon(icon, color: primary),
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+    );
+  }
+}
