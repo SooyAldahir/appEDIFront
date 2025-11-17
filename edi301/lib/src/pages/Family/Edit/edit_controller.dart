@@ -1,21 +1,23 @@
 import 'dart:io';
+import 'package:edi301/services/familia_api.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:edi301/services/fotos_api.dart';
 
 class EditController {
   BuildContext? context;
+  int? familyId;
 
   final ImagePicker _picker = ImagePicker();
-  final FotosApi _fotosApi = FotosApi();
+  final FamiliaApi _familiaApi = FamiliaApi();
 
   // Notificadores para actualizar la UI cuando se selecciona una imagen
   ValueNotifier<XFile?> profileImage = ValueNotifier(null);
   ValueNotifier<XFile?> coverImage = ValueNotifier(null);
   ValueNotifier<bool> isLoading = ValueNotifier(false);
 
-  Future<void> init(BuildContext context) async {
+  Future<void> init(BuildContext context, int familyId) async {
     this.context = context;
+    this.familyId = familyId;
   }
 
   // Método para seleccionar la foto de perfil
@@ -55,44 +57,48 @@ class EditController {
   }
 
   Future<void> saveChanges() async {
-    if (isLoading.value) return; // Evitar múltiples clicks
+    if (isLoading.value) return;
+    if (familyId == null) {
+      ScaffoldMessenger.of(context!).showSnackBar(
+        const SnackBar(content: Text('Error: ID de familia no encontrado')),
+      );
+      return;
+    }
+    if (profileImage.value == null && coverImage.value == null) {
+      ScaffoldMessenger.of(context!).showSnackBar(
+        const SnackBar(content: Text('No hay cambios de imagen para guardar')),
+      );
+      return;
+    }
 
     isLoading.value = true;
-    bool profileUploaded = false;
-    bool coverUploaded = false;
 
     try {
-      // 1. Subir imagen de perfil si cambió
-      if (profileImage.value != null) {
-        File imageFile = File(profileImage.value!.path);
-        print('Subiendo foto de perfil...');
-        await _fotosApi.uploadProfileImage(imageFile);
-        profileUploaded = true;
-      }
+      // Preparamos los archivos (si existen)
+      File? profileFile = profileImage.value != null
+          ? File(profileImage.value!.path)
+          : null;
+      File? coverFile = coverImage.value != null
+          ? File(coverImage.value!.path)
+          : null;
 
-      // 2. Subir imagen de portada si cambió
-      if (coverImage.value != null) {
-        File imageFile = File(coverImage.value!.path);
-        print('Subiendo foto de portada...');
-        await _fotosApi.uploadCoverImage(imageFile);
-        coverUploaded = true;
-      }
+      // ¡Aquí está la magia!
+      // Debes obtener el token de donde lo tengas guardado (ej: TokenStorage)
+      // String? token = await TokenStorage.getToken();
+      String? token = "TU_TOKEN_DE_AUTENTICACION_AQUI"; // REEMPLAZA ESTO
+
+      await _familiaApi.updateFamilyFotos(
+        familyId: familyId!,
+        profileImage: profileFile,
+        coverImage: coverFile,
+        authToken: token, // Pasar el token
+      );
 
       // 3. Mostrar confirmación
       if (context != null) {
-        if (!profileUploaded && !coverUploaded) {
-          ScaffoldMessenger.of(context!).showSnackBar(
-            const SnackBar(
-              content: Text('No hay cambios de imagen para guardar'),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context!).showSnackBar(
-            const SnackBar(content: Text('¡Imágenes actualizadas con éxito!')),
-          );
-          // Opcional: Navegar hacia atrás después de guardar
-          // Navigator.pop(context!);
-        }
+        ScaffoldMessenger.of(context!).showSnackBar(
+          const SnackBar(content: Text('¡Imágenes actualizadas con éxito!')),
+        );
       }
     } catch (e) {
       // 4. Manejar errores

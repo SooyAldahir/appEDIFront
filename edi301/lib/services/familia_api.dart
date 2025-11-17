@@ -3,9 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/models/family_model.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
 
 class FamiliaApi {
   final ApiHttp _http = ApiHttp();
+  final String _baseUrl = ApiHttp.baseUrl;
 
   String _normalizeResidence(String r) {
     final s = r.trim().toUpperCase();
@@ -96,5 +99,55 @@ class FamiliaApi {
     final data = jsonDecode(res.body);
     if (data is Map) return Map<String, dynamic>.from(data);
     return null;
+  }
+
+  Future<bool> updateFamilyFotos({
+    required int familyId,
+    File? profileImage,
+    File? coverImage,
+    String? authToken, // Necesitarás el token de autenticación
+  }) async {
+    if (profileImage == null && coverImage == null) {
+      return false; // No hay nada que subir
+    }
+
+    final Uri url = Uri.parse('$_baseUrl/api/familias/$familyId/fotos');
+    final request = http.MultipartRequest('PATCH', url);
+
+    // Añadir token de autenticación (¡IMPORTANTE!)
+    // El authGuard del backend lo requiere
+    if (authToken != null) {
+      request.headers['Authorization'] = 'Bearer $authToken';
+    }
+
+    // Añadir foto de perfil si existe
+    if (profileImage != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'foto_perfil', // Este es el nombre que el backend espera
+          profileImage.path,
+        ),
+      );
+    }
+
+    // Añadir foto de portada si existe
+    if (coverImage != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'foto_portada', // Este es el nombre que el backend espera
+          coverImage.path,
+        ),
+      );
+    }
+
+    final response = await request.send();
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return true; // ¡Éxito!
+    } else {
+      // Error
+      final responseBody = await response.stream.bytesToString();
+      throw Exception('Error ${response.statusCode}: $responseBody');
+    }
   }
 }

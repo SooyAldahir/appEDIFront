@@ -11,7 +11,7 @@ class ApiHttp extends http.BaseClient {
   factory ApiHttp() => _i;
 
   // Ajusta tu base URL:
-  static const String _baseUrl = 'http://10.219.84.3:3000';
+  static const String baseUrl = 'http://192.168.1.149:3000';
 
   final http.Client _inner = http.Client();
 
@@ -36,9 +36,9 @@ class ApiHttp extends http.BaseClient {
       return Uri.parse(url);
     }
     // normaliza: evita doble slash
-    final base = _baseUrl.endsWith('/')
-        ? _baseUrl.substring(0, _baseUrl.length - 1)
-        : _baseUrl;
+    final base = baseUrl.endsWith('/')
+        ? baseUrl.substring(0, baseUrl.length - 1)
+        : baseUrl;
     final path = url.startsWith('/') ? url : '/$url';
     return Uri.parse('$base$path');
   }

@@ -5,7 +5,8 @@ import 'package:flutter/scheduler.dart';
 import 'package:image_picker/image_picker.dart'; // Necesario para XFile
 
 class EditPage extends StatefulWidget {
-  const EditPage({super.key});
+  final int familyId;
+  const EditPage({super.key, required this.familyId});
 
   @override
   State<EditPage> createState() => _EditPageState();
@@ -18,7 +19,7 @@ class _EditPageState extends State<EditPage> {
   void initState() {
     super.initState();
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
-      _controller.init(context);
+      _controller.init(context, widget.familyId);
     });
   }
 

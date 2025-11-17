@@ -6,7 +6,7 @@ import 'package:edi301/auth/token_storage.dart';
 class FotosApi {
   // NOTA: Asegúrate de que esta URL sea la correcta.
   // La estoy tomando de tu archivo 'api_client_http.dart'
-  final String _baseUrl = 'http://192.168.100.18:3000/api';
+  final String _baseUrl = 'http://192.168.1.149:3000/api';
   final TokenStorage _tokenStorage = TokenStorage();
 
   Future<String> _uploadImage(String endpoint, File imageFile) async {

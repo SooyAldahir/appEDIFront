@@ -40,7 +40,10 @@ class MyApp extends StatelessWidget {
         'register': (context) => const RegisterPage(),
         'home': (context) => const HomePage(),
         'family': (context) => const FamiliyPage(),
-        'edit': (context) => const EditPage(),
+        'edit': (context) {
+          final familyId = ModalRoute.of(context)!.settings.arguments as int;
+          return EditPage(familyId: familyId);
+        },
         'news': (context) => const NewsPage(),
         'search': (context) => const SearchPage(),
         'admin': (context) => const AdminPage(),
