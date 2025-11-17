@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import 'package:edi301/core/api_client_http.dart';
+import 'package:edi301/models/family_model.dart'; // --- CAMBIO: Necesario para List<FamilyMember> ---
+import 'package:edi301/services/familia_api.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/src/pages/Family/family_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +17,49 @@ class FamiliyPage extends StatefulWidget {
 class _FamilyPageState extends State<FamiliyPage> {
   bool mostrarHijos = true;
   final FamilyController _controller = FamilyController();
+  final FamiliaApi _familiaApi = FamiliaApi();
+  late Future<Family?> _familyFuture;
+  @override
+  void initState() {
+    super.initState();
+    // Inicia la carga de datos de la familia
+    _familyFuture = _fetchFamilyData();
+  }
+
+  Future<Family?> _fetchFamilyData() async {
+    try {
+      // 1. Resolver el ID de la familia
+      final int? familyId = await _controller.resolveFamilyId();
+      if (familyId == null) {
+        throw Exception('No se pudo encontrar el ID de la familia.');
+      }
+
+      // 2. Obtener el token de autenticación
+      final prefs = await SharedPreferences.getInstance();
+      // Asumimos que el token se guarda con la lave 'token'
+      final String? authToken = prefs.getString('token');
+
+      // 3. Llamar a la API para obtener los datos de la familia
+      final data = await _familiaApi.getById(familyId, authToken: authToken);
+      if (data != null) {
+        // 4. Convertir el JSON a un objeto Family
+        return Family.fromJson(data);
+      }
+      return null;
+    } catch (e) {
+      print('Error al cargar datos de la familia: $e');
+      // Opcional: mostrar un SnackBar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al cargar datos: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,43 +69,106 @@ class _FamilyPageState extends State<FamiliyPage> {
         backgroundColor: Colors.white,
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 200,
-              child: FamilyWidget(
-                backgroundImage:
-                    'assets/img/familia-extensa-e1591818033557.jpg',
-                circleImage:
-                    'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-                onTap: () {},
+      body: FutureBuilder<Family?>(
+        future: _familyFuture,
+        builder: (context, snapshot) {
+          // --- ESTADO DE CARGA ---
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // --- ESTADO DE ERROR ---
+          if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'No se pudieron cargar los datos de la familia.\n${snapshot.error ?? ''}',
+                  textAlign: TextAlign.center,
+                ),
               ),
+            );
+          }
+
+          // --- ESTADO DE ÉXITO ---
+          final family = snapshot.data!;
+          final String baseUrl = ApiHttp.baseUrl;
+
+          // Lógica para determinar la imagen de portada
+          final ImageProvider coverImage;
+          final String? coverUrl = family.fotoPortadaUrl;
+          if (coverUrl != null && coverUrl.isNotEmpty) {
+            coverImage = NetworkImage('$baseUrl$coverUrl');
+          } else {
+            coverImage = const AssetImage(
+              'assets/img/familia-extensa-e1591818033557.jpg',
+            );
+          }
+
+          // Lógica para determinar la imagen de perfil
+          final ImageProvider profileImage;
+          final String? profileUrl = family.fotoPerfilUrl;
+          if (profileUrl != null && profileUrl.isNotEmpty) {
+            profileImage = NetworkImage('$baseUrl$profileUrl');
+          } else {
+            profileImage = const AssetImage(
+              'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
+            );
+          }
+
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 200,
+                  // --- MODIFICADO ---
+                  child: FamilyWidget(
+                    backgroundImage: coverImage, // Usar imagen dinámica
+                    circleImage: profileImage, // Usar imagen dinámica
+                    onTap: () {},
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  // --- MODIFICADO ---
+                  child: FamilyData(
+                    familyName: family.familyName,
+                    numChildres:
+                        (family.householdChildren.length +
+                                family.assignedStudents.length)
+                            .toString(),
+                    text: 'Hijos EDI',
+                    description:
+                        family.descripcion ??
+                        'Añade una descripción en "Editar Perfil".', // Descripción dinámica
+                  ),
+                ),
+                const SizedBox(height: 5),
+                _bottomEditProfile(),
+                const SizedBox(height: 10),
+                _buildToggleButtons(),
+                const SizedBox(height: 10),
+                mostrarHijos
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        // --- CAMBIO: Combina ambas listas antes de pasarlas ---
+                        child: () {
+                          // 1. Crea una lista combinada
+                          final List<FamilyMember> todosLosHijos = [
+                            ...family.householdChildren,
+                            ...family.assignedStudents,
+                          ];
+                          // 2. Pasa la lista combinada al widget
+                          return _buildHijosList(todosLosHijos);
+                        }(),
+                      )
+                    : _buildFotosGrid(),
+              ],
             ),
-            const SizedBox(height: 5),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: FamilyData(
-                familyName: 'Familia Ballina Nuñez',
-                numChildres: '6',
-                text: 'Hijos EDI',
-                description: 'Tu descripcion aqui',
-              ),
-            ),
-            const SizedBox(height: 5),
-            _bottomEditProfile(),
-            const SizedBox(height: 10),
-            _buildToggleButtons(),
-            const SizedBox(height: 10),
-            mostrarHijos
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: _buildHijosList(),
-                  )
-                : _buildFotosGrid(),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -95,7 +204,19 @@ class _FamilyPageState extends State<FamiliyPage> {
               print('🔢 ID parseado: $id');
 
               if (id != null && id > 0) {
-                _controller.goToEditPage(context, familyId: id);
+                // --- CAMBIO: Navega a 'edit' y espera un resultado ---
+                // Si la página 'edit' devuelve 'true', recarga los datos.
+                final result = await Navigator.pushNamed(
+                  context,
+                  'edit',
+                  arguments: id,
+                );
+                if (result == true) {
+                  setState(() {
+                    _familyFuture = _fetchFamilyData();
+                  });
+                }
+                // --- FIN CAMBIO ---
                 return;
               }
             }
@@ -174,35 +295,40 @@ class _FamilyPageState extends State<FamiliyPage> {
     );
   }
 
-  Widget _buildHijosList() {
-    return const Column(
-      children: [
-        ProfileCard(
-          imageUrl: 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
-          name: 'Aldahir Ballina',
-          school: 'Ingenieria',
-          age: 21,
-          phoneNumber: '961 900 1640',
+  // --- CAMBIO: La función ahora acepta la lista de hijos ---
+  Widget _buildHijosList(List<FamilyMember> hijos) {
+    // Si no hay hijos, muestra un mensaje
+    if (hijos.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20.0),
+          child: Text('No hay hijos EDI registrados en esta familia.'),
         ),
-        SizedBox(height: 10),
-        ProfileCard(
+      );
+    }
+
+    // Si hay hijos, crea la lista dinámicamente
+    return ListView.separated(
+      physics:
+          const NeverScrollableScrollPhysics(), // No hacer scroll dentro del SingleChildScrollView
+      shrinkWrap: true, // Ajustar altura al contenido
+      itemCount: hijos.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final hijo = hijos[index];
+        return ProfileCard(
+          // El modelo FamilyMember no tiene URL de imagen, usamos un placeholder.
           imageUrl: 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
-          name: 'Karen Ballina',
-          school: 'CIED - QUIBI',
-          age: 19,
-          phoneNumber: '123 456 7890',
-        ),
-        SizedBox(height: 10),
-        ProfileCard(
-          imageUrl: 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
-          name: 'Emmanuel Chavez',
-          school: 'Ingenieria',
-          age: 21,
-          phoneNumber: '111 222 3333',
-        ),
-      ],
+          name: hijo.fullName,
+          school: hijo.carrera, // Usa el campo 'carrera'
+          fechaNacimiento:
+              hijo.fechaNacimiento, // Usa el campo 'fechaNacimiento'
+          phoneNumber: hijo.telefono, // Usa el campo 'telefono'
+        );
+      },
     );
   }
+  // --- FIN CAMBIO ---
 
   Widget _buildFotosGrid() {
     return GridView.builder(
@@ -223,8 +349,8 @@ class _FamilyPageState extends State<FamiliyPage> {
 }
 
 class FamilyWidget extends StatelessWidget {
-  final String backgroundImage;
-  final String circleImage;
+  final ImageProvider backgroundImage;
+  final ImageProvider circleImage;
   final VoidCallback onTap;
 
   const FamilyWidget({
@@ -239,11 +365,19 @@ class FamilyWidget extends StatelessWidget {
     return Stack(
       children: [
         ClipRRect(
-          child: Image.asset(
-            backgroundImage,
+          child: Image(
+            image: backgroundImage, // Usar ImageProvider
             fit: BoxFit.cover,
             width: double.infinity,
             height: 200,
+            // Opcional: Manejo de errores de carga de imagen
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                height: 200,
+                color: Colors.grey[300],
+                child: const Icon(Icons.broken_image, color: Colors.grey),
+              );
+            },
           ),
         ),
         Positioned(
@@ -256,7 +390,17 @@ class FamilyWidget extends StatelessWidget {
               backgroundColor: Colors.white,
               child: CircleAvatar(
                 radius: 46,
-                backgroundImage: AssetImage(circleImage),
+                backgroundImage: circleImage, // Usar ImageProvider
+                // Opcional: Manejo de errores de carga de imagen
+                onBackgroundImageError: (exception, stackTrace) {
+                  // No hace nada, pero evita un crash si la imagen de perfil falla
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                ),
               ),
             ),
           ),
@@ -312,20 +456,21 @@ class FamilyData extends StatelessWidget {
   }
 }
 
+// --- CAMBIO: Modificada la 'ProfileCard' para aceptar los datos del modelo ---
 class ProfileCard extends StatelessWidget {
   final String imageUrl;
   final String name;
-  final String school;
-  final int age;
-  final String phoneNumber;
+  final String? school;
+  final String? fechaNacimiento;
+  final String? phoneNumber;
 
   const ProfileCard({
     super.key,
     required this.imageUrl,
     required this.name,
-    required this.school,
-    required this.age,
-    required this.phoneNumber,
+    this.school,
+    this.fechaNacimiento,
+    this.phoneNumber,
   });
 
   @override
@@ -348,9 +493,9 @@ class ProfileCard extends StatelessWidget {
                   radius: 50,
                 ),
                 const SizedBox(height: 10),
-                Text('Escuela: $school'),
-                Text('Edad: $age'),
-                Text('Teléfono: $phoneNumber'),
+                Text('Escuela: ${school ?? 'No registrada'}'),
+                Text('Nacimiento: ${fechaNacimiento ?? 'No registrada'}'),
+                Text('Teléfono: ${phoneNumber ?? 'No registrado'}'),
               ],
             ),
             actions: [
@@ -383,15 +528,15 @@ class ProfileCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  school,
+                  school ?? 'Escuela no registrada',
                   style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
                 Text(
-                  'Edad: $age',
+                  'Nacimiento: ${fechaNacimiento ?? 'No registrada'}',
                   style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
                 Text(
-                  'Tel: $phoneNumber',
+                  'Tel: ${phoneNumber ?? 'No registrado'}',
                   style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
               ],
@@ -402,3 +547,4 @@ class ProfileCard extends StatelessWidget {
     );
   }
 }
+// --- FIN CAMBIO ---

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:edi301/auth/token_storage.dart';
+import 'package:edi301/models/family_model.dart';
 import 'package:edi301/services/familia_api.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,19 +22,32 @@ class EditController {
   final TextEditingController descripcionCtrl = TextEditingController();
   ValueNotifier<bool> descripcionModificada = ValueNotifier(false);
 
-  Future<void> init(BuildContext context, int familyId) async {
+  // --- CAMBIO 1: Variable para guardar el callback ---
+  late void Function(Family? family) _onDataLoadedCallback;
+  // --- FIN CAMBIO 1 ---
+
+  Future<void> init(
+    BuildContext context,
+    int familyId,
+    void Function(Family? family) loadData,
+  ) async {
     this.context = context;
     this.familyId = familyId;
+
+    // --- CAMBIO 2: Guardar el callback ---
+    this._onDataLoadedCallback = loadData;
+    // --- FIN CAMBIO 2 ---
 
     print('✅ EditController inicializado con familia ID: $familyId');
 
     if (familyId <= 0) {
       print('⚠️ ADVERTENCIA: familyId inválido: $familyId');
     }
-    await _loadDescripcion();
+    await _loadFamilyData(); // --- CAMBIO 3: Renombrado para claridad ---
   }
 
-  Future<void> _loadDescripcion() async {
+  // --- CAMBIO 4: Renombrada y modificada para cargar TODO ---
+  Future<void> _loadFamilyData() async {
     try {
       if (familyId == null) return;
 
@@ -43,18 +57,27 @@ class EditController {
       final data = await _familiaApi.getById(familyId!, authToken: token);
 
       if (data != null) {
-        final descripcion = data['descripcion'] ?? '';
-        descripcionCtrl.text = descripcion;
-        print(
-          '📝 Descripción cargada: ${descripcion.isEmpty ? "(vacía)" : descripcion}',
-        );
+        // --- CAMBIO 5: Convertir a objeto Family y notificar ---
+        final family = Family.fromJson(data);
+
+        descripcionCtrl.text = family.descripcion ?? '';
+
+        // ¡Esta es la parte clave! Llama a la función de la página
+        // para que se actualice con todos los datos (incluyendo URLs)
+        _onDataLoadedCallback(family);
+
+        print('📝 Datos de familia cargados: ${family.familyName}');
+        // --- FIN CAMBIO 5 ---
       } else {
+        _onDataLoadedCallback(null); // Notifica que no se encontraron datos
         print('⚠️ No se encontraron datos para la familia $familyId');
       }
     } catch (e) {
-      print('⚠️ Error al cargar descripción: $e');
+      _onDataLoadedCallback(null); // Notifica el error
+      print('⚠️ Error al cargar datos de familia: $e');
     }
   }
+  // --- FIN CAMBIO 4 ---
 
   void dispose() {
     profileImage.dispose();

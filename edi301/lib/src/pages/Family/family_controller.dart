@@ -15,24 +15,20 @@ class FamilyController {
     return null;
   }
 
-  Future<void> goToEditPage(BuildContext context, {int? familyId}) async {
-    print('🚀 goToEditPage llamado con familyId: $familyId');
+  Future<int?> resolveFamilyId() => _resolveFamilyId();
 
+  Future<void> goToEditPage(BuildContext context, {int? familyId}) async {
     // Si se pasa un ID explícito, úsalo
     if (familyId != null && familyId > 0) {
-      print('✅ Usando ID explícito: $familyId');
       Navigator.pushNamed(context, 'edit', arguments: familyId);
       return;
     }
 
     // Si no, intenta resolver el ID del usuario logueado
-    print('🔍 Resolviendo ID de familia del usuario...');
+
     final id = await _resolveFamilyId();
 
-    print('📊 ID resuelto: $id');
-
     if (id == null || id <= 0) {
-      print('❌ No se pudo obtener un ID válido');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No se pudo identificar la familia del usuario.'),
@@ -41,7 +37,6 @@ class FamilyController {
       return;
     }
 
-    print('✅ Navegando a edit con ID: $id');
     Navigator.pushNamed(context, 'edit', arguments: id);
   }
 
@@ -54,6 +49,7 @@ class FamilyController {
   Future<int?> _readFamilyIdFromSession() async {
     final prefs = await SharedPreferences.getInstance();
     final rawUser = prefs.getString('user');
+    print('--- DEBUG SESSION ---: $rawUser');
     if (rawUser == null) return null;
 
     try {
@@ -68,26 +64,39 @@ class FamilyController {
 
   int? _extractFamilyId(dynamic data) {
     if (data == null) return null;
+
     if (data is Map) {
+      // 1. Primero, busca una clave que coincida en este nivel
       for (final entry in data.entries) {
         final key = entry.key.toString().toLowerCase();
-        final value = entry.value;
+
+        // Criterio de búsqueda (id_familia, familia_id, etc.)
         if (key.contains('familia') && key.contains('id')) {
-          final parsed = _asInt(value);
-          if (parsed != null) return parsed;
+          final parsed = _asInt(entry.value);
+          if (parsed != null) {
+            print('Extractor: Encontrada clave "$key" con valor $parsed');
+            return parsed; // Devuelve 42
+          }
         }
-        final nested = _extractFamilyId(value);
-        if (nested != null) return nested;
+      }
+
+      // 2. Si no se encontró, busca en valores anidados (SOLO si son Mapas o Listas)
+      for (final entry in data.entries) {
+        final value = entry.value;
+        if (value is Map || value is List) {
+          final nested = _extractFamilyId(value);
+          if (nested != null) return nested;
+        }
+        // Ya no llama recursivamente a valores simples como '1'
       }
     } else if (data is List) {
       for (final item in data) {
         final nested = _extractFamilyId(item);
         if (nested != null) return nested;
       }
-    } else {
-      final parsed = _asInt(data);
-      if (parsed != null) return parsed;
     }
+
+    // No llama a _asInt en la data base, previniendo el error
     return null;
   }
 

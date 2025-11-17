@@ -11,7 +11,7 @@ class ApiHttp extends http.BaseClient {
   factory ApiHttp() => _i;
 
   // Ajusta tu base URL:
-  static const String baseUrl = 'http://10.30.0.251:3000';
+  static const String baseUrl = 'http://192.168.1.149:3000';
 
   final http.Client _inner = http.Client();
 

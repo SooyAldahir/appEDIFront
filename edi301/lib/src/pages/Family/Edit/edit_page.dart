@@ -1,4 +1,7 @@
 import 'dart:io'; // Necesario para File()
+import 'package:edi301/core/api_client_http.dart';
+// --- AÑADIDO: Necesario para el tipo 'Family' en _loadData ---
+import 'package:edi301/models/family_model.dart';
 import 'package:edi301/src/pages/Family/Edit/edit_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -13,16 +16,39 @@ class EditPage extends StatefulWidget {
 }
 
 class _EditPageState extends State<EditPage> {
+  // --- ELIMINADOS _profileImage y _coverImage (el controller los maneja) ---
+
+  // --- Mantenemos las URLs actuales ---
+  String? _currentProfileUrl;
+  String? _currentCoverUrl;
+  final String _baseUrl = ApiHttp.baseUrl;
+
   final EditController _controller = EditController();
+  // --- ELIMINADO _descriptionController (el controller ya tiene 'descripcionCtrl') ---
 
   @override
   void initState() {
     super.initState();
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
       print('🆔 ID recibido en EditPage: ${widget.familyId}');
-      _controller.init(context, widget.familyId);
+      // --- CORREGIDO: Pasa la función _loadData como callback ---
+      _controller.init(context, widget.familyId, _loadData);
     });
   }
+
+  // --- AÑADIDA: La función _loadData que faltaba ---
+  void _loadData(Family? family) {
+    if (family != null) {
+      // Cuando el controlador carga los datos, actualiza las URLs
+      // y el texto en el estado de esta página.
+      setState(() {
+        _currentProfileUrl = family.fotoPerfilUrl;
+        _currentCoverUrl = family.fotoPortadaUrl;
+        // El controlador ya actualiza 'descripcionCtrl' internamente
+      });
+    }
+  }
+  // --- FIN DE LA FUNCIÓN AÑADIDA ---
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +71,6 @@ class _EditPageState extends State<EditPage> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   GestureDetector(
-                    // --- MODIFICADO ---
                     onTap: () {
                       _controller.selectProfileImage();
                     },
@@ -58,22 +83,36 @@ class _EditPageState extends State<EditPage> {
               ),
             ),
             const SizedBox(height: 15),
-            // --- MODIFICADO ---
+
+            // --- MODIFICADO: Bloque de Foto de Perfil ---
             ValueListenableBuilder<XFile?>(
               valueListenable: _controller.profileImage,
-              builder: (context, image, child) {
+              builder: (context, newImage, child) {
+                ImageProvider profileProvider;
+                if (newImage != null) {
+                  // 1. Prioridad: La NUEVA imagen que acabas de seleccionar
+                  profileProvider = FileImage(File(newImage.path));
+                } else if (_currentProfileUrl != null &&
+                    _currentProfileUrl!.isNotEmpty) {
+                  // 2. Si no hay nueva, la imagen ACTUAL de la base de datos
+                  profileProvider = NetworkImage(
+                    '$_baseUrl$_currentProfileUrl',
+                  );
+                } else {
+                  // 3. Si no hay nada, la imagen por defecto
+                  profileProvider = const AssetImage(
+                    'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
+                  );
+                }
+
                 return CircleAvatar(
                   radius: 60,
-                  backgroundImage: image != null
-                      ? FileImage(File(image.path))
-                            as ImageProvider // Muestra la nueva imagen
-                      : const AssetImage(
-                          // Muestra la imagen por defecto
-                          'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-                        ),
+                  backgroundImage: profileProvider,
                 );
               },
             ),
+
+            // --- FIN DE MODIFICACIÓN ---
             const SizedBox(height: 15),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
@@ -85,7 +124,6 @@ class _EditPageState extends State<EditPage> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   GestureDetector(
-                    // --- MODIFICADO ---
                     onTap: () {
                       _controller.selectCoverImage();
                     },
@@ -98,7 +136,8 @@ class _EditPageState extends State<EditPage> {
               ),
             ),
             const SizedBox(height: 15),
-            // --- MODIFICADO ---
+
+            // --- MODIFICADO: Bloque de Foto de Portada ---
             SizedBox(
               width: double.infinity,
               height: 200,
@@ -111,27 +150,40 @@ class _EditPageState extends State<EditPage> {
                   borderRadius: BorderRadius.circular(10),
                   child: ValueListenableBuilder<XFile?>(
                     valueListenable: _controller.coverImage,
-                    builder: (context, image, child) {
-                      return image != null
-                          ? Image.file(
-                              // Muestra la nueva imagen
-                              File(image.path),
-                              width: double.infinity,
-                              height: 200,
-                              fit: BoxFit.cover,
-                            )
-                          : Image.asset(
-                              // Muestra la imagen por defecto
-                              'assets/img/familia-extensa-e1591818033557.jpg',
-                              width: double.infinity,
-                              height: 200,
-                              fit: BoxFit.cover,
-                            );
+                    builder: (context, newImage, child) {
+                      if (newImage != null) {
+                        // 1. Prioridad: La NUEVA imagen que acabas de seleccionar
+                        return Image.file(
+                          File(newImage.path),
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        );
+                      } else if (_currentCoverUrl != null &&
+                          _currentCoverUrl!.isNotEmpty) {
+                        // 2. Si no hay nueva, la imagen ACTUAL de la base de datos
+                        return Image.network(
+                          '$_baseUrl$_currentCoverUrl',
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        );
+                      } else {
+                        // 3. Si no hay nada, la imagen por defecto
+                        return Image.asset(
+                          'assets/img/familia-extensa-e1591818033557.jpg',
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        );
+                      }
                     },
                   ),
                 ),
               ),
             ),
+
+            // --- FIN DE MODIFICACIÓN ---
             const SizedBox(height: 30),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -144,6 +196,7 @@ class _EditPageState extends State<EditPage> {
                   ),
                   const SizedBox(height: 10),
                   TextField(
+                    // --- CORREGIDO: Usa el controller del controlador ---
                     controller: _controller.descripcionCtrl,
                     maxLines: 5,
                     maxLength: 500,
@@ -174,8 +227,6 @@ class _EditPageState extends State<EditPage> {
             const SizedBox(height: 30), // Espacio antes del botón
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              // --- MODIFICADO ---
-              // Escucha el estado de carga del controlador
               child: ValueListenableBuilder<bool>(
                 valueListenable: _controller.isLoading,
                 builder: (context, loading, child) {
@@ -188,13 +239,11 @@ class _EditPageState extends State<EditPage> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    // Deshabilita el botón si está cargando
                     onPressed: loading
                         ? null
                         : () {
                             _controller.saveChanges();
                           },
-                    // Muestra el indicador o el texto
                     child: loading
                         ? const CircularProgressIndicator(
                             valueColor: AlwaysStoppedAnimation<Color>(

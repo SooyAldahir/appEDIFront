@@ -1,5 +1,4 @@
 // lib/models/family_model.dart
-import 'package:flutter/foundation.dart';
 
 // 1. Clase auxiliar para los miembros
 class FamilyMember {
@@ -63,6 +62,8 @@ class Family {
   final String? residencia; // 'INTERNA' | 'EXTERNA'
   final String? direccion;
   final String? descripcion;
+  final String? fotoPortadaUrl;
+  final String? fotoPerfilUrl;
 
   // --- Listas actualizadas ---
   final List<FamilyMember> assignedStudents; // "Alumnos asignados"
@@ -86,6 +87,8 @@ class Family {
     this.residencia,
     this.direccion,
     this.descripcion,
+    this.fotoPortadaUrl,
+    this.fotoPerfilUrl,
     this.assignedStudents = const [],
     this.householdChildren = const [],
     this.fatherEmployeeId,
@@ -151,6 +154,9 @@ class Family {
       direccion: (j['direccion'] ?? j['Direccion'])?.toString(),
       descripcion: (j['descripcion'] ?? j['Descripcion'])?.toString(),
 
+      fotoPortadaUrl: j['foto_portada_url']?.toString(),
+      fotoPerfilUrl: j['foto_perfil_url']?.toString(),
+
       // Usa las nuevas listas que acabamos de crear
       householdChildren: householdChildren,
       assignedStudents: assignedStudents,
@@ -179,6 +185,7 @@ class Family {
     'madre': motherName,
     'residencia': residencia,
     'direccion': direccion,
+
     'papa_id': fatherEmployeeId,
     'mama_id': motherEmployeeId,
   };
@@ -192,6 +199,8 @@ class Family {
     String? residencia,
     String? direccion,
     String? descripcion,
+    String? fotoPortadaUrl,
+    String? fotoPerfilUrl,
     List<FamilyMember>? assignedStudents,
     List<FamilyMember>? householdChildren,
     int? fatherEmployeeId,
@@ -207,6 +216,8 @@ class Family {
       residencia: residencia ?? this.residencia,
       direccion: direccion ?? this.direccion,
       descripcion: descripcion ?? this.descripcion,
+      fotoPortadaUrl: fotoPortadaUrl ?? this.fotoPortadaUrl,
+      fotoPerfilUrl: fotoPerfilUrl ?? this.fotoPerfilUrl,
       assignedStudents: assignedStudents ?? this.assignedStudents,
       householdChildren: householdChildren ?? this.householdChildren,
       fatherEmployeeId: fatherEmployeeId ?? this.fatherEmployeeId,
