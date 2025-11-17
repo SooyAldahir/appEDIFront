@@ -20,6 +20,12 @@ class EditController {
   Future<void> init(BuildContext context, int familyId) async {
     this.context = context;
     this.familyId = familyId;
+
+    print('✅ EditController inicializado con familia ID: $familyId');
+
+    if (familyId <= 0) {
+      print('⚠️ ADVERTENCIA: familyId inválido: $familyId');
+    }
   }
 
   // Método para seleccionar la foto de perfil
@@ -59,24 +65,41 @@ class EditController {
   }
 
   Future<void> saveChanges() async {
-    if (isLoading.value) return;
-    if (familyId == null) {
-      ScaffoldMessenger.of(context!).showSnackBar(
-        const SnackBar(content: Text('Error: ID de familia no encontrado')),
-      );
+    print('🔍 Intentando guardar cambios...');
+    print('   - familyId: $familyId');
+    print('   - profileImage: ${profileImage.value?.path}');
+    print('   - coverImage: ${coverImage.value?.path}');
+
+    if (isLoading.value) {
+      print('⏸️ Ya hay una operación en curso');
       return;
     }
+
+    if (familyId == null || familyId! <= 0) {
+      // 👈 VALIDACIÓN MEJORADA
+      print('❌ Error: familyId es null o inválido: $familyId');
+      if (context != null && context!.mounted) {
+        ScaffoldMessenger.of(context!).showSnackBar(
+          const SnackBar(content: Text('Error: ID de familia no encontrado')),
+        );
+      }
+      return;
+    }
+
     if (profileImage.value == null && coverImage.value == null) {
-      ScaffoldMessenger.of(context!).showSnackBar(
-        const SnackBar(content: Text('No hay cambios de imagen para guardar')),
-      );
+      if (context != null && context!.mounted) {
+        ScaffoldMessenger.of(context!).showSnackBar(
+          const SnackBar(
+            content: Text('No hay cambios de imagen para guardar'),
+          ),
+        );
+      }
       return;
     }
 
     isLoading.value = true;
 
     try {
-      // Preparamos los archivos (si existen)
       File? profileFile = profileImage.value != null
           ? File(profileImage.value!.path)
           : null;
@@ -84,14 +107,11 @@ class EditController {
           ? File(coverImage.value!.path)
           : null;
 
-      // ¡Aquí está la magia!
-      // Debes obtener el token de donde lo tengas guardado (ej: TokenStorage)
-      // String? token = await TokenStorage.getToken();
       String? token = await _tokenStorage.read();
 
-      // 2. Comprueba si el token existe
       if (token == null) {
-        if (context != null) {
+        print('❌ Token no encontrado');
+        if (context != null && context!.mounted) {
           ScaffoldMessenger.of(context!).showSnackBar(
             const SnackBar(
               content: Text('Error: Sesión expirada. Vuelve a iniciar sesión.'),
@@ -99,32 +119,35 @@ class EditController {
           );
         }
         isLoading.value = false;
-        return; // Detiene la ejecución si no hay token
+        return;
       }
 
-      // 3. Llama a la API con el token real
+      print('📤 Enviando archivos al servidor...');
+      print('   - URL: /api/familias/$familyId/fotos');
+      print('   - Token: ${token.substring(0, 10)}...');
+
       await _familiaApi.updateFamilyFotos(
         familyId: familyId!,
         profileImage: profileFile,
         coverImage: coverFile,
-        authToken: token, // Pasar el token
+        authToken: token,
       );
 
-      // 3. Mostrar confirmación
-      if (context != null) {
+      print('✅ Imágenes actualizadas exitosamente');
+
+      if (context != null && context!.mounted) {
         ScaffoldMessenger.of(context!).showSnackBar(
           const SnackBar(content: Text('¡Imágenes actualizadas con éxito!')),
         );
       }
     } catch (e) {
-      // 4. Manejar errores
-      if (context != null) {
+      print('❌ Error al guardar: $e');
+      if (context != null && context!.mounted) {
         ScaffoldMessenger.of(
           context!,
         ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
       }
     } finally {
-      // 5. Detener la carga
       isLoading.value = false;
     }
   }

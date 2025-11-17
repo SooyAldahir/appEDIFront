@@ -19,6 +19,7 @@ class _EditPageState extends State<EditPage> {
   void initState() {
     super.initState();
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
+      print('🆔 ID recibido en EditPage: ${widget.familyId}');
       _controller.init(context, widget.familyId);
     });
   }

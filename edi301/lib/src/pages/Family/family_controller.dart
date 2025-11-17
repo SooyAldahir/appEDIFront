@@ -16,9 +16,23 @@ class FamilyController {
   }
 
   Future<void> goToEditPage(BuildContext context, {int? familyId}) async {
-    final id = familyId ?? await _resolveFamilyId();
+    print('🚀 goToEditPage llamado con familyId: $familyId');
 
-    if (id == null) {
+    // Si se pasa un ID explícito, úsalo
+    if (familyId != null && familyId > 0) {
+      print('✅ Usando ID explícito: $familyId');
+      Navigator.pushNamed(context, 'edit', arguments: familyId);
+      return;
+    }
+
+    // Si no, intenta resolver el ID del usuario logueado
+    print('🔍 Resolviendo ID de familia del usuario...');
+    final id = await _resolveFamilyId();
+
+    print('📊 ID resuelto: $id');
+
+    if (id == null || id <= 0) {
+      print('❌ No se pudo obtener un ID válido');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No se pudo identificar la familia del usuario.'),
@@ -27,6 +41,7 @@ class FamilyController {
       return;
     }
 
+    print('✅ Navegando a edit con ID: $id');
     Navigator.pushNamed(context, 'edit', arguments: id);
   }
 

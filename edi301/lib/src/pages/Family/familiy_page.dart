@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:edi301/src/pages/Family/family_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FamiliyPage extends StatefulWidget {
   const FamiliyPage({super.key});
@@ -67,7 +70,44 @@ class _FamilyPageState extends State<FamiliyPage> {
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: ElevatedButton(
-        onPressed: () => _controller.goToEditPage(context),
+        onPressed: () async {
+          print('🔘 Botón "Editar Perfil" presionado');
+
+          // Intenta obtener el ID de la familia
+          final prefs = await SharedPreferences.getInstance();
+          final rawUser = prefs.getString('user');
+
+          if (rawUser != null) {
+            final user = jsonDecode(rawUser);
+            print('👤 Usuario actual: ${user['nombre']} ${user['apellido']}');
+            print('🔑 Claves disponibles: ${user.keys.toList()}');
+
+            // Busca el id_familia en diferentes formatos
+            final idFamilia =
+                user['id_familia'] ??
+                user['FamiliaID'] ??
+                user['familia_id'] ??
+                user['idFamilia'];
+
+            print('🆔 ID Familia encontrado: $idFamilia');
+
+            if (idFamilia != null) {
+              final id = int.tryParse(idFamilia.toString());
+              print('🔢 ID parseado: $id');
+
+              if (id != null && id > 0) {
+                _controller.goToEditPage(context, familyId: id);
+                return;
+              }
+            }
+          }
+
+          // Fallback
+          print(
+            '⚠️ No se encontró ID en SharedPreferences, usando método de resolución',
+          );
+          _controller.goToEditPage(context);
+        },
         style: ElevatedButton.styleFrom(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(30),

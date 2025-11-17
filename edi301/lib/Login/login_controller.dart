@@ -56,6 +56,27 @@ class LoginController {
 
       // --- 3. Guardar el TOKEN en SecureStorage ---
       await _tokenStorage.save(token);
+      try {
+        final idUsuario = data['id_usuario'] ?? data['IdUsuario'];
+        if (idUsuario != null) {
+          final familiaRes = await _http.getJson('/api/usuarios/$idUsuario');
+          if (familiaRes.statusCode == 200) {
+            final usuarioCompleto =
+                jsonDecode(familiaRes.body) as Map<String, dynamic>;
+
+            // Buscar el id_familia en la respuesta
+            final idFamilia =
+                usuarioCompleto['id_familia'] ?? usuarioCompleto['FamiliaID'];
+            if (idFamilia != null) {
+              data['id_familia'] = idFamilia;
+              print('✅ ID de familia obtenido: $idFamilia');
+            }
+          }
+        }
+      } catch (e) {
+        print('⚠️ No se pudo obtener el ID de familia: $e');
+        // No es crítico, continúa con el login
+      }
 
       // --- 4. Guardar los DATOS DE USUARIO en SharedPreferences ---
       // (Esto es lo que faltaba y arregla tu página de perfil)

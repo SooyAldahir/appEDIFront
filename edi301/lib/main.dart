@@ -42,7 +42,16 @@ class MyApp extends StatelessWidget {
         'family': (context) => const FamiliyPage(),
         'edit': (context) {
           final args = ModalRoute.of(context)?.settings.arguments;
+          print(
+            '🎯 Edit route recibió argumentos: $args (tipo: ${args.runtimeType})',
+          );
+
           final familyId = args is int ? args : 0;
+
+          if (familyId == 0) {
+            print('⚠️ ADVERTENCIA: familyId es 0, esto causará problemas');
+          }
+
           return EditPage(familyId: familyId);
         },
         'news': (context) => const NewsPage(),
