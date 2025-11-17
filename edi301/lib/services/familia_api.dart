@@ -79,15 +79,42 @@ class FamiliaApi {
     return <Map<String, dynamic>>[];
   }
 
-  Future<Map<String, dynamic>?> getById(int id) async {
-    final res = await _http.getJson('/api/familias/$id');
-    if (res.statusCode >= 400) {
-      throw Exception('Error ${res.statusCode}: ${res.body}');
-    }
+  // En: lib/services/familia_api.dart
 
-    final data = jsonDecode(res.body);
-    if (data is Map) return Map<String, dynamic>.from(data);
-    return null;
+  Future<Map<String, dynamic>?> getById(int id, {String? authToken}) async {
+    try {
+      // Si no hay token, usa el método simple (comportamiento original)
+      if (authToken == null) {
+        final res = await _http.getJson('/api/familias/$id');
+        if (res.statusCode >= 400) {
+          throw Exception('Error ${res.statusCode}: ${res.body}');
+        }
+        final data = jsonDecode(res.body);
+        if (data is Map) return Map<String, dynamic>.from(data);
+        return null;
+      }
+
+      // Si SÍ hay token, construye una petición autenticada
+      final Uri url = Uri.parse('$_baseUrl/api/familias/$id');
+      final request = http.Request('GET', url);
+
+      request.headers['Authorization'] = 'Bearer $authToken';
+      request.headers['Content-Type'] = 'application/json';
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+
+      if (response.statusCode >= 400) {
+        throw Exception('Error ${response.statusCode}: $responseBody');
+      }
+
+      final data = jsonDecode(responseBody);
+      if (data is Map) return Map<String, dynamic>.from(data);
+      return null;
+    } catch (e) {
+      print('❌ Error en getById: $e');
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>?> getByIdent(int ident) async {
@@ -148,6 +175,38 @@ class FamiliaApi {
       // Error
       final responseBody = await response.stream.bytesToString();
       throw Exception('Error ${response.statusCode}: $responseBody');
+    }
+  }
+
+  Future<bool> updateDescripcion({
+    required int familyId,
+    required String descripcion,
+    String? authToken,
+  }) async {
+    try {
+      final Uri url = Uri.parse('$_baseUrl/api/familias/$familyId/descripcion');
+      final request = http.Request('PATCH', url);
+
+      // Añadir token de autenticación
+      if (authToken != null) {
+        request.headers['Authorization'] = 'Bearer $authToken';
+      }
+      request.headers['Content-Type'] = 'application/json';
+
+      // Enviar la descripción en el body
+      request.body = jsonEncode({'descripcion': descripcion});
+
+      final response = await request.send();
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return true;
+      } else {
+        final responseBody = await response.stream.bytesToString();
+        throw Exception('Error ${response.statusCode}: $responseBody');
+      }
+    } catch (e) {
+      print('❌ Error al actualizar descripción: $e');
+      rethrow;
     }
   }
 }

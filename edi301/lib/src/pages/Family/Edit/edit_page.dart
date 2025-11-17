@@ -30,6 +30,7 @@ class _EditPageState extends State<EditPage> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+        title: const Text('Editar Perfil'),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -131,30 +132,44 @@ class _EditPageState extends State<EditPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 30),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Descripcion',
+                    'Descripción',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                  GestureDetector(
-                    onTap: () {},
-                    child: const Text(
-                      'Editar',
-                      style: TextStyle(fontSize: 16, color: Colors.blue),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _controller.descripcionCtrl,
+                    maxLines: 5,
+                    maxLength: 500,
+                    onChanged: (value) {
+                      // Marcar que la descripción fue modificada
+                      _controller.descripcionModificada.value = true;
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Escribe una descripción para tu familia...',
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Colors.grey),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                          color: Color.fromRGBO(245, 188, 6, 1),
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.all(15),
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 15),
-            const Text(
-              'Esta es una pequeña descripción de ejemplo para mostrar el apartado de la descripción para la familia a la que corresponda',
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 30), // Espacio antes del botón
             Padding(

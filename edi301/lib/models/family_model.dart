@@ -62,6 +62,7 @@ class Family {
   final String? motherName;
   final String? residencia; // 'INTERNA' | 'EXTERNA'
   final String? direccion;
+  final String? descripcion;
 
   // --- Listas actualizadas ---
   final List<FamilyMember> assignedStudents; // "Alumnos asignados"
@@ -84,6 +85,7 @@ class Family {
     this.motherName,
     this.residencia,
     this.direccion,
+    this.descripcion,
     this.assignedStudents = const [],
     this.householdChildren = const [],
     this.fatherEmployeeId,
@@ -147,6 +149,7 @@ class Family {
               ?.toString(),
       residencia: _normalizeRes(j['residencia'] ?? j['Residencia']),
       direccion: (j['direccion'] ?? j['Direccion'])?.toString(),
+      descripcion: (j['descripcion'] ?? j['Descripcion'])?.toString(),
 
       // Usa las nuevas listas que acabamos de crear
       householdChildren: householdChildren,
@@ -188,6 +191,7 @@ class Family {
     String? motherName,
     String? residencia,
     String? direccion,
+    String? descripcion,
     List<FamilyMember>? assignedStudents,
     List<FamilyMember>? householdChildren,
     int? fatherEmployeeId,
@@ -202,6 +206,7 @@ class Family {
       motherName: motherName ?? this.motherName,
       residencia: residencia ?? this.residencia,
       direccion: direccion ?? this.direccion,
+      descripcion: descripcion ?? this.descripcion,
       assignedStudents: assignedStudents ?? this.assignedStudents,
       householdChildren: householdChildren ?? this.householdChildren,
       fatherEmployeeId: fatherEmployeeId ?? this.fatherEmployeeId,

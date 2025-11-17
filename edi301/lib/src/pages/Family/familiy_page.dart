@@ -44,8 +44,7 @@ class _FamilyPageState extends State<FamiliyPage> {
                 familyName: 'Familia Ballina Nuñez',
                 numChildres: '6',
                 text: 'Hijos EDI',
-                description:
-                    'Esta es una pequeña descripción de ejemplo para mostrar el apartado de la descripción para la familia a la que corresponda',
+                description: 'Tu descripcion aqui',
               ),
             ),
             const SizedBox(height: 5),

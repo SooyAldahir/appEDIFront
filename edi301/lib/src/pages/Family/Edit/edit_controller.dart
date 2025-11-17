@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:edi301/auth/token_storage.dart';
 import 'package:edi301/services/familia_api.dart';
@@ -17,6 +18,9 @@ class EditController {
   ValueNotifier<XFile?> coverImage = ValueNotifier(null);
   ValueNotifier<bool> isLoading = ValueNotifier(false);
 
+  final TextEditingController descripcionCtrl = TextEditingController();
+  ValueNotifier<bool> descripcionModificada = ValueNotifier(false);
+
   Future<void> init(BuildContext context, int familyId) async {
     this.context = context;
     this.familyId = familyId;
@@ -26,6 +30,38 @@ class EditController {
     if (familyId <= 0) {
       print('⚠️ ADVERTENCIA: familyId inválido: $familyId');
     }
+    await _loadDescripcion();
+  }
+
+  Future<void> _loadDescripcion() async {
+    try {
+      if (familyId == null) return;
+
+      final token = await _tokenStorage.read();
+      if (token == null) return;
+
+      final data = await _familiaApi.getById(familyId!, authToken: token);
+
+      if (data != null) {
+        final descripcion = data['descripcion'] ?? '';
+        descripcionCtrl.text = descripcion;
+        print(
+          '📝 Descripción cargada: ${descripcion.isEmpty ? "(vacía)" : descripcion}',
+        );
+      } else {
+        print('⚠️ No se encontraron datos para la familia $familyId');
+      }
+    } catch (e) {
+      print('⚠️ Error al cargar descripción: $e');
+    }
+  }
+
+  void dispose() {
+    profileImage.dispose();
+    coverImage.dispose();
+    isLoading.dispose();
+    descripcionCtrl.dispose();
+    descripcionModificada.dispose();
   }
 
   // Método para seleccionar la foto de perfil
@@ -86,12 +122,13 @@ class EditController {
       return;
     }
 
-    if (profileImage.value == null && coverImage.value == null) {
+    final hayImagenes = profileImage.value != null || coverImage.value != null;
+    final hayDescripcion = descripcionModificada.value;
+
+    if (!hayImagenes && !hayDescripcion) {
       if (context != null && context!.mounted) {
         ScaffoldMessenger.of(context!).showSnackBar(
-          const SnackBar(
-            content: Text('No hay cambios de imagen para guardar'),
-          ),
+          const SnackBar(content: Text('No hay cambios para guardar')),
         );
       }
       return;
@@ -100,13 +137,6 @@ class EditController {
     isLoading.value = true;
 
     try {
-      File? profileFile = profileImage.value != null
-          ? File(profileImage.value!.path)
-          : null;
-      File? coverFile = coverImage.value != null
-          ? File(coverImage.value!.path)
-          : null;
-
       String? token = await _tokenStorage.read();
 
       if (token == null) {
@@ -122,23 +152,47 @@ class EditController {
         return;
       }
 
-      print('📤 Enviando archivos al servidor...');
-      print('   - URL: /api/familias/$familyId/fotos');
-      print('   - Token: ${token.substring(0, 10)}...');
+      // 👇 AÑADE ESTO - Guardar descripción si cambió
+      if (hayDescripcion) {
+        print('💬 Guardando descripción...');
+        await _familiaApi.updateDescripcion(
+          familyId: familyId!,
+          descripcion: descripcionCtrl.text.trim(),
+          authToken: token,
+        );
+        print('✅ Descripción guardada');
+      }
 
-      await _familiaApi.updateFamilyFotos(
-        familyId: familyId!,
-        profileImage: profileFile,
-        coverImage: coverFile,
-        authToken: token,
-      );
+      // Guardar imágenes si hay
+      if (hayImagenes) {
+        File? profileFile = profileImage.value != null
+            ? File(profileImage.value!.path)
+            : null;
+        File? coverFile = coverImage.value != null
+            ? File(coverImage.value!.path)
+            : null;
 
-      print('✅ Imágenes actualizadas exitosamente');
+        print('📤 Guardando imágenes...');
+
+        await _familiaApi.updateFamilyFotos(
+          familyId: familyId!,
+          profileImage: profileFile,
+          coverImage: coverFile,
+          authToken: token,
+        );
+
+        print('✅ Imágenes guardadas');
+      }
+
+      print('✅ Todos los cambios guardados exitosamente');
 
       if (context != null && context!.mounted) {
         ScaffoldMessenger.of(context!).showSnackBar(
-          const SnackBar(content: Text('¡Imágenes actualizadas con éxito!')),
+          const SnackBar(content: Text('¡Cambios guardados con éxito!')),
         );
+
+        // Opcional: Regresar a la página anterior
+        Navigator.pop(context!);
       }
     } catch (e) {
       print('❌ Error al guardar: $e');
