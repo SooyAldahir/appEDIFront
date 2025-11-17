@@ -41,7 +41,8 @@ class MyApp extends StatelessWidget {
         'home': (context) => const HomePage(),
         'family': (context) => const FamiliyPage(),
         'edit': (context) {
-          final familyId = ModalRoute.of(context)!.settings.arguments as int;
+          final args = ModalRoute.of(context)?.settings.arguments;
+          final familyId = args is int ? args : 0;
           return EditPage(familyId: familyId);
         },
         'news': (context) => const NewsPage(),

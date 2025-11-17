@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:edi301/auth/token_storage.dart';
 import 'package:edi301/services/familia_api.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +10,7 @@ class EditController {
 
   final ImagePicker _picker = ImagePicker();
   final FamiliaApi _familiaApi = FamiliaApi();
+  final TokenStorage _tokenStorage = TokenStorage();
 
   // Notificadores para actualizar la UI cuando se selecciona una imagen
   ValueNotifier<XFile?> profileImage = ValueNotifier(null);
@@ -85,8 +87,22 @@ class EditController {
       // ¡Aquí está la magia!
       // Debes obtener el token de donde lo tengas guardado (ej: TokenStorage)
       // String? token = await TokenStorage.getToken();
-      String? token = "TU_TOKEN_DE_AUTENTICACION_AQUI"; // REEMPLAZA ESTO
+      String? token = await _tokenStorage.read();
 
+      // 2. Comprueba si el token existe
+      if (token == null) {
+        if (context != null) {
+          ScaffoldMessenger.of(context!).showSnackBar(
+            const SnackBar(
+              content: Text('Error: Sesión expirada. Vuelve a iniciar sesión.'),
+            ),
+          );
+        }
+        isLoading.value = false;
+        return; // Detiene la ejecución si no hay token
+      }
+
+      // 3. Llama a la API con el token real
       await _familiaApi.updateFamilyFotos(
         familyId: familyId!,
         profileImage: profileFile,
