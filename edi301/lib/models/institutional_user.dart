@@ -8,11 +8,15 @@ class InstitutionalUser {
   final String correoInstitucional;
   final String? residencia;
   final String? nivelEducativo;
-  final String? campo; // Asumo que es 'campus'
-  final String? leNombreEscuelaOficial;
-  final String? sexo; // ¡IMPORTANTE para los roles de Padre/Madre!
-  final int? numEmpleado; // Si es empleado
-  final String? direccion; // <-- 1. AÑADIDO
+  final String? campo;
+  final String? leNombreEscuelaOficial; // Esto será la 'carrera'
+  final String? sexo;
+  final int? numEmpleado;
+  final String? direccion;
+
+  // --- NUEVOS CAMPOS ---
+  final String? fechaNacimiento;
+  final String? celular;
 
   InstitutionalUser({
     this.matricula,
@@ -25,7 +29,10 @@ class InstitutionalUser {
     this.leNombreEscuelaOficial,
     this.sexo,
     this.numEmpleado,
-    this.direccion, // <-- 2. AÑADIDO
+    this.direccion,
+    // --- NUEVOS ---
+    this.fechaNacimiento,
+    this.celular,
   });
 
   factory InstitutionalUser.fromJson(Map<String, dynamic> json) {
@@ -47,24 +54,28 @@ class InstitutionalUser {
     return InstitutionalUser(
       matricula: esEmpleado ? null : parseInt(json['MATRICULA']),
       numEmpleado: esEmpleado ? parseInt(json['MATRICULA']) : null,
+
       nombre: json['NOMBRES'] ?? json['NOMBRE'] ?? 'Sin Nombre',
       apellidos: json['APELLIDOS'] ?? 'Sin Apellidos',
       correoInstitucional:
           json['EMAIl_INSTITUCIONAL'] ?? json['CORREO_INSTITUCIONAL'] ?? '',
+
       residencia: cleanString(json['RESIDENCIA']),
       nivelEducativo: cleanString(json['NIVEL_EDUCATIVO']),
       campo: cleanString(json['CAMPO'] ?? json['CAMPUS']),
       leNombreEscuelaOficial: cleanString(
         json['LeNombreEscuelaOficial'] ?? json['DEPARTAMENTO'],
-      ),
+      ), // Carrera/Depto
       sexo: cleanString(json['SEXO']),
-      direccion: cleanString(
-        json['DIRECCION'],
-      ), // <-- 3. AÑADIDO (Lee 'DIRECCION' de la API)
+      direccion: cleanString(json['DIRECCION']),
+
+      // --- MAPEO DE NUEVOS CAMPOS ---
+      // La API devuelve 'FECHA_NACIMIENTO' y 'CELULAR'
+      fechaNacimiento: cleanString(json['FECHA_NACIMIENTO']),
+      celular: cleanString(json['CELULAR']),
     );
   }
 
-  // ... (función correoOculto sin cambios) ...
   String get correoOculto {
     if (correoInstitucional.isEmpty || !correoInstitucional.contains('@')) {
       return 'correo-no-valido@...';

@@ -1,10 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-// --- AÑADIDOS ---
 import 'package:http/http.dart' as http;
 import 'package:edi301/models/institutional_user.dart';
-import 'package:edi301/core/api_client_http.dart'; // <-- Para la API local
-// --- FIN ---
+import 'package:edi301/core/api_client_http.dart';
+import 'package:edi301/services/otp_service.dart'; // <-- 1. IMPORTA EL SERVICIO
 
 class RegisterController {
   BuildContext? context;
@@ -21,9 +20,11 @@ class RegisterController {
   final registrationStep = ValueNotifier<int>(0);
   final foundUser = ValueNotifier<InstitutionalUser?>(null);
 
-  // --- URL de la API Institucional (sin cambios) ---
   final String _institutionalApiUrl =
       'https://ulv-api.apps.isdapps.uk/api/datos/';
+
+  // --- 2. INSTANCIA EL SERVICIO ---
+  final OtpService _otpService = OtpService();
 
   Future? init(BuildContext context) {
     this.context = context;
@@ -47,8 +48,7 @@ class RegisterController {
     }
   }
 
-  // --- FUNCIÓN 'searchByDocument' ACTUALIZADA ---
-  /// PASO 0: Busca al usuario en la API Institucional
+  // --- PASO 0: Busca al usuario (SIN CAMBIOS) ---
   Future<void> searchByDocument() async {
     final document = documentoCtrl.text.trim();
     if (document.isEmpty) {
@@ -70,26 +70,20 @@ class RegisterController {
         );
       }
 
-      // --- INICIO DE LÓGICA DE PARSEO (MODIFICADA) ---
       final Map<String, dynamic> body = jsonDecode(response.body);
 
-      // 1. Determina si la clave es 'Data' (Alumno) o 'data' (Empleado)
       final Map<String, dynamic> data;
       if (body.containsKey('Data')) {
         data = body['Data'] as Map<String, dynamic>;
       } else if (body.containsKey('data')) {
         data = body['data'] as Map<String, dynamic>;
       } else {
-        throw Exception(
-          'Respuesta de API inválida. Falta el objeto "Data" o "data".',
-        );
+        throw Exception('Respuesta de API inválida.');
       }
 
       final String userType = (data['type'] ?? '').toString().toUpperCase();
-
       Map<String, dynamic>? userData;
 
-      // 2. Extrae los datos de 'student' o 'employee'
       if (userType == 'ALUMNO' &&
           data['student'] is List &&
           (data['student'] as List).isNotEmpty) {
@@ -101,30 +95,21 @@ class RegisterController {
       }
 
       if (userData != null) {
-        // 3. Pasa los datos al modelo para que los parsee
-        // El modelo (que actualizaremos) sabrá cómo leer 'NOMBRES' vs 'NOMBRE'
         foundUser.value = InstitutionalUser.fromJson(userData);
-
-        // --- ¡ÉXITO! Avanzamos al siguiente paso ---
         registrationStep.value = 1;
       } else {
-        throw Exception(
-          'No se encontraron datos de alumno o empleado válidos.',
-        );
+        throw Exception('No se encontraron datos válidos.');
       }
-      // --- FIN DE LÓGICA DE PARSEO ---
     } catch (e) {
       _snack(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       loading.value = false;
     }
   }
-  // --- FIN DE ACTUALIZACIÓN ---
 
-  /// PASO 1: Verifica que el correo ingresado coincida (sin cambios)
+  // --- PASO 1: Verifica Email (SIN CAMBIOS) ---
   void verifyEmail() {
     final typedEmail = emailVerificationCtrl.text.trim().toLowerCase();
-    // El 'foundUser' ya tiene el correo correcto gracias al modelo
     final realEmail = foundUser.value?.correoInstitucional.toLowerCase();
 
     if (typedEmail != realEmail) {
@@ -132,43 +117,69 @@ class RegisterController {
       return;
     }
 
-    // --- ¡ÉXITO! Siguiente paso: Enviar el código ---
     _snack('¡Correos coinciden! Enviando código...', isError: false);
     _sendVerificationCode(realEmail!);
   }
 
-  /// PASO 2: (Simulado) Envía el código de verificación (sin cambios)
+  // --- PASO 2: Enviar Código (ACTUALIZADO CON API REAL) ---
   Future<void> _sendVerificationCode(String email) async {
     loading.value = true;
-    await Future.delayed(const Duration(seconds: 1)); // Simula la llamada API
-    print("--- SIMULACIÓN: Código enviado a $email ---");
-    loading.value = false;
-    registrationStep.value = 2; // Avanza a la pantalla de "Ingresar Código"
+    try {
+      // Llamamos al servicio real
+      await _otpService.sendOtp(email);
+
+      _snack('Código enviado a tu correo.', isError: false);
+      registrationStep.value = 2; // Avanza si todo salió bien
+    } catch (e) {
+      _snack(
+        'Error al enviar correo: ${e.toString().replaceFirst('Exception: ', '')}',
+      );
+    } finally {
+      loading.value = false;
+    }
   }
 
-  /// PASO 2 (Continuación): Verifica el código ingresado (sin cambios)
-  void verifyCode() {
+  // --- PASO 2 (Cont): Validar Código (ACTUALIZADO CON API REAL) ---
+  Future<void> verifyCode() async {
+    // <-- Ahora es async
     final code = verificationCodeCtrl.text.trim();
-    if (code != '1234') {
-      // <-- Código quemado temporalmente
-      _snack('Código incorrecto.');
+    final email = foundUser.value?.correoInstitucional;
+
+    if (code.length != 4) {
+      // Asumiendo que el OTP son 4 dígitos
+      _snack('Ingresa el código completo.');
       return;
     }
-    _snack('Código correcto', isError: false);
-    registrationStep.value = 3; // Avanza a la pantalla de "Crear Contraseña"
+
+    loading.value = true; // Mostramos carga mientras valida
+
+    try {
+      // Llamamos al servicio real
+      final isValid = await _otpService.verifyOtp(email!, code);
+
+      if (isValid) {
+        _snack('Código correcto', isError: false);
+        registrationStep.value = 3;
+      } else {
+        _snack('El código es incorrecto o ha expirado.');
+      }
+    } catch (e) {
+      _snack('Error al validar: $e');
+    } finally {
+      loading.value = false;
+    }
   }
 
-  /// PASO 3: Validación de Contraseña (sin cambios)
+  // --- PASO 3: Validación Contraseña (SIN CAMBIOS) ---
   bool _validatePassword(String password) {
     if (password.length < 8) return false;
-    if (!password.contains(RegExp(r'[A-Z]'))) return false; // Mayúscula
-    if (!password.contains(RegExp(r'[0-9]'))) return false; // Número
-    if (!password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]')))
-      return false; // Caracter especial
+    if (!password.contains(RegExp(r'[A-Z]'))) return false;
+    if (!password.contains(RegExp(r'[0-9]'))) return false;
+    if (!password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) return false;
     return true;
   }
 
-  /// PASO 4: Registro Final (en tu base de datos local) (sin cambios)
+  // --- PASO 4: Registro Final (VERSIÓN BLINDADA) ---
   Future<void> register() async {
     final password = passCtrl.text;
     final confirm = confirmPassCtrl.text;
@@ -191,32 +202,40 @@ class RegisterController {
 
     loading.value = true;
 
+    // 1. Lógica de Roles (Tu configuración correcta)
     int idRol;
     if (user.numEmpleado != null) {
-      // Es empleado
       if (user.sexo == 'F') {
-        idRol = 3; // MadreEDI (Como tú indicaste)
+        idRol = 3;
       } else {
-        idRol = 2; // PadreEDI (Como tú indicaste)
+        idRol = 2;
       }
     } else {
-      // Es alumno
-      idRol = 4; // Alumno Asignado (HijoEDI)
+      idRol = 4;
     }
 
-    // --- INICIO DE CORRECCIÓN ---
-    // Revertimos los parches. Ahora enviamos los datos tal cual
-    // vienen del modelo. (residencia y direccion pueden ser null).
-    // También normalizamos 'INTERNO' a 'Interna' si es que existe.
+    // 2. Lógica de Residencia y Dirección (BLINDAJE)
+    String residenciaEnvio = 'Externa'; // Valor por defecto seguro
+    String? direccionEnvio = user.direccion;
 
-    String? residenciaNormalizada = user.residencia;
-    if (residenciaNormalizada != null &&
-        residenciaNormalizada.toUpperCase() == 'INTERNO') {
-      residenciaNormalizada = 'Interna';
-    } else if (residenciaNormalizada != null &&
-        residenciaNormalizada.toUpperCase() == 'EXTERNO') {
-      residenciaNormalizada = 'Externa';
+    // Normalizamos si viene de la API
+    if (user.residencia != null) {
+      if (user.residencia!.toUpperCase() == 'INTERNO') {
+        residenciaEnvio = 'Interna';
+        direccionEnvio = null; // Internos no llevan dirección
+      } else {
+        residenciaEnvio = 'Externa';
+      }
     }
+
+    // Si es Externa y no tiene dirección (ej. Empleado), ponemos una por defecto
+    // para evitar el error de la base de datos.
+    if (residenciaEnvio == 'Externa' &&
+        (direccionEnvio == null || direccionEnvio.isEmpty)) {
+      direccionEnvio = 'Dirección no proporcionada por la institución';
+    }
+
+    String? fechaNacimientoEnvio = user.fechaNacimiento;
 
     try {
       final ApiHttp _http = ApiHttp();
@@ -230,17 +249,45 @@ class RegisterController {
         'id_rol': idRol,
         'matricula': user.matricula,
         'num_empleado': user.numEmpleado,
-        'residencia': residenciaNormalizada, // <-- Envía 'Externa' o 'null'
-        'direccion': user.direccion, // <-- Envía la dirección real o 'null'
+        'residencia': residenciaEnvio,
+        'direccion': direccionEnvio,
+
+        // --- NUEVOS CAMPOS AGREGADOS ---
+        'telefono':
+            user.celular, // Mapeamos 'celular' del modelo a 'telefono' de la BD
+        'fecha_nacimiento': fechaNacimientoEnvio,
+        'carrera':
+            user.leNombreEscuelaOficial, // Mapeamos Escuela/Depto a 'carrera'
+        // ------------------------------
       };
-      // --- FIN DE CORRECCIÓN ---
 
       final res = await _http.postJson('/api/usuarios', data: payload);
+      if (res.statusCode >= 400) {
+        String errorMsg = 'Error ${res.statusCode}';
+        try {
+          final body = jsonDecode(res.body);
+          if (body is Map && body.containsKey('error')) {
+            errorMsg = body['error'];
+          } else if (body is Map && body.containsKey('message')) {
+            errorMsg = body['message'];
+          }
+        } catch (_) {
+          errorMsg = res.body;
+        }
+        // Limpiamos mensaje técnico de SQL si aparece
+        if (errorMsg.contains('CK_Usuarios'))
+          errorMsg = 'Error de validación en base de datos.';
+        if (errorMsg.contains('Violation of UNIQUE KEY'))
+          errorMsg = 'El usuario ya está registrado.';
+
+        throw Exception(errorMsg);
+      }
 
       // ¡Éxito FINAL!
       _snack('Registro exitoso. Ahora puedes iniciar sesión.', isError: false);
       goToLoginPage();
     } catch (e) {
+      print('❌ Error en registro: $e');
       _snack(e.toString().replaceFirst('Exception: ', ''));
     } finally {
       loading.value = false;

@@ -12,6 +12,10 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final RegisterController _controller = RegisterController();
+  final List<TextEditingController> _otpControllers = List.generate(
+    4,
+    (index) => TextEditingController(),
+  );
 
   // Colores
   static const primaryColor = Color.fromRGBO(19, 67, 107, 1);
@@ -193,18 +197,19 @@ class _RegisterPageState extends State<RegisterPage> {
           style: TextStyle(color: Colors.white, fontSize: 16),
           textAlign: TextAlign.center,
         ),
+        const SizedBox(height: 10),
         const Text(
-          'Hemos enviado un código de 4 dígitos. (Pista: es 1234 por ahora)',
+          'Ingresa el código de 4 dígitos que recibiste.',
           style: TextStyle(color: Colors.white70, fontSize: 14),
           textAlign: TextAlign.center,
         ),
+        const SizedBox(height: 30),
+
+        // --- AQUÍ USAMOS EL NUEVO WIDGET DE CUADROS ---
+        _buildOtpRow(),
+
+        // ----------------------------------------------
         const SizedBox(height: 20),
-        _textField(
-          controller: _controller.verificationCodeCtrl,
-          hint: 'Código de 4 dígitos',
-          icon: Icons.pin_outlined,
-          keyboard: TextInputType.number,
-        ),
         _buttonAction(
           text: 'Validar Código',
           onPressed: _controller.verifyCode,
@@ -342,6 +347,65 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // Widget de los cuadros OTP
+  Widget _buildOtpRow() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: List.generate(4, (index) {
+        return SizedBox(
+          width: 60,
+          height: 60,
+          child: TextField(
+            controller: _otpControllers[index],
+            autofocus: index == 0,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            maxLength: 1,
+            style: const TextStyle(
+              fontSize: 24,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            decoration: InputDecoration(
+              counterText: "",
+              filled: true,
+              fillColor: Colors.transparent, // Fondo transparente
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: accentColor,
+                  width: 2,
+                ), // Amarillo
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Colors.white,
+                  width: 2,
+                ), // Blanco al escribir
+              ),
+            ),
+            onChanged: (value) {
+              if (value.length == 1 && index < 3) {
+                FocusScope.of(context).nextFocus(); // Salta al siguiente
+              } else if (value.isEmpty && index > 0) {
+                FocusScope.of(context).previousFocus(); // Regresa al anterior
+              }
+
+              // Actualiza el controlador PRINCIPAL concatenando todo
+              String code = "";
+              for (var c in _otpControllers) {
+                code += c.text;
+              }
+              _controller.verificationCodeCtrl.text = code;
+            },
+          ),
+        );
+      }),
+    );
+  }
+
   // Widget reutilizable para el botón
   Widget _buttonAction({
     required String text,
@@ -382,6 +446,83 @@ class _RegisterPageState extends State<RegisterPage> {
           );
         },
       ),
+    );
+  }
+
+  // --- NUEVO WIDGET PARA EL OTP (CÓDIGO) ---
+  Widget _buildOtpInput() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: List.generate(4, (index) {
+        return SizedBox(
+          width: 60,
+          height: 60,
+          child: TextField(
+            autofocus: index == 0, // El primero tiene foco automático
+            onChanged: (value) {
+              // 1. Lógica de Foco: Si escribe, va al siguiente. Si borra, al anterior.
+              if (value.length == 1 && index < 3) {
+                FocusScope.of(context).nextFocus();
+              } else if (value.isEmpty && index > 0) {
+                FocusScope.of(context).previousFocus();
+              }
+
+              // 2. Actualizar el controlador principal
+              // Nota: Esto es un truco simple. Almacenamos el valor en el controlador
+              // concatenando lo que haya en estas cajas.
+              // Para ser más robusto, idealmente usaríamos 4 controladores,
+              // pero para este ejemplo rápido, vamos a asumir que el usuario escribe en orden.
+
+              // Una forma más segura de sincronizar con tu controller principal:
+              String currentCode = _controller.verificationCodeCtrl.text;
+              if (currentCode.length > index) {
+                // Reemplazar caracter existente
+                List<String> chars = currentCode.split('');
+                if (value.isNotEmpty) {
+                  chars[index] = value;
+                } else {
+                  // Si borró, lo dejamos vacío o manejamos según lógica
+                }
+                // Esto es complejo de sincronizar perfectamente con un solo string controller.
+                // MEJOR ESTRATEGIA:
+                // Vamos a actualizar el texto del controlador principal DIRECTAMENTE
+                // en el evento verifyCode, leyendo de 4 controladores locales.
+              }
+            },
+            // Usaremos controladores locales temporales para la UI
+            // (Ver implementación completa abajo en el paso 2)
+            controller: null, // Lo definiremos en el builder
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 24,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            maxLength: 1, // Solo 1 dígito por caja
+            decoration: InputDecoration(
+              counterText: "", // Oculta el contador "0/1"
+              filled: true,
+              fillColor: Colors.transparent, // Fondo transparente
+              contentPadding: const EdgeInsets.symmetric(vertical: 15),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: accentColor,
+                  width: 2,
+                ), // Borde amarillo
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(
+                  color: Colors.white,
+                  width: 2,
+                ), // Borde blanco al enfocar
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }
