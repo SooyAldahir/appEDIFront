@@ -17,6 +17,9 @@ class _RegisterPageState extends State<RegisterPage> {
   static const primaryColor = Color.fromRGBO(19, 67, 107, 1);
   static const accentColor = Color.fromRGBO(245, 188, 6, 1);
 
+  bool _obscurePass = true;
+  bool _obscureConfirm = true;
+
   @override
   void initState() {
     super.initState();
@@ -134,16 +137,26 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ),
             const SizedBox(height: 15),
+
+            // --- INICIO DE CORRECCIÓN ---
             _buildDataRow('Nombre:', '${user.nombre} ${user.apellidos}'),
             _buildDataRow(
-              'Documento:',
+              'Matricula/ NumEmpleado:',
               (user.matricula ?? user.numEmpleado).toString(),
             ),
             _buildDataRow('Escuela:', user.leNombreEscuelaOficial ?? 'N/A'),
+
+            // --- AÑADIDOS ---
+            _buildDataRow('Nivel:', user.nivelEducativo ?? 'N/A'),
+            _buildDataRow('Campus:', user.campo ?? 'N/A'),
+            _buildDataRow('Residencia:', user.residencia ?? 'N/A'),
+
+            // --- FIN DE AÑADIDOS ---
             _buildDataRow(
               'Correo:',
               user.correoOculto,
             ), // Muestra el correo oculto
+            // --- FIN DE CORRECCIÓN ---
             const SizedBox(height: 20),
             const Text(
               'Para verificar tu identidad, escribe tu correo institucional completo:',
@@ -222,18 +235,50 @@ class _RegisterPageState extends State<RegisterPage> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
+
+        // --- INICIO DE MODIFICACIÓN ---
+
+        // Campo de Contraseña
         _textField(
           controller: _controller.passCtrl,
           hint: 'Contraseña',
           icon: Icons.key_outlined,
-          obscure: true,
+          obscure: _obscurePass, // Usa la variable de estado
+          suffixIcon: IconButton(
+            // Añade el botón "ojito"
+            icon: Icon(
+              _obscurePass ? Icons.visibility : Icons.visibility_off,
+              color: Colors.white70,
+            ),
+            onPressed: () {
+              setState(() {
+                _obscurePass = !_obscurePass; // Cambia el estado
+              });
+            },
+          ),
         ),
+
+        // Campo de Confirmar Contraseña
         _textField(
           controller: _controller.confirmPassCtrl,
           hint: 'Confirmar contraseña',
           icon: Icons.key_outlined,
-          obscure: true,
+          obscure: _obscureConfirm, // Usa la variable de estado
+          suffixIcon: IconButton(
+            // Añade el botón "ojito"
+            icon: Icon(
+              _obscureConfirm ? Icons.visibility : Icons.visibility_off,
+              color: Colors.white70,
+            ),
+            onPressed: () {
+              setState(() {
+                _obscureConfirm = !_obscureConfirm; // Cambia el estado
+              });
+            },
+          ),
         ),
+
+        // --- FIN DE MODIFICACIÓN ---
         _buttonAction(
           text: 'Completar Registro',
           onPressed: _controller.register, // Llama a la función final
@@ -273,6 +318,7 @@ class _RegisterPageState extends State<RegisterPage> {
     required IconData icon,
     bool obscure = false,
     TextInputType keyboard = TextInputType.text,
+    Widget? suffixIcon,
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -290,6 +336,7 @@ class _RegisterPageState extends State<RegisterPage> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.all(15),
           prefixIcon: Icon(icon, color: Colors.white),
+          suffixIcon: suffixIcon,
         ),
       ),
     );

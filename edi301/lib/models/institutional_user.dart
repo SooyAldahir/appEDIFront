@@ -1,8 +1,6 @@
 // lib/models/institutional_user.dart
 import 'dart:convert';
 
-// Modelo para la respuesta de la API de ULV
-// https://ulv-api.apps.isdapps.uk/api/datos/
 class InstitutionalUser {
   final int? matricula;
   final String nombre;
@@ -14,6 +12,7 @@ class InstitutionalUser {
   final String? leNombreEscuelaOficial;
   final String? sexo; // ¡IMPORTANTE para los roles de Padre/Madre!
   final int? numEmpleado; // Si es empleado
+  final String? direccion; // <-- 1. AÑADIDO
 
   InstitutionalUser({
     this.matricula,
@@ -26,41 +25,46 @@ class InstitutionalUser {
     this.leNombreEscuelaOficial,
     this.sexo,
     this.numEmpleado,
+    this.direccion, // <-- 2. AÑADIDO
   });
 
   factory InstitutionalUser.fromJson(Map<String, dynamic> json) {
-    // Limpiamos los valores nulos o 'null'
     String? cleanString(dynamic value) {
-      if (value == null || value.toString() == 'null') return null;
+      if (value == null ||
+          value.toString() == 'null' ||
+          value.toString().isEmpty)
+        return null;
       return value.toString();
     }
 
     int? parseInt(dynamic value) {
-      if (value == null) return null;
+      if (value == null || value.toString().isEmpty) return null;
       return int.tryParse(value.toString());
     }
 
+    final bool esEmpleado = json.containsKey('NOMBRES');
+
     return InstitutionalUser(
-      // Asumiendo los nombres de las claves del JSON
-      matricula: parseInt(json['Matricula'] ?? json['matricula']),
-      nombre: json['Nombre'] ?? json['nombre'] ?? 'Sin Nombre',
-      apellidos: json['Apellidos'] ?? json['apellidos'] ?? 'Sin Apellidos',
+      matricula: esEmpleado ? null : parseInt(json['MATRICULA']),
+      numEmpleado: esEmpleado ? parseInt(json['MATRICULA']) : null,
+      nombre: json['NOMBRES'] ?? json['NOMBRE'] ?? 'Sin Nombre',
+      apellidos: json['APELLIDOS'] ?? 'Sin Apellidos',
       correoInstitucional:
-          json['Correo Institucional'] ?? json['correoInstitucional'] ?? '',
-      residencia: cleanString(json['Residencia'] ?? json['residencia']),
-      nivelEducativo: cleanString(
-        json['Nivel educativo'] ?? json['nivelEducativo'],
-      ),
-      campo: cleanString(json['Campo'] ?? json['campo']),
+          json['EMAIl_INSTITUCIONAL'] ?? json['CORREO_INSTITUCIONAL'] ?? '',
+      residencia: cleanString(json['RESIDENCIA']),
+      nivelEducativo: cleanString(json['NIVEL_EDUCATIVO']),
+      campo: cleanString(json['CAMPO'] ?? json['CAMPUS']),
       leNombreEscuelaOficial: cleanString(
-        json['LeNombreEscuelaOficial'] ?? json['leNombreEscuelaOficial'],
+        json['LeNombreEscuelaOficial'] ?? json['DEPARTAMENTO'],
       ),
-      sexo: cleanString(json['Sexo'] ?? json['sexo']), // 'M' o 'F'
-      numEmpleado: parseInt(json['NumEmpleado'] ?? json['numEmpleado']),
+      sexo: cleanString(json['SEXO']),
+      direccion: cleanString(
+        json['DIRECCION'],
+      ), // <-- 3. AÑADIDO (Lee 'DIRECCION' de la API)
     );
   }
 
-  // Función para ocultar el correo
+  // ... (función correoOculto sin cambios) ...
   String get correoOculto {
     if (correoInstitucional.isEmpty || !correoInstitucional.contains('@')) {
       return 'correo-no-valido@...';
