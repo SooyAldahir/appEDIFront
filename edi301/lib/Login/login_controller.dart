@@ -102,9 +102,11 @@ class LoginController {
 
   // Mapa de roles -> ruta
   String _routeForRole(String rol, String tipoUsuario) {
+    // Todos los roles internos de la aplicación deben ir a 'home',
+    // donde el widget HomePage ajusta dinámicamente el BottomNavigationBar.
     switch (rol) {
       case 'Admin':
-        return 'admin';
+        return 'home'; // <--- CAMBIO CLAVE: Admin ahora va a la ruta 'home'
       case 'PapaEDI':
       case 'MamaEDI':
         return 'home';
@@ -112,6 +114,7 @@ class LoginController {
       case 'HijoSanguineo':
         return 'home';
       default:
+        // Si el rol no coincide, pero es un usuario externo, también va a home.
         if (tipoUsuario == 'EXTERNO') return 'home';
         return 'home';
     }
