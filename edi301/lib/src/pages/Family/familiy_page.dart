@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:edi301/core/api_client_http.dart';
-import 'package:edi301/models/family_model.dart'; // --- CAMBIO: Necesario para List<FamilyMember> ---
+import 'package:edi301/models/family_model.dart';
 import 'package:edi301/services/familia_api.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/src/pages/Family/family_controller.dart';
@@ -122,17 +122,15 @@ class _FamilyPageState extends State<FamiliyPage> {
               children: [
                 SizedBox(
                   height: 200,
-                  // --- MODIFICADO ---
                   child: FamilyWidget(
-                    backgroundImage: coverImage, // Usar imagen dinámica
-                    circleImage: profileImage, // Usar imagen dinámica
+                    backgroundImage: coverImage,
+                    circleImage: profileImage,
                     onTap: () {},
                   ),
                 ),
                 const SizedBox(height: 5),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  // --- MODIFICADO ---
                   child: FamilyData(
                     familyName: family.familyName,
                     numChildres:
@@ -142,7 +140,7 @@ class _FamilyPageState extends State<FamiliyPage> {
                     text: 'Hijos EDI',
                     description:
                         family.descripcion ??
-                        'Añade una descripción en "Editar Perfil".', // Descripción dinámica
+                        'Añade una descripción en "Editar Perfil".',
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -153,7 +151,6 @@ class _FamilyPageState extends State<FamiliyPage> {
                 mostrarHijos
                     ? Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
-                        // --- CAMBIO: Combina ambas listas antes de pasarlas ---
                         child: () {
                           // 1. Crea una lista combinada
                           final List<FamilyMember> todosLosHijos = [
@@ -179,17 +176,12 @@ class _FamilyPageState extends State<FamiliyPage> {
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: ElevatedButton(
         onPressed: () async {
-          print('🔘 Botón "Editar Perfil" presionado');
-
           // Intenta obtener el ID de la familia
           final prefs = await SharedPreferences.getInstance();
           final rawUser = prefs.getString('user');
 
           if (rawUser != null) {
             final user = jsonDecode(rawUser);
-            print('👤 Usuario actual: ${user['nombre']} ${user['apellido']}');
-            print('🔑 Claves disponibles: ${user.keys.toList()}');
-
             // Busca el id_familia en diferentes formatos
             final idFamilia =
                 user['id_familia'] ??
@@ -197,14 +189,10 @@ class _FamilyPageState extends State<FamiliyPage> {
                 user['familia_id'] ??
                 user['idFamilia'];
 
-            print('🆔 ID Familia encontrado: $idFamilia');
-
             if (idFamilia != null) {
               final id = int.tryParse(idFamilia.toString());
-              print('🔢 ID parseado: $id');
 
               if (id != null && id > 0) {
-                // --- CAMBIO: Navega a 'edit' y espera un resultado ---
                 // Si la página 'edit' devuelve 'true', recarga los datos.
                 final result = await Navigator.pushNamed(
                   context,
@@ -216,16 +204,12 @@ class _FamilyPageState extends State<FamiliyPage> {
                     _familyFuture = _fetchFamilyData();
                   });
                 }
-                // --- FIN CAMBIO ---
                 return;
               }
             }
           }
 
           // Fallback
-          print(
-            '⚠️ No se encontró ID en SharedPreferences, usando método de resolución',
-          );
           _controller.goToEditPage(context);
         },
         style: ElevatedButton.styleFrom(
@@ -297,7 +281,6 @@ class _FamilyPageState extends State<FamiliyPage> {
 
   // --- CAMBIO: La función ahora acepta la lista de hijos ---
   Widget _buildHijosList(List<FamilyMember> hijos) {
-    // Si no hay hijos, muestra un mensaje
     if (hijos.isEmpty) {
       return const Center(
         child: Padding(
@@ -307,11 +290,9 @@ class _FamilyPageState extends State<FamiliyPage> {
       );
     }
 
-    // Si hay hijos, crea la lista dinámicamente
     return ListView.separated(
-      physics:
-          const NeverScrollableScrollPhysics(), // No hacer scroll dentro del SingleChildScrollView
-      shrinkWrap: true, // Ajustar altura al contenido
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
       itemCount: hijos.length,
       separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
@@ -320,10 +301,18 @@ class _FamilyPageState extends State<FamiliyPage> {
           // El modelo FamilyMember no tiene URL de imagen, usamos un placeholder.
           imageUrl: 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
           name: hijo.fullName,
-          school: hijo.carrera, // Usa el campo 'carrera'
-          fechaNacimiento:
-              hijo.fechaNacimiento, // Usa el campo 'fechaNacimiento'
-          phoneNumber: hijo.telefono, // Usa el campo 'telefono'
+          school: hijo.carrera,
+          fechaNacimiento: hijo.fechaNacimiento,
+          phoneNumber: hijo.telefono,
+          // --- CAMBIO: Acción de navegación al tocar la tarjeta ---
+          onTap: () {
+            // Usamos idUsuario para navegar al detalle, igual que en SearchPage
+            Navigator.pushNamed(
+              context,
+              'student_detail',
+              arguments: hijo.idUsuario,
+            );
+          },
         );
       },
     );
@@ -360,45 +349,65 @@ class FamilyWidget extends StatelessWidget {
     required this.onTap,
   });
 
+  // Método auxiliar para navegar a la pantalla completa
+  void _openFullScreen(BuildContext context, ImageProvider image, String tag) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FullScreenImagePage(imageProvider: image, heroTag: tag),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        ClipRRect(
-          child: Image(
-            image: backgroundImage, // Usar ImageProvider
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: 200,
-            // Opcional: Manejo de errores de carga de imagen
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
+        // --- 1. IMAGEN DE PORTADA ---
+        GestureDetector(
+          onTap: () => _openFullScreen(context, backgroundImage, 'coverTag'),
+          child: Hero(
+            tag: 'coverTag', // Identificador único para la animación
+            child: ClipRRect(
+              child: Image(
+                image: backgroundImage,
+                fit: BoxFit.cover,
+                width: double.infinity,
                 height: 200,
-                color: Colors.grey[300],
-                child: const Icon(Icons.broken_image, color: Colors.grey),
-              );
-            },
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 200,
+                    color: Colors.grey[300],
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  );
+                },
+              ),
+            ),
           ),
         ),
+
+        // --- 2. IMAGEN DE PERFIL (Círculo) ---
         Positioned(
           bottom: 10,
           left: 10,
           child: GestureDetector(
-            onTap: onTap,
+            // Al tocar la foto de perfil, se abre en grande
+            onTap: () => _openFullScreen(context, circleImage, 'profileTag'),
             child: CircleAvatar(
               radius: 50,
               backgroundColor: Colors.white,
-              child: CircleAvatar(
-                radius: 46,
-                backgroundImage: circleImage, // Usar ImageProvider
-                // Opcional: Manejo de errores de carga de imagen
-                onBackgroundImageError: (exception, stackTrace) {
-                  // No hace nada, pero evita un crash si la imagen de perfil falla
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+              child: Hero(
+                tag: 'profileTag', // Identificador único para la animación
+                child: CircleAvatar(
+                  radius: 46,
+                  backgroundImage: circleImage,
+                  onBackgroundImageError: (exception, stackTrace) {},
+                  // El contenedor decorativo transparente para el borde
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
                   ),
                 ),
               ),
@@ -456,13 +465,14 @@ class FamilyData extends StatelessWidget {
   }
 }
 
-// --- CAMBIO: Modificada la 'ProfileCard' para aceptar los datos del modelo ---
+// --- CAMBIO: Modificada la 'ProfileCard' para usar el callback onTap ---
 class ProfileCard extends StatelessWidget {
   final String imageUrl;
   final String name;
   final String? school;
   final String? fechaNacimiento;
   final String? phoneNumber;
+  final VoidCallback? onTap; // Nuevo parámetro
 
   const ProfileCard({
     super.key,
@@ -471,42 +481,14 @@ class ProfileCard extends StatelessWidget {
     this.school,
     this.fechaNacimiento,
     this.phoneNumber,
+    this.onTap, // Recibir el callback
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        // Mostrar un diálogo con la información del hijo
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            title: Text(name),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  backgroundImage: NetworkImage(imageUrl),
-                  radius: 50,
-                ),
-                const SizedBox(height: 10),
-                Text('Escuela: ${school ?? 'No registrada'}'),
-                Text('Nacimiento: ${fechaNacimiento ?? 'No registrada'}'),
-                Text('Teléfono: ${phoneNumber ?? 'No registrado'}'),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cerrar'),
-              ),
-            ],
-          ),
-        );
-      },
+      // Usar la función onTap pasada como parámetro
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -547,4 +529,42 @@ class ProfileCard extends StatelessWidget {
     );
   }
 }
-// --- FIN CAMBIO ---
+
+// --- NUEVO: Pantalla para ver la imagen en pantalla completa ---
+class FullScreenImagePage extends StatelessWidget {
+  final ImageProvider imageProvider;
+  final String heroTag;
+
+  const FullScreenImagePage({
+    super.key,
+    required this.imageProvider,
+    required this.heroTag,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      extendBodyBehindAppBar: true,
+      body: Center(
+        child: Hero(
+          tag: heroTag,
+          child: InteractiveViewer(
+            panEnabled: true, // Permite mover la imagen
+            minScale: 0.5,
+            maxScale: 4.0, // Permite hacer zoom hasta 4x
+            child: Image(image: imageProvider, fit: BoxFit.contain),
+          ),
+        ),
+      ),
+    );
+  }
+}
