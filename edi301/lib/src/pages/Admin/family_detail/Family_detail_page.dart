@@ -1,4 +1,5 @@
 // lib/src/pages/Admin/family_detail/Family_detail_page.dart
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/models/family_model.dart';
 import 'package:edi301/services/familia_api.dart';
@@ -153,83 +154,89 @@ class _FamilyDetailPageState extends State<FamilyDetailPage> {
         title: Text(fam.familyName),
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _Header(f: fam),
-          const SizedBox(height: 16),
-          _Section(
-            title: 'Hijos en casa',
-            items: fam.householdChildren,
-            emptyText: 'Sin hijos registrados en casa.',
-            buildTrailing: (child) => IconButton(
-              tooltip: 'Quitar de la familia',
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _handleDeleteMember(child),
-            ),
-            leadingIcon: Icons.family_restroom,
-          ),
-          const SizedBox(height: 12),
-          _Section(
-            title: 'Alumnos asignados',
-            items: fam.assignedStudents,
-            emptyText: 'Sin alumnos asignados.',
-            buildTrailing: (student) => Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'Ver detalles',
-                  icon: const Icon(Icons.info_outline),
-                  onPressed: () => Navigator.pushNamed(
-                    context,
-                    'student_detail',
-                    arguments: student.idUsuario,
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Quitar de la familia',
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _handleDeleteMember(student),
-                ),
-              ],
-            ),
-            leadingIcon: Icons.school,
-          ),
-          const SizedBox(height: 24),
-
-          // --- 2. LÓGICA DEL BOTÓN ACTUALIZADA ---
-          ElevatedButton.icon(
-            icon: const Icon(Icons.person_add),
-            label: const Text('Agregar alumnos a esta familia'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+      body: ResponsiveContent(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _Header(f: fam),
+            const SizedBox(height: 16),
+            _Section(
+              title: 'Hijos en casa',
+              items: fam.householdChildren,
+              emptyText: 'Sin hijos registrados en casa.',
+              buildTrailing: (child) => IconButton(
+                tooltip: 'Quitar de la familia',
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _handleDeleteMember(child),
               ),
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              leadingIcon: Icons.family_restroom,
             ),
-            onPressed: () async {
-              // --- INICIO DE NUEVA LÓGICA ---
-              final bool? didAdd = await showModalBottomSheet<bool>(
-                context: context,
-                isScrollControlled: true, // Permite que el panel sea alto
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                builder: (ctx) =>
-                    _AddAlumnsSheet(family: fam), // Pasa la familia actual
-              );
+            const SizedBox(height: 12),
+            _Section(
+              title: 'Alumnos asignados',
+              items: fam.assignedStudents,
+              emptyText: 'Sin alumnos asignados.',
+              buildTrailing: (student) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Ver detalles',
+                    icon: const Icon(Icons.info_outline),
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      'student_detail',
+                      arguments: student.idUsuario,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Quitar de la familia',
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _handleDeleteMember(student),
+                  ),
+                ],
+              ),
+              leadingIcon: Icons.school,
+            ),
+            const SizedBox(height: 24),
 
-              // Si el panel inferior nos dice que se guardó (true),
-              // recargamos los detalles de la familia.
-              if (didAdd == true && mounted) {
-                setState(() => _isLoading = true); // Mostrar spinner
-                await _fetchFamilyDetails(fam.id!); // Volver a llamar a la API
-              }
-              // --- FIN DE NUEVA LÓGICA ---
-            },
-          ),
-        ],
+            // --- 2. LÓGICA DEL BOTÓN ACTUALIZADA ---
+            ElevatedButton.icon(
+              icon: const Icon(Icons.person_add),
+              label: const Text('Agregar alumnos a esta familia'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: () async {
+                // --- INICIO DE NUEVA LÓGICA ---
+                final bool? didAdd = await showModalBottomSheet<bool>(
+                  context: context,
+                  isScrollControlled: true, // Permite que el panel sea alto
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  builder: (ctx) =>
+                      _AddAlumnsSheet(family: fam), // Pasa la familia actual
+                );
+
+                // Si el panel inferior nos dice que se guardó (true),
+                // recargamos los detalles de la familia.
+                if (didAdd == true && mounted) {
+                  setState(() => _isLoading = true); // Mostrar spinner
+                  await _fetchFamilyDetails(
+                    fam.id!,
+                  ); // Volver a llamar a la API
+                }
+                // --- FIN DE NUEVA LÓGICA ---
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

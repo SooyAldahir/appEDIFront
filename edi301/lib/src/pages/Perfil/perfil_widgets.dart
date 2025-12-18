@@ -12,12 +12,14 @@ class HeaderCard extends StatelessWidget {
     required this.primary,
     required this.statusColor,
     required this.onToggleAvatar,
+    this.onTapStatus,
   });
 
   final String name, family, residence, status, avatarUrl;
   final bool showAvatar;
   final Color primary, statusColor;
   final ValueChanged<bool> onToggleAvatar;
+  final VoidCallback? onTapStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +70,30 @@ class HeaderCard extends StatelessWidget {
                           spacing: 8,
                           runSpacing: -8,
                           children: [
+                            ActionChip(
+                              // <--- Cambiar Chip por ActionChip o InkWell
+                              avatar: onTapStatus != null
+                                  ? const Icon(
+                                      Icons.edit,
+                                      size: 14,
+                                      color: Colors.white,
+                                    )
+                                  : null,
+                              label: Text(status),
+                              backgroundColor: statusColor.withOpacity(
+                                onTapStatus != null ? 1 : 0.15,
+                              ), // Más visible si es editable
+                              labelStyle: TextStyle(
+                                color: onTapStatus != null
+                                    ? Colors.white
+                                    : statusColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              onPressed:
+                                  onTapStatus, // Si es null, actúa como un chip normal (deshabilitado)
+                              visualDensity: VisualDensity.compact,
+                              side: BorderSide.none,
+                            ),
                             Chip(
                               label: Text(status),
                               backgroundColor: statusColor.withOpacity(.15),

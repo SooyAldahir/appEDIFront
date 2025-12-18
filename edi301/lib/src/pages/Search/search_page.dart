@@ -1,3 +1,4 @@
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/services/search_api.dart';
 import 'package:edi301/src/pages/Admin/add_family/add_family_controller.dart';
@@ -90,25 +91,28 @@ class _SearchPageState extends State<SearchPage> {
         automaticallyImplyLeading: false,
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         title: const Text('Búsqueda general'),
+        elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
-        child: Column(
-          children: [
-            _searchField(),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ValueListenableBuilder<bool>(
-                valueListenable: _loading,
-                builder: (_, loading, __) {
-                  if (loading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  return _bodyResults();
-                },
+      body: ResponsiveContent(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
+          child: Column(
+            children: [
+              _searchField(),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _loading,
+                  builder: (_, loading, __) {
+                    if (loading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    return _bodyResults();
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

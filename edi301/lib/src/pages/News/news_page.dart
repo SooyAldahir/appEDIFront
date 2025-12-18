@@ -1,3 +1,4 @@
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 
 class NewsPage extends StatefulWidget {
@@ -13,11 +14,11 @@ class _NewsPageState extends State<NewsPage> {
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         title: const Text(
           'Bienvenido, Aldahir Ballina',
           style: TextStyle(
-            color: Colors.black,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 20,
           ),
@@ -25,28 +26,30 @@ class _NewsPageState extends State<NewsPage> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black),
+            icon: const Icon(Icons.notifications_none, color: Colors.white),
             onPressed: () {
               _showNotificationsDialog(context);
             },
           ),
         ],
       ),
-      body: ListView(
-        children: const [
-          CustomPostWidget(
-            familyName: 'Familia Ballina Nuñez',
-            authorName: 'Aldahir Ballina',
-            imageUrl:
-                'https://mott.pe/noticias/wp-content/uploads/2019/03/los-50-paisajes-maravillosos-del-mundo-para-tomar-fotos.jpg',
-          ),
-          CustomPostWidget(
-            familyName: 'Familia Ballina Nuñez',
-            authorName: 'Aldahir Ballina',
-            imageUrl:
-                'https://mott.pe/noticias/wp-content/uploads/2019/03/la-isla-bora-bora-en-la-polinesia-francesa.jpg',
-          ),
-        ],
+      body: ResponsiveContent(
+        child: ListView(
+          children: const [
+            CustomPostWidget(
+              familyName: 'Familia Ballina Nuñez',
+              authorName: 'Aldahir Ballina',
+              imageUrl:
+                  'https://mott.pe/noticias/wp-content/uploads/2019/03/los-50-paisajes-maravillosos-del-mundo-para-tomar-fotos.jpg',
+            ),
+            CustomPostWidget(
+              familyName: 'Familia Ballina Nuñez',
+              authorName: 'Aldahir Ballina',
+              imageUrl:
+                  'https://mott.pe/noticias/wp-content/uploads/2019/03/la-isla-bora-bora-en-la-polinesia-francesa.jpg',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -59,7 +62,7 @@ void _showNotificationsDialog(BuildContext context) {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       title: const Text('Notificaciones'),
       content: SizedBox(
-        width: double.maxFinite,
+        width: 600,
         child: ListView(
           shrinkWrap: true,
           children: [
@@ -101,17 +104,19 @@ Widget _buildNotificationItem({
   required Color color,
   required String text,
 }) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(
-      children: [
-        CircleAvatar(
-          backgroundColor: color.withOpacity(0.2),
-          child: Icon(icon, color: color),
-        ),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
-      ],
+  return ResponsiveContent(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: color.withOpacity(0.2),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
+        ],
+      ),
     ),
   );
 }

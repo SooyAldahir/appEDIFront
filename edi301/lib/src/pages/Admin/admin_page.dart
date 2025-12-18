@@ -1,3 +1,4 @@
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:edi301/src/pages/Admin/reportes/reporte_familias_service.dart';
@@ -22,67 +23,81 @@ class _AdminPageState extends State<AdminPage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         elevation: 0,
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 15),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: CustomButton(
-              label: 'Agregar Familia',
-              onPressed: () => Navigator.pushNamed(context, 'add_family'),
-              icon: const Icon(Icons.add_home, color: Colors.white, size: 30),
-            ),
-          ),
-          const SizedBox(height: 15),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: CustomButton(
-              label: 'Asignar Alumnos',
-              onPressed: () => Navigator.pushNamed(context, 'add_alumns'),
-              icon: const Icon(Icons.person_add, color: Colors.white, size: 30),
-            ),
-          ),
-          const SizedBox(height: 15),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: CustomButton(
-              label: 'Consultar Familias',
-              onPressed: () => Navigator.pushNamed(context, 'get_family'),
-              icon: const Icon(Icons.visibility, color: Colors.white, size: 30),
-            ),
-          ),
-          const SizedBox(height: 15),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: CustomButton(
-              label: 'Mi Agenda',
-              onPressed: () => Navigator.pushNamed(context, 'agenda'),
-              icon: const Icon(
-                Icons.calendar_month,
-                color: Colors.white,
-                size: 30,
+      body: ResponsiveContent(
+        child: Column(
+          children: [
+            const SizedBox(height: 15),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: CustomButton(
+                label: 'Agregar Familia',
+                onPressed: () => Navigator.pushNamed(context, 'add_family'),
+                icon: const Icon(Icons.add_home, color: Colors.white, size: 30),
               ),
             ),
-          ),
-          const SizedBox(height: 15),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: CustomButton(
-              label: 'Reportes PDF', // <-- Nuevo texto
-              onPressed: () =>
-                  Navigator.pushNamed(context, 'reportes'), // <-- Nueva acción
-              icon: const Icon(
-                Icons.picture_as_pdf,
-                color: Colors.white,
-                size: 30,
-              ), // <-- Icono fijo
+            const SizedBox(height: 15),
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: CustomButton(
+                  label: 'Asignar Alumnos',
+                  onPressed: () => Navigator.pushNamed(context, 'add_alumns'),
+                  icon: const Icon(
+                    Icons.person_add,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 15),
-        ],
+            const SizedBox(height: 15),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: CustomButton(
+                label: 'Consultar Familias',
+                onPressed: () => Navigator.pushNamed(context, 'get_family'),
+                icon: const Icon(
+                  Icons.visibility,
+                  color: Colors.white,
+                  size: 30,
+                ),
+              ),
+            ),
+            const SizedBox(height: 15),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: CustomButton(
+                label: 'Mi Agenda',
+                onPressed: () => Navigator.pushNamed(context, 'agenda'),
+                icon: const Icon(
+                  Icons.calendar_month,
+                  color: Colors.white,
+                  size: 30,
+                ),
+              ),
+            ),
+            const SizedBox(height: 15),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: CustomButton(
+                label: 'Reportes PDF', // <-- Nuevo texto
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  'reportes',
+                ), // <-- Nueva acción
+                icon: const Icon(
+                  Icons.picture_as_pdf,
+                  color: Colors.white,
+                  size: 30,
+                ), // <-- Icono fijo
+              ),
+            ),
+            const SizedBox(height: 15),
+          ],
+        ),
       ),
     );
   }

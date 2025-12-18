@@ -1,5 +1,6 @@
 import 'dart:async'; // <--- 1. Importar para 'mounted'
 import 'dart:convert';
+import 'package:edi301/services/estados_api.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
@@ -14,6 +15,156 @@ class PerfilPage extends StatefulWidget {
 }
 
 class _PerfilPageState extends State<PerfilPage> {
+  bool _isAlumno = false;
+  int? _userId;
+
+  final EstadosApi _estadosApi = EstadosApi();
+
+  // 1) Lee 'user' de SharedPreferences y mapea a tu UI
+  Future<void> _hydrateFromLocal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('user');
+      if (raw == null) return;
+
+      final u = jsonDecode(raw) as Map<String, dynamic>;
+
+      // CORRECCIÓN: Usamos (?? '') para asegurar que nunca sea null
+      String tipo = (u['tipo_usuario'] ?? u['TipoUsuario'] ?? '').toString();
+
+      // Para el ID, aseguramos que sea int
+      int id = 0;
+      if (u['id_usuario'] != null) {
+        id = int.tryParse(u['id_usuario'].toString()) ?? 0;
+      } else if (u['IdUsuario'] != null) {
+        id = int.tryParse(u['IdUsuario'].toString()) ?? 0;
+      } else if (u['id'] != null) {
+        id = int.tryParse(u['id'].toString()) ?? 0;
+      }
+
+      String nombre = (u['nombre'] ?? u['Nombre'] ?? '').toString();
+      String apellido = (u['apellido'] ?? u['Apellido'] ?? '').toString();
+
+      setState(() {
+        _isAlumno = tipo.toUpperCase() == 'ALUMNO';
+        _userId = id;
+
+        data = {
+          ...data,
+          'name': (('$nombre $apellido').trim().isEmpty)
+              ? '—'
+              : ('$nombre $apellido').trim(),
+          'email': (u['correo'] ?? u['E_mail'] ?? '—').toString(),
+          'matricula': (u['matricula'] ?? u['Matricula'] ?? '—').toString(),
+          'phone': (u['telefono'] ?? u['Telefono'] ?? '—').toString(),
+          'residence': (u['residencia'] ?? u['Residencia'] ?? '—').toString(),
+          'address': (u['direccion'] ?? u['Direccion'] ?? '—').toString(),
+          'birthday': (u['fecha_nacimiento'] ?? u['Fecha_Nacimiento'] ?? '—')
+              .toString(),
+          'avatarUrl':
+              (u['foto_perfil'] ?? u['FotoPerfil'] ?? data['avatarUrl'])
+                  .toString(),
+
+          // Asegurar que leemos el estado correctamente sin nulos
+          'status': (u['estado'] ?? u['Estado'] ?? 'Activo').toString(),
+
+          'grade': (u['carrera'] ?? '—').toString(),
+          'family': (u['nombre_familia'] ?? '—').toString(),
+        };
+      });
+    } catch (e) {
+      print("Error cargando perfil local: $e");
+    }
+  }
+
+  // ... Método para mostrar el selector de estados ...
+  void _showEstadoSelector() async {
+    if (!_isAlumno || _userId == null) return;
+
+    // 1. Cargar catálogo
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final catalogo = await _estadosApi.getCatalogo();
+    if (!mounted) return;
+    Navigator.pop(context); // cerrar loading
+
+    if (catalogo.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudieron cargar los estados')),
+      );
+      return;
+    }
+
+    // 2. Mostrar BottomSheet para elegir
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'Actualizar mi estado',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: catalogo.length,
+                itemBuilder: (context, index) {
+                  final item = catalogo[index];
+                  return ListTile(
+                    leading: Icon(
+                      Icons.circle,
+                      size: 16,
+                      // Usamos el color que viene del catálogo
+                      color: hexToColor(item['color'] ?? '#000000'),
+                    ),
+                    title: Text(item['descripcion']),
+                    onTap: () async {
+                      Navigator.pop(context); // cerrar modal
+                      await _updateEstado(item['id_cat_estado']);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _updateEstado(int idCatEstado) async {
+    // Loading local
+    setState(() => _loading = true);
+    final success = await _estadosApi.updateEstado(_userId!, idCatEstado);
+
+    if (success) {
+      await _fetchFromServer(); // Recargar perfil para ver el nuevo estado
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Estado actualizado correctamente')),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error al actualizar estado')),
+        );
+      }
+    }
+    setState(() => _loading = false);
+  }
+
   // Datos base (fallbacks)
   Map<String, dynamic> data = {
     'name': '—',
@@ -49,37 +200,6 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   // 1) Lee 'user' de SharedPreferences y mapea a tu UI
-  Future<void> _hydrateFromLocal() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('user');
-    if (raw == null) return;
-    final u = jsonDecode(raw) as Map<String, dynamic>;
-
-    String nombre = (u['nombre'] ?? u['Nombre'] ?? '').toString();
-    String apellido = (u['apellido'] ?? u['Apellido'] ?? '').toString();
-
-    setState(() {
-      data = {
-        ...data,
-        'name': (('$nombre $apellido').trim().isEmpty)
-            ? '—'
-            : ('$nombre $apellido').trim(),
-        'email': (u['correo'] ?? u['E_mail'] ?? '—').toString(),
-        'matricula': (u['matricula'] ?? u['Matricula'] ?? '—').toString(),
-        'phone': (u['telefono'] ?? u['Telefono'] ?? '—').toString(),
-        'residence': (u['residencia'] ?? u['Residencia'] ?? '—').toString(),
-        'address': (u['direccion'] ?? u['Direccion'] ?? '—').toString(),
-        'birthday': (u['fecha_nacimiento'] ?? u['Fecha_Nacimiento'] ?? '—')
-            .toString(),
-        'avatarUrl': (u['foto_perfil'] ?? u['FotoPerfil'] ?? data['avatarUrl'])
-            .toString(),
-        'status': (u['estado'] ?? u['Estado'] ?? 'Activo').toString(),
-        'grade': (u['carrera'] ?? '—').toString(), // para alumnos
-        // --- 4. Añadir el nombre de la familia desde el local ---
-        'family': (u['nombre_familia'] ?? '—').toString(),
-      };
-    });
-  }
 
   // 2) Completa desde API /api/usuarios/:id para traer campos nuevos/actualizados
   Future<void> _fetchFromServer() async {
@@ -102,6 +222,7 @@ class _PerfilPageState extends State<PerfilPage> {
           .toString();
       String apellido = (x['apellido'] ?? x['Apellido'] ?? u['apellido'] ?? '')
           .toString();
+      String colorHex = (x['color_estado'] ?? '#13436B').toString();
 
       setState(() {
         data = {
@@ -126,6 +247,7 @@ class _PerfilPageState extends State<PerfilPage> {
               (x['foto_perfil'] ?? x['FotoPerfil'] ?? data['avatarUrl'])
                   .toString(),
           'status': (x['estado'] ?? x['Estado'] ?? data['status']).toString(),
+          'statusColorHex': colorHex,
           'grade': (x['carrera'] ?? data['grade']).toString(),
           // --- 5. AÑADIR EL CAMPO DE FAMILIA DESDE LA API ---
           'family': (x['nombre_familia'] ?? data['family']).toString(),
@@ -275,14 +397,18 @@ class _PerfilPageState extends State<PerfilPage> {
           children: [
             HeaderCard(
               name: s('name'),
-              family: s('family'), // <--- 8. Este campo ahora se llenará
+              family: s('family'),
               residence: s('residence'),
               status: s('status', 'Activo'),
               avatarUrl: s('avatarUrl'),
               showAvatar: showAvatar,
               primary: p,
-              statusColor: _statusColor(s('status', 'Activo')),
+              statusColor: data['statusColorHex'] != null
+                  ? hexToColor(data['statusColorHex'])
+                  : _statusColor(s('status', 'Activo')),
               onToggleAvatar: (v) => setState(() => showAvatar = v),
+              // Solo pasamos la función si es alumno
+              onTapStatus: _isAlumno ? _showEstadoSelector : null,
             ),
             const SizedBox(height: 12),
 
@@ -364,5 +490,17 @@ class _PerfilPageState extends State<PerfilPage> {
         ),
       ),
     );
+  }
+}
+
+// Función auxiliar para convertir Hex a Color
+Color hexToColor(String hexString, {Color defaultColor = Colors.blue}) {
+  try {
+    final buffer = StringBuffer();
+    if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
+    buffer.write(hexString.replaceFirst('#', ''));
+    return Color(int.parse(buffer.toString(), radix: 16));
+  } catch (e) {
+    return defaultColor;
   }
 }

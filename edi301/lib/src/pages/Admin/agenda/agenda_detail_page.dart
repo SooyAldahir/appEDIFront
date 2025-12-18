@@ -1,4 +1,5 @@
 // lib/src/pages/Admin/agenda/agenda_detail_page.dart
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/services/eventos_api.dart'; // Para el modelo Evento
 
@@ -46,63 +47,65 @@ class AgendaDetailPage extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Mostrar imagen si existe
-          if (evento.imagen != null && evento.imagen!.startsWith('http'))
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                evento.imagen!,
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (ctx, err, stack) => Container(
+      body: ResponsiveContent(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Mostrar imagen si existe
+            if (evento.imagen != null && evento.imagen!.startsWith('http'))
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  evento.imagen!,
                   height: 200,
-                  color: Colors.grey[200],
-                  child: const Center(
-                    child: Icon(
-                      Icons.broken_image,
-                      size: 100,
-                      color: Colors.grey,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, stack) => Container(
+                    height: 200,
+                    color: Colors.grey[200],
+                    child: const Center(
+                      child: Icon(
+                        Icons.broken_image,
+                        size: 100,
+                        color: Colors.grey,
+                      ),
                     ),
                   ),
                 ),
               ),
+            const SizedBox(height: 16),
+
+            Text(
+              evento.titulo,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-          Text(
-            evento.titulo,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
+            // Fecha y Hora
+            _InfoTile(
+              icon: Icons.calendar_today,
+              label: 'Fecha',
+              value: formatDate(evento.fechaEvento),
+            ),
+            _InfoTile(
+              icon: Icons.access_time,
+              label: 'Hora',
+              value: formatTime(evento.horaEvento),
+            ),
+            const Divider(height: 32),
 
-          // Fecha y Hora
-          _InfoTile(
-            icon: Icons.calendar_today,
-            label: 'Fecha',
-            value: formatDate(evento.fechaEvento),
-          ),
-          _InfoTile(
-            icon: Icons.access_time,
-            label: 'Hora',
-            value: formatTime(evento.horaEvento),
-          ),
-          const Divider(height: 32),
-
-          // Descripción
-          _InfoTile(
-            icon: Icons.description_outlined,
-            label: 'Descripción',
-            value: (evento.descripcion == null || evento.descripcion!.isEmpty)
-                ? 'No hay descripción.'
-                : evento.descripcion!,
-          ),
-        ],
+            // Descripción
+            _InfoTile(
+              icon: Icons.description_outlined,
+              label: 'Descripción',
+              value: (evento.descripcion == null || evento.descripcion!.isEmpty)
+                  ? 'No hay descripción.'
+                  : evento.descripcion!,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/Register/register_controller.dart';
 import 'package:flutter/scheduler.dart';
@@ -51,28 +52,30 @@ class _RegisterPageState extends State<RegisterPage> {
           onPressed: _controller.goToLoginPage,
         ),
       ),
-      body: SingleChildScrollView(
-        child: SizedBox(
-          width: double.infinity,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            // --- Escucha el "paso" actual del registro ---
-            child: ValueListenableBuilder<int>(
-              valueListenable: _controller.registrationStep,
-              builder: (context, step, child) {
-                // Muestra la UI correspondiente al paso
-                switch (step) {
-                  case 1:
-                    return _buildStep1VerifyEmail();
-                  case 2:
-                    return _buildStep2VerifyCode();
-                  case 3:
-                    return _buildStep3SetPassword();
-                  case 0: // Por defecto
-                  default:
-                    return _buildStep0EnterDocument();
-                }
-              },
+      body: ResponsiveContent(
+        child: SingleChildScrollView(
+          child: SizedBox(
+            width: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              // --- Escucha el "paso" actual del registro ---
+              child: ValueListenableBuilder<int>(
+                valueListenable: _controller.registrationStep,
+                builder: (context, step, child) {
+                  // Muestra la UI correspondiente al paso
+                  switch (step) {
+                    case 1:
+                      return _buildStep1VerifyEmail();
+                    case 2:
+                      return _buildStep2VerifyCode();
+                    case 3:
+                      return _buildStep3SetPassword();
+                    case 0: // Por defecto
+                    default:
+                      return _buildStep0EnterDocument();
+                  }
+                },
+              ),
             ),
           ),
         ),
@@ -86,8 +89,8 @@ class _RegisterPageState extends State<RegisterPage> {
       children: [
         const Image(
           image: AssetImage('assets/img/logo_edi.png'),
-          width: 150,
-          height: 150,
+          width: 225,
+          height: 225,
         ),
         const SizedBox(height: 20),
         const Text(
@@ -127,8 +130,8 @@ class _RegisterPageState extends State<RegisterPage> {
             Center(
               child: const Image(
                 image: AssetImage('assets/img/logo_edi.png'),
-                width: 100,
-                height: 100,
+                width: 225,
+                height: 225,
               ),
             ),
             const SizedBox(height: 20),

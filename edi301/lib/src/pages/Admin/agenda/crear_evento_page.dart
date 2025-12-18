@@ -1,4 +1,5 @@
 // lib/src/pages/Admin/agenda/crear_evento_page.dart
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/src/pages/Admin/agenda/agenda_controller.dart';
 
@@ -60,166 +61,170 @@ class _CrearEventoPageState extends State<CrearEventoPage> {
         title: const Text('Crear Evento'),
         backgroundColor: primary,
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            TextFormField(
-              controller: _controller.tituloCtrl,
-              decoration: const InputDecoration(labelText: 'Título del evento'),
-              validator: (v) => v!.isEmpty ? 'El título es requerido' : null,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _controller.descCtrl,
-              decoration: const InputDecoration(labelText: 'Descripción'),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _controller.imagenCtrl,
-              decoration: const InputDecoration(
-                labelText: 'URL de la imagen (Opcional)',
+      body: ResponsiveContent(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              TextFormField(
+                controller: _controller.tituloCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Título del evento',
+                ),
+                validator: (v) => v!.isEmpty ? 'El título es requerido' : null,
               ),
-              //keyboardType: TextInputType.url,
-            ),
-            const SizedBox(height: 24),
-
-            // --- Selectores de Fecha y Hora ---
-            Row(
-              children: [
-                Expanded(
-                  child: ListTile(
-                    title: const Text('Fecha del Evento'),
-                    subtitle: Text(
-                      _controller.fechaEvento != null
-                          ? '${_controller.fechaEvento!.day}/${_controller.fechaEvento!.month}/${_controller.fechaEvento!.year}'
-                          : 'No seleccionada',
-                    ),
-                    leading: const Icon(Icons.calendar_today),
-                    onTap: () => _selectFecha(context),
-                  ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _controller.descCtrl,
+                decoration: const InputDecoration(labelText: 'Descripción'),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _controller.imagenCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'URL de la imagen (Opcional)',
                 ),
-                Expanded(
-                  child: ListTile(
-                    title: const Text('Hora (Opcional)'),
-                    subtitle: Text(
-                      _controller.horaEvento != null
-                          ? _controller.horaEvento!.format(context)
-                          : 'No seleccionada',
+                //keyboardType: TextInputType.url,
+              ),
+              const SizedBox(height: 24),
+
+              // --- Selectores de Fecha y Hora ---
+              Row(
+                children: [
+                  Expanded(
+                    child: ListTile(
+                      title: const Text('Fecha del Evento'),
+                      subtitle: Text(
+                        _controller.fechaEvento != null
+                            ? '${_controller.fechaEvento!.day}/${_controller.fechaEvento!.month}/${_controller.fechaEvento!.year}'
+                            : 'No seleccionada',
+                      ),
+                      leading: const Icon(Icons.calendar_today),
+                      onTap: () => _selectFecha(context),
                     ),
-                    leading: const Icon(Icons.access_time),
-                    onTap: () => _selectHora(context),
                   ),
-                ),
-              ],
-            ),
-            const Divider(height: 32),
-
-            // --- Switch de Recordatorio ---
-            ValueListenableBuilder<bool>(
-              valueListenable: _controller.crearRecordatorio,
-              builder: (context, value, child) {
-                return SwitchListTile(
-                  title: const Text('Establecer recordatorio'),
-                  subtitle: const Text(
-                    'Programar un recordatorio recurrente para este evento',
+                  Expanded(
+                    child: ListTile(
+                      title: const Text('Hora (Opcional)'),
+                      subtitle: Text(
+                        _controller.horaEvento != null
+                            ? _controller.horaEvento!.format(context)
+                            : 'No seleccionada',
+                      ),
+                      leading: const Icon(Icons.access_time),
+                      onTap: () => _selectHora(context),
+                    ),
                   ),
-                  value: value,
-                  onChanged: (newValue) {
-                    _controller.crearRecordatorio.value = newValue;
-                  },
-                );
-              },
-            ),
+                ],
+              ),
+              const Divider(height: 32),
 
-            // --- Opciones de Recordatorio (condicional) ---
-            ValueListenableBuilder<bool>(
-              valueListenable: _controller.crearRecordatorio,
-              builder: (context, crear, child) {
-                if (!crear) return const SizedBox.shrink();
+              // --- Switch de Recordatorio ---
+              ValueListenableBuilder<bool>(
+                valueListenable: _controller.crearRecordatorio,
+                builder: (context, value, child) {
+                  return SwitchListTile(
+                    title: const Text('Establecer recordatorio'),
+                    subtitle: const Text(
+                      'Programar un recordatorio recurrente para este evento',
+                    ),
+                    value: value,
+                    onChanged: (newValue) {
+                      _controller.crearRecordatorio.value = newValue;
+                    },
+                  );
+                },
+              ),
 
-                // Estos son los campos para el *recordatorio*
-                return Container(
-                  padding: const EdgeInsets.all(12),
-                  color: Colors.blue.withOpacity(0.05),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Opciones del Recordatorio",
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _controller.recordatorioHoraCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Hora del recordatorio (ej: 13:00)',
-                          icon: Icon(Icons.alarm),
+              // --- Opciones de Recordatorio (condicional) ---
+              ValueListenableBuilder<bool>(
+                valueListenable: _controller.crearRecordatorio,
+                builder: (context, crear, child) {
+                  if (!crear) return const SizedBox.shrink();
+
+                  // Estos son los campos para el *recordatorio*
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    color: Colors.blue.withOpacity(0.05),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Opciones del Recordatorio",
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
-                        validator: (v) => (v!.isEmpty || v.length < 5)
-                            ? 'Formato HH:MM requerido'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        value: _controller.recordatorioTipo,
-                        decoration: const InputDecoration(
-                          labelText: 'Frecuencia',
-                          icon: Icon(Icons.repeat),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'DAY',
-                            child: Text('Diariamente'),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _controller.recordatorioHoraCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Hora del recordatorio (ej: 13:00)',
+                            icon: Icon(Icons.alarm),
                           ),
-                          DropdownMenuItem(
-                            value: 'WEEK',
-                            child: Text('Semanalmente'),
-                          ),
-                        ],
-                        onChanged: (v) =>
-                            setState(() => _controller.recordatorioTipo = v!),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _controller.recordatorioDiasAntesCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Iniciar recordatorios (días antes)',
-                          icon: Icon(Icons.notification_add),
+                          validator: (v) => (v!.isEmpty || v.length < 5)
+                              ? 'Formato HH:MM requerido'
+                              : null,
                         ),
-                        keyboardType: TextInputType.number,
-                        validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          value: _controller.recordatorioTipo,
+                          decoration: const InputDecoration(
+                            labelText: 'Frecuencia',
+                            icon: Icon(Icons.repeat),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'DAY',
+                              child: Text('Diariamente'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'WEEK',
+                              child: Text('Semanalmente'),
+                            ),
+                          ],
+                          onChanged: (v) =>
+                              setState(() => _controller.recordatorioTipo = v!),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _controller.recordatorioDiasAntesCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Iniciar recordatorios (días antes)',
+                            icon: Icon(Icons.notification_add),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 32),
 
-            // --- Botón de Guardar ---
-            ValueListenableBuilder<bool>(
-              valueListenable: _controller.loading,
-              builder: (context, isLoading, child) {
-                return ElevatedButton(
-                  onPressed: isLoading
-                      ? null
-                      : () {
-                          if (_formKey.currentState!.validate()) {
-                            _controller.guardarEvento();
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: Text(isLoading ? 'GUARDANDO...' : 'GUARDAR EVENTO'),
-                );
-              },
-            ),
-          ],
+              // --- Botón de Guardar ---
+              ValueListenableBuilder<bool>(
+                valueListenable: _controller.loading,
+                builder: (context, isLoading, child) {
+                  return ElevatedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () {
+                            if (_formKey.currentState!.validate()) {
+                              _controller.guardarEvento();
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(isLoading ? 'GUARDANDO...' : 'GUARDAR EVENTO'),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

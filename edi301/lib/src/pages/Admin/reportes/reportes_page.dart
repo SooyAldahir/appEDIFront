@@ -1,4 +1,5 @@
 // lib/src/pages/Admin/reportes/reportes_page.dart
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/src/pages/Admin/get_family/get_family_controller.dart';
 import 'package:edi301/models/family_model.dart' as fm;
@@ -89,51 +90,55 @@ class _ReportesPageState extends State<ReportesPage> {
         title: const Text('Generar Reportes PDF'),
         backgroundColor: primary,
       ),
-      body: Column(
-        children: [
-          // 1. Botón de Reporte General
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: ElevatedButton.icon(
-              icon: _isLoadingGeneral
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(color: Colors.white),
-                    )
-                  : const Icon(Icons.download_for_offline),
-              label: Text(
-                _isLoadingGeneral ? 'GENERANDO...' : 'GENERAR REPORTE GENERAL',
-              ),
-              onPressed: _isLoadingGeneral ? null : _generarReporteGeneral,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 48),
+      body: ResponsiveContent(
+        child: Column(
+          children: [
+            // 1. Botón de Reporte General
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: ElevatedButton.icon(
+                icon: _isLoadingGeneral
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    : const Icon(Icons.download_for_offline),
+                label: Text(
+                  _isLoadingGeneral
+                      ? 'GENERANDO...'
+                      : 'GENERAR REPORTE GENERAL',
+                ),
+                onPressed: _isLoadingGeneral ? null : _generarReporteGeneral,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                ),
               ),
             ),
-          ),
 
-          const Divider(thickness: 2),
+            const Divider(thickness: 2),
 
-          // 2. Buscador de Reporte Individual
-          _textFieldSearch(),
+            // 2. Buscador de Reporte Individual
+            _textFieldSearch(),
 
-          // 3. Lista de Familias
-          Expanded(
-            child: ValueListenableBuilder<List<fm.Family>>(
-              valueListenable: _searchController.results,
-              builder: (_, families, __) {
-                if (families.isEmpty) {
-                  return const Center(
-                    child: Text('No se encontraron familias.'),
-                  );
-                }
-                return _buildFamilyCards(families);
-              },
+            // 3. Lista de Familias
+            Expanded(
+              child: ValueListenableBuilder<List<fm.Family>>(
+                valueListenable: _searchController.results,
+                builder: (_, families, __) {
+                  if (families.isEmpty) {
+                    return const Center(
+                      child: Text('No se encontraron familias.'),
+                    );
+                  }
+                  return _buildFamilyCards(families);
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

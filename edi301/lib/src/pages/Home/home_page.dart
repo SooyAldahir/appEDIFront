@@ -42,6 +42,23 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // LayoutBuilder nos dice cuánto espacio tenemos disponible
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Si el ancho es menor a 640px, usamos diseño de celular (barra abajo)
+        if (constraints.maxWidth < 640) {
+          return _buildMobileLayout();
+        }
+        // Si es mayor, usamos diseño tablet (barra a la izquierda)
+        else {
+          return _buildTabletLayout();
+        }
+      },
+    );
+  }
+
+  /// DISEÑO CELULAR: Menú abajo
+  Widget _buildMobileLayout() {
     return Scaffold(
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
@@ -76,28 +93,62 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// DISEÑO TABLET/WEB: Menú lateral izquierdo (NavigationRail)
+  Widget _buildTabletLayout() {
+    return Scaffold(
+      body: Row(
+        children: [
+          NavigationRail(
+            backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: _onItemTapped,
+            labelType: NavigationRailLabelType.none,
+            // Centrar items verticalmente (opcional)
+            groupAlignment: 0.0,
+            destinations: [
+              NavigationRailDestination(
+                icon: _buildIcon(Icons.newspaper, 0),
+                label: const Text(''),
+              ),
+              NavigationRailDestination(
+                icon: _buildIcon(Icons.family_restroom_outlined, 1),
+                label: const Text(''),
+              ),
+              NavigationRailDestination(
+                icon: _buildIcon(Icons.person_search, 2),
+                label: const Text(''),
+              ),
+              NavigationRailDestination(
+                icon: _buildIcon(Icons.admin_panel_settings, 3),
+                label: const Text(''),
+              ),
+              NavigationRailDestination(
+                icon: _buildIcon(Icons.person, 4),
+                label: const Text(''),
+              ),
+            ],
+          ),
+
+          // El contenido ocupa el resto del espacio
+          Expanded(child: _pages[_selectedIndex]),
+        ],
+      ),
+    );
+  }
+
+  // Tu función original de iconos (la reutilizamos para ambos diseños)
   Widget _buildIcon(IconData icon, int index) {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: _selectedIndex == index
-            ? const Color.fromRGBO(
-                245,
-                188,
-                6,
-                1,
-              ) // Color amarillo de fondo para el seleccionado
-            : Colors.transparent, // Sin fondo para los no seleccionados
+            ? const Color.fromRGBO(245, 188, 6, 1) // Amarillo seleccionado
+            : Colors.transparent,
       ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 7,
-        vertical: 7,
-      ), // Tamaño del padding para el círculo
+      padding: const EdgeInsets.all(7),
       child: Icon(
         icon,
-        color: _selectedIndex == index
-            ? Colors.white
-            : Colors.white70, // Ajusta el color del ícono
+        color: _selectedIndex == index ? Colors.white : Colors.white70,
       ),
     );
   }

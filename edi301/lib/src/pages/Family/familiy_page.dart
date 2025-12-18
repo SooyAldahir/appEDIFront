@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/models/family_model.dart';
 import 'package:edi301/services/familia_api.dart';
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/src/pages/Family/family_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -66,106 +67,110 @@ class _FamilyPageState extends State<FamiliyPage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         elevation: 0,
       ),
-      body: FutureBuilder<Family?>(
-        future: _familyFuture,
-        builder: (context, snapshot) {
-          // --- ESTADO DE CARGA ---
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: ResponsiveContent(
+        child: FutureBuilder<Family?>(
+          future: _familyFuture,
+          builder: (context, snapshot) {
+            // --- ESTADO DE CARGA ---
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          // --- ESTADO DE ERROR ---
-          if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'No se pudieron cargar los datos de la familia.\n${snapshot.error ?? ''}',
-                  textAlign: TextAlign.center,
+            // --- ESTADO DE ERROR ---
+            if (snapshot.hasError ||
+                !snapshot.hasData ||
+                snapshot.data == null) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'No se pudieron cargar los datos de la familia.\n${snapshot.error ?? ''}',
+                    textAlign: TextAlign.center,
+                  ),
                 ),
+              );
+            }
+
+            // --- ESTADO DE ÉXITO ---
+            final family = snapshot.data!;
+            final String baseUrl = ApiHttp.baseUrl;
+
+            // Lógica para determinar la imagen de portada
+            final ImageProvider coverImage;
+            final String? coverUrl = family.fotoPortadaUrl;
+            if (coverUrl != null && coverUrl.isNotEmpty) {
+              coverImage = NetworkImage('$baseUrl$coverUrl');
+            } else {
+              coverImage = const AssetImage(
+                'assets/img/familia-extensa-e1591818033557.jpg',
+              );
+            }
+
+            // Lógica para determinar la imagen de perfil
+            final ImageProvider profileImage;
+            final String? profileUrl = family.fotoPerfilUrl;
+            if (profileUrl != null && profileUrl.isNotEmpty) {
+              profileImage = NetworkImage('$baseUrl$profileUrl');
+            } else {
+              profileImage = const AssetImage(
+                'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
+              );
+            }
+
+            return SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 200,
+                    child: FamilyWidget(
+                      backgroundImage: coverImage,
+                      circleImage: profileImage,
+                      onTap: () {},
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: FamilyData(
+                      familyName: family.familyName,
+                      numChildres:
+                          (family.householdChildren.length +
+                                  family.assignedStudents.length)
+                              .toString(),
+                      text: 'Hijos EDI',
+                      description:
+                          family.descripcion ??
+                          'Añade una descripción en "Editar Perfil".',
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  _bottomEditProfile(),
+                  const SizedBox(height: 10),
+                  _buildToggleButtons(),
+                  const SizedBox(height: 10),
+                  mostrarHijos
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: () {
+                            // 1. Crea una lista combinada
+                            final List<FamilyMember> todosLosHijos = [
+                              ...family.householdChildren,
+                              ...family.assignedStudents,
+                            ];
+                            // 2. Pasa la lista combinada al widget
+                            return _buildHijosList(todosLosHijos);
+                          }(),
+                        )
+                      : _buildFotosGrid(),
+                ],
               ),
             );
-          }
-
-          // --- ESTADO DE ÉXITO ---
-          final family = snapshot.data!;
-          final String baseUrl = ApiHttp.baseUrl;
-
-          // Lógica para determinar la imagen de portada
-          final ImageProvider coverImage;
-          final String? coverUrl = family.fotoPortadaUrl;
-          if (coverUrl != null && coverUrl.isNotEmpty) {
-            coverImage = NetworkImage('$baseUrl$coverUrl');
-          } else {
-            coverImage = const AssetImage(
-              'assets/img/familia-extensa-e1591818033557.jpg',
-            );
-          }
-
-          // Lógica para determinar la imagen de perfil
-          final ImageProvider profileImage;
-          final String? profileUrl = family.fotoPerfilUrl;
-          if (profileUrl != null && profileUrl.isNotEmpty) {
-            profileImage = NetworkImage('$baseUrl$profileUrl');
-          } else {
-            profileImage = const AssetImage(
-              'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-            );
-          }
-
-          return SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: 200,
-                  child: FamilyWidget(
-                    backgroundImage: coverImage,
-                    circleImage: profileImage,
-                    onTap: () {},
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: FamilyData(
-                    familyName: family.familyName,
-                    numChildres:
-                        (family.householdChildren.length +
-                                family.assignedStudents.length)
-                            .toString(),
-                    text: 'Hijos EDI',
-                    description:
-                        family.descripcion ??
-                        'Añade una descripción en "Editar Perfil".',
-                  ),
-                ),
-                const SizedBox(height: 5),
-                _bottomEditProfile(),
-                const SizedBox(height: 10),
-                _buildToggleButtons(),
-                const SizedBox(height: 10),
-                mostrarHijos
-                    ? Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: () {
-                          // 1. Crea una lista combinada
-                          final List<FamilyMember> todosLosHijos = [
-                            ...family.householdChildren,
-                            ...family.assignedStudents,
-                          ];
-                          // 2. Pasa la lista combinada al widget
-                          return _buildHijosList(todosLosHijos);
-                        }(),
-                      )
-                    : _buildFotosGrid(),
-              ],
-            ),
-          );
-        },
+          },
+        ),
       ),
     );
   }
@@ -406,7 +411,7 @@ class FamilyWidget extends StatelessWidget {
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                      border: Border.all(color: Colors.white, width: 0.3),
                     ),
                   ),
                 ),

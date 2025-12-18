@@ -1,5 +1,6 @@
 // lib/src/pages/Admin/studient_detail/studient_detail_page.dart
 import 'dart:convert';
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -126,13 +127,15 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
         backgroundColor: primary,
         title: const Text('Detalle del alumno'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Text(_error!, style: const TextStyle(color: Colors.red)),
-            )
-          : _buildContent(context, theme, primary),
+      body: ResponsiveContent(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Text(_error!, style: const TextStyle(color: Colors.red)),
+              )
+            : _buildContent(context, theme, primary),
+      ),
     );
   }
 

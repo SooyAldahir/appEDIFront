@@ -1,5 +1,6 @@
 // lib/src/pages/Admin/add_family/add_family_page.dart
 
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/services/search_api.dart';
 import 'add_family_controller.dart';
@@ -36,131 +37,135 @@ class _AddFamilyPageState extends State<AddFamilyPage> {
         title: const Text('Crear familia'),
         backgroundColor: primary,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Nombre automático (escucha al ValueNotifier)
-          ValueListenableBuilder<String>(
-            valueListenable: c.familyNameListenable,
-            builder: (_, name, __) => ListTile(
-              leading: const Icon(Icons.family_restroom),
-              title: const Text('Nombre de la familia'),
-              subtitle: Text(
-                name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+      body: ResponsiveContent(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Nombre automático (escucha al ValueNotifier)
+            ValueListenableBuilder<String>(
+              valueListenable: c.familyNameListenable,
+              builder: (_, name, __) => ListTile(
+                leading: const Icon(Icons.family_restroom),
+                title: const Text('Nombre de la familia'),
+                subtitle: Text(
+                  name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 8),
-          _employeeSearch(
-            label: 'Papá (empleado)',
-            ctrl: c.fatherCtrl,
-            onChanged: (v) => c.searchEmployee(v, isFather: true),
-            resultsListenable: c.fatherResults,
-            onPick: c.pickFather,
-          ),
-          const SizedBox(height: 8),
-          _employeeSearch(
-            label: 'Mamá (empleado)',
-            ctrl: c.motherCtrl,
-            onChanged: (v) => c.searchEmployee(v, isFather: false),
-            resultsListenable: c.motherResults,
-            onPick: c.pickMother,
-          ),
+            const SizedBox(height: 8),
+            _employeeSearch(
+              label: 'Papá (empleado)',
+              ctrl: c.fatherCtrl,
+              onChanged: (v) => c.searchEmployee(v, isFather: true),
+              resultsListenable: c.fatherResults,
+              onPick: c.pickFather,
+            ),
+            const SizedBox(height: 8),
+            _employeeSearch(
+              label: 'Mamá (empleado)',
+              ctrl: c.motherCtrl,
+              onChanged: (v) => c.searchEmployee(v, isFather: false),
+              resultsListenable: c.motherResults,
+              onPick: c.pickMother,
+            ),
 
-          const SizedBox(height: 12),
-          // Switch vinculado al ValueNotifier<bool>
-          ValueListenableBuilder<bool>(
-            valueListenable: c.internalResidenceListenable,
-            builder: (_, internal, __) => Column(
-              children: [
-                SwitchListTile.adaptive(
-                  value: internal,
-                  onChanged: (v) => c.internalResidence = v,
-                  title: const Text('Residencia interna'),
-                ),
-                if (!internal)
-                  TextField(
-                    controller: c.addressCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Dirección (requerida si es Externa)',
-                      prefixIcon: Icon(Icons.home_outlined),
-                    ),
+            const SizedBox(height: 12),
+            // Switch vinculado al ValueNotifier<bool>
+            ValueListenableBuilder<bool>(
+              valueListenable: c.internalResidenceListenable,
+              builder: (_, internal, __) => Column(
+                children: [
+                  SwitchListTile.adaptive(
+                    value: internal,
+                    onChanged: (v) => c.internalResidence = v,
+                    title: const Text('Residencia interna'),
                   ),
-              ],
-            ),
-          ),
-
-          const Divider(height: 32),
-          const Text(
-            'Hijos sanguíneos',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: childSearchCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Buscar alumno por nombre o matrícula',
-              prefixIcon: Icon(Icons.search),
-            ),
-            onChanged: c.searchChildByText,
-          ),
-          // Resultados de alumnos para agregar
-          ValueListenableBuilder<List<UserMini>>(
-            valueListenable: c.childResults,
-            builder: (_, list, __) => Column(
-              children: list
-                  .take(5)
-                  .map(
-                    (u) => ListTile(
-                      dense: true,
-                      leading: const CircleAvatar(child: Icon(Icons.person)),
-                      title: Text('${u.nombre} ${u.apellido}'.trim()),
-                      subtitle: Text(
-                        u.matricula != null ? 'Matrícula: ${u.matricula}' : '',
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.add_circle_outline),
-                        onPressed: () => setState(() => c.addChild(u)),
+                  if (!internal)
+                    TextField(
+                      controller: c.addressCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Dirección (requerida si es Externa)',
+                        prefixIcon: Icon(Icons.home_outlined),
                       ),
                     ),
-                  )
-                  .toList(),
+                ],
+              ),
             ),
-          ),
-          // Chips con niños agregados
-          ValueListenableBuilder<List<UserMini>>(
-            valueListenable: c.children,
-            builder: (_, kids, __) => Wrap(
-              spacing: 6,
-              runSpacing: -8,
-              children: kids
-                  .asMap()
-                  .entries
-                  .map(
-                    (e) => Chip(
-                      label: Text(
-                        '${e.value.nombre} ${e.value.apellido}'.trim(),
-                      ),
-                      deleteIcon: const Icon(Icons.close),
-                      onDeleted: () => setState(() => c.removeChild(e.key)),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
 
-          const SizedBox(height: 24),
-          ValueListenableBuilder<bool>(
-            valueListenable: c.loading,
-            builder: (_, loading, __) => ElevatedButton.icon(
-              icon: const Icon(Icons.save),
-              label: Text(loading ? 'Guardando...' : 'Guardar'),
-              onPressed: loading ? null : () => c.save(context),
+            const Divider(height: 32),
+            const Text(
+              'Hijos sanguíneos',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            TextField(
+              controller: childSearchCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Buscar alumno por nombre o matrícula',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: c.searchChildByText,
+            ),
+            // Resultados de alumnos para agregar
+            ValueListenableBuilder<List<UserMini>>(
+              valueListenable: c.childResults,
+              builder: (_, list, __) => Column(
+                children: list
+                    .take(5)
+                    .map(
+                      (u) => ListTile(
+                        dense: true,
+                        leading: const CircleAvatar(child: Icon(Icons.person)),
+                        title: Text('${u.nombre} ${u.apellido}'.trim()),
+                        subtitle: Text(
+                          u.matricula != null
+                              ? 'Matrícula: ${u.matricula}'
+                              : '',
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.add_circle_outline),
+                          onPressed: () => setState(() => c.addChild(u)),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            // Chips con niños agregados
+            ValueListenableBuilder<List<UserMini>>(
+              valueListenable: c.children,
+              builder: (_, kids, __) => Wrap(
+                spacing: 6,
+                runSpacing: -8,
+                children: kids
+                    .asMap()
+                    .entries
+                    .map(
+                      (e) => Chip(
+                        label: Text(
+                          '${e.value.nombre} ${e.value.apellido}'.trim(),
+                        ),
+                        deleteIcon: const Icon(Icons.close),
+                        onDeleted: () => setState(() => c.removeChild(e.key)),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+            ValueListenableBuilder<bool>(
+              valueListenable: c.loading,
+              builder: (_, loading, __) => ElevatedButton.icon(
+                icon: const Icon(Icons.save),
+                label: Text(loading ? 'Guardando...' : 'Guardar'),
+                onPressed: loading ? null : () => c.save(context),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

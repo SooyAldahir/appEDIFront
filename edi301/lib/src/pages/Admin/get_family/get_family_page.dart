@@ -1,3 +1,4 @@
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:edi301/src/pages/Admin/get_family/get_family_controller.dart';
@@ -34,26 +35,29 @@ class _GetFamiliyPageState extends State<GetFamilyPage> {
       appBar: AppBar(
         title: const Text('Regresar'),
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+        elevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _textFieldSearch(),
-            const SizedBox(height: 10),
-            // 👇 results ahora es List<fm.Family>
-            ValueListenableBuilder<List<fm.Family>>(
-              valueListenable: _controller.results,
-              builder: (_, families, __) {
-                if (families.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text('No se encontraron familias.'),
-                  );
-                }
-                return _buildFamilyCards(families);
-              },
-            ),
-          ],
+      body: ResponsiveContent(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _textFieldSearch(),
+              const SizedBox(height: 10),
+              // 👇 results ahora es List<fm.Family>
+              ValueListenableBuilder<List<fm.Family>>(
+                valueListenable: _controller.results,
+                builder: (_, families, __) {
+                  if (families.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(20),
+                      child: Text('No se encontraron familias.'),
+                    );
+                  }
+                  return _buildFamilyCards(families);
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

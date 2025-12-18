@@ -1,3 +1,4 @@
+import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/Login/login_controller.dart';
 import 'package:flutter/scheduler.dart';
@@ -32,24 +33,26 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-      body: SingleChildScrollView(
-        child: SizedBox(
-          width: double.infinity,
-          child: Column(
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(left: 40, right: 40, top: 100),
-                child: Image(
-                  image: AssetImage('assets/img/logo_edi.png'),
-                  width: 225,
-                  height: 225,
+      body: ResponsiveContent(
+        child: SingleChildScrollView(
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(left: 40, right: 40, top: 100),
+                  child: Image(
+                    image: AssetImage('assets/img/logo_edi.png'),
+                    width: 225,
+                    height: 225,
+                  ),
                 ),
-              ),
-              _textFieldUser(),
-              _textFieldPassword(),
-              _buttonLogin(),
-              _textDontHaveAccount(),
-            ],
+                _textFieldUser(),
+                _textFieldPassword(),
+                _buttonLogin(),
+                _textDontHaveAccount(),
+              ],
+            ),
           ),
         ),
       ),

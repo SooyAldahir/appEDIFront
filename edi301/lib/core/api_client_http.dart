@@ -10,15 +10,12 @@ class ApiHttp extends http.BaseClient {
   static final ApiHttp _i = ApiHttp._internal();
   factory ApiHttp() => _i;
 
-  // Ajusta tu base URL:
-  static const String baseUrl = 'http://192.168.1.149:3000';
+  static const String baseUrl = 'http://192.168.100.41:3000';
 
   final http.Client _inner = http.Client();
 
-  /// Tiempo máximo de espera por request
   final Duration _timeout = const Duration(seconds: 20);
 
-  /// Si necesitas headers comunes en todas las llamadas, agrégalos aquí
   Map<String, String> get _baseHeaders => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -35,7 +32,6 @@ class ApiHttp extends http.BaseClient {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return Uri.parse(url);
     }
-    // normaliza: evita doble slash
     final base = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;
@@ -45,17 +41,12 @@ class ApiHttp extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    // “Interceptor” de auth: añade el header Authorization si hay token
     final token = await _readToken();
     request.headers.addAll(_baseHeaders);
     if (token != null) {
       request.headers['Authorization'] = 'Bearer $token';
     }
 
-    // Logging MUY simple (puedes quitarlo en prod)
-    // print('[HTTP] ${request.method} ${request.url} headers=${request.headers}');
-
-    // Timeout global
     return _inner.send(request).timeout(_timeout);
   }
 
