@@ -1,5 +1,8 @@
-import 'package:edi301/src/pages/Admin/agenda/agenda_detail_page.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart'; // <--- IMPORTANTE
+import 'package:edi301/tools/notification_service.dart'; // <--- Tu servicio
+
+import 'package:edi301/src/pages/Admin/agenda/agenda_detail_page.dart';
 import 'package:edi301/Login/login_page.dart';
 import 'package:edi301/Register/register_page.dart';
 import 'package:edi301/src/pages/Home/home_page.dart';
@@ -18,7 +21,15 @@ import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
 import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
 import 'package:edi301/src/pages/Admin/reportes/reportes_page.dart';
 
-void main() {
+// Modificamos el main para que sea asíncrono
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // 1. Asegura que el motor gráfico esté listo
+
+  await Firebase.initializeApp(); // 2. Inicializa la conexión con Firebase
+
+  await NotificationService()
+      .init(); // 3. Configura tus notificaciones locales y push
+
   runApp(const MyApp());
 }
 
@@ -42,16 +53,11 @@ class MyApp extends StatelessWidget {
         'family': (context) => const FamiliyPage(),
         'edit': (context) {
           final args = ModalRoute.of(context)?.settings.arguments;
-          print(
-            '🎯 Edit route recibió argumentos: $args (tipo: ${args.runtimeType})',
-          );
-
+          // print('🎯 Edit route recibió argumentos: $args (tipo: ${args.runtimeType})');
           final familyId = args is int ? args : 0;
-
           if (familyId == 0) {
-            print('⚠️ ADVERTENCIA: familyId es 0, esto causará problemas');
+            // print('⚠️ ADVERTENCIA: familyId es 0');
           }
-
           return EditPage(familyId: familyId);
         },
         'news': (context) => const NewsPage(),
