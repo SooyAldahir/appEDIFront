@@ -206,7 +206,7 @@ class ReporteFamiliasService {
             pw.Padding(
               padding: const pw.EdgeInsets.all(5),
               child: pw.Text(
-                'ID',
+                'No. Empleado',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
               ),
             ),

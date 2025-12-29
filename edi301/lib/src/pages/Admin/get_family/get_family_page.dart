@@ -37,27 +37,25 @@ class _GetFamiliyPageState extends State<GetFamilyPage> {
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         elevation: 0,
       ),
-      body: ResponsiveContent(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _textFieldSearch(),
-              const SizedBox(height: 10),
-              // 👇 results ahora es List<fm.Family>
-              ValueListenableBuilder<List<fm.Family>>(
-                valueListenable: _controller.results,
-                builder: (_, families, __) {
-                  if (families.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.all(20),
-                      child: Text('No se encontraron familias.'),
-                    );
-                  }
-                  return _buildFamilyCards(families);
-                },
-              ),
-            ],
-          ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            _textFieldSearch(),
+            const SizedBox(height: 10),
+            // 👇 results ahora es List<fm.Family>
+            ValueListenableBuilder<List<fm.Family>>(
+              valueListenable: _controller.results,
+              builder: (_, families, __) {
+                if (families.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Text('No se encontraron familias.'),
+                  );
+                }
+                return _buildFamilyCards(families);
+              },
+            ),
+          ],
         ),
       ),
     );
