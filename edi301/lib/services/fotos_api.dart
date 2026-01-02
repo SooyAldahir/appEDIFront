@@ -1,13 +1,31 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:edi301/core/api_client_http.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart'; // Importante para el mimeType
 import 'package:edi301/auth/token_storage.dart';
 
 class FotosApi {
+  final ApiHttp _http = ApiHttp();
   // NOTA: Asegúrate de que esta URL sea la correcta.
   // La estoy tomando de tu archivo 'api_client_http.dart'
   final String _baseUrl = 'http://192.168.1.149:3000/api';
   final TokenStorage _tokenStorage = TokenStorage();
+
+  Future<List<dynamic>> getFotosFamilia(int idFamilia) async {
+    try {
+      // Llamamos al endpoint que acabamos de arreglar
+      final res = await _http.getJson('/api/fotos/familia/$idFamilia');
+
+      if (res.statusCode == 200) {
+        return List<dynamic>.from(jsonDecode(res.body));
+      }
+      return [];
+    } catch (e) {
+      print("⚠️ Error obteniendo galería: $e");
+      return [];
+    }
+  }
 
   Future<String> _uploadImage(String endpoint, File imageFile) async {
     final token = await _tokenStorage.read();

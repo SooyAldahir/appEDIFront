@@ -141,42 +141,108 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   // --- TARJETA PARA EL PADRE (Aprobar/Rechazar) ---
   Widget _buildApproverCard(Map<String, dynamic> item) {
-    // ... (Copia aquí el diseño de tarjeta que te pasé en la respuesta anterior) ...
-    // ... Usa _procesar para los botones ...
-    // Para simplificar, aquí pongo una versión resumida:
-    final baseUrl = ApiHttp.baseUrl;
+    // 1. LÓGICA DE URL (Igual que en la del alumno)
+    String? rawUrl = item['url_imagen'];
+    String urlFinal = "";
+
+    if (rawUrl != null && rawUrl.isNotEmpty) {
+      if (rawUrl.startsWith('http')) {
+        urlFinal = rawUrl;
+      } else {
+        // Le pegamos la IP del servidor
+        urlFinal = '${ApiHttp.baseUrl}$rawUrl';
+      }
+    }
+
     return Card(
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 12),
       child: Column(
+        // Usamos Column para apilar elementos
         children: [
           ListTile(
-            title: Text("${item['nombre']} ${item['apellido']}"),
-            subtitle: Text(item['mensaje'] ?? 'Sin texto'),
-            leading: CircleAvatar(child: Text(item['nombre'][0])),
-          ),
-          if (item['url_imagen'] != null)
-            Image.network(
-              '$baseUrl${item['url_imagen']}',
-              height: 200,
-              fit: BoxFit.cover,
+            leading: CircleAvatar(
+              backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+              child: Text(
+                (item['nombre'] != null && item['nombre'].isNotEmpty)
+                    ? item['nombre'][0].toUpperCase()
+                    : '?',
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              TextButton(
-                onPressed: () => _procesar(item['id_post'], false),
-                child: const Text(
-                  "Rechazar",
-                  style: TextStyle(color: Colors.red),
-                ),
+            title: Text(
+              "${item['nombre']} ${item['apellido']}",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(item['mensaje'] ?? 'Solicita publicar esto...'),
+            trailing: Text(
+              item['created_at'] != null
+                  ? item['created_at'].toString().substring(0, 10)
+                  : '',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
+
+          // 2. LA IMAGEN (Importante: ponerla aquí)
+          if (urlFinal.isNotEmpty)
+            Container(
+              height: 250, // Un poco más grande para que el padre vea bien
+              width: double.infinity,
+              color: Colors.black12,
+              child: Image.network(
+                urlFinal,
+                fit: BoxFit.contain, // Contain para que se vea la foto entera
+                errorBuilder: (context, error, stackTrace) {
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.broken_image,
+                        size: 40,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(height: 5),
+                      // Esto nos ayudará a depurar si falla
+                      Text(
+                        "Error url: $urlFinal",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
-              TextButton(
-                onPressed: () => _procesar(item['id_post'], true),
-                child: const Text(
-                  "Aprobar",
-                  style: TextStyle(color: Colors.green),
+            ),
+
+          // 3. BOTONES DE ACCIÓN
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () => _procesar(item['id_post'], false),
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  label: const Text("Rechazar"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[400],
+                    foregroundColor: Colors.white,
+                  ),
                 ),
-              ),
-            ],
+                ElevatedButton.icon(
+                  onPressed: () => _procesar(item['id_post'], true),
+                  icon: const Icon(Icons.check, color: Colors.white),
+                  label: const Text("Aprobar"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[600],
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -200,22 +266,63 @@ class _NotificationsPageState extends State<NotificationsPage> {
       iconEstado = Icons.hourglass_top;
     }
 
+    // 👇 1. LÓGICA PARA ARREGLAR LA URL DE LA IMAGEN 👇
+    String? rawUrl = item['url_imagen'];
+    String urlFinal = "";
+
+    if (rawUrl != null && rawUrl.isNotEmpty) {
+      if (rawUrl.startsWith('http')) {
+        urlFinal = rawUrl;
+      } else {
+        // Concatenamos la URL base si viene relativa (/uploads/...)
+        urlFinal = '${ApiHttp.baseUrl}$rawUrl';
+      }
+    }
+
     return Card(
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: Icon(iconEstado, color: colorEstado, size: 30),
-        title: Text(
-          "Estado: $estado",
-          style: TextStyle(color: colorEstado, fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(item['mensaje'] ?? 'Imagen sin texto'),
-        trailing: Text(
-          item['created_at'] != null
-              ? item['created_at'].toString().substring(0, 10)
-              : '',
-          style: const TextStyle(fontSize: 12),
-        ),
+      // 👇 Usamos Column para poner Texto arriba e Imagen abajo
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            leading: Icon(iconEstado, color: colorEstado, size: 30),
+            title: Text(
+              "Estado: $estado",
+              style: TextStyle(color: colorEstado, fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(item['mensaje'] ?? 'Sin descripción'),
+            trailing: Text(
+              item['created_at'] != null
+                  ? item['created_at'].toString().substring(0, 10)
+                  : '',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+
+          // 👇 2. WIDGET DE LA IMAGEN (Esto es lo que faltaba) 👇
+          if (urlFinal.isNotEmpty)
+            Container(
+              height: 200,
+              width: double.infinity,
+              color: Colors.grey[200],
+              child: Image.network(
+                urlFinal,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: Colors.grey,
+                      size: 40,
+                    ),
+                  );
+                },
+              ),
+            ),
+          const SizedBox(height: 10), // Un pequeño espacio al final
+        ],
       ),
     );
   }

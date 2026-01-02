@@ -1,6 +1,8 @@
+import 'dart:convert'; // <--- FALTABA ESTO
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // <--- FALTABA ESTO
 import '../../../services/publicaciones_api.dart';
 
 class CreatePostPage extends StatefulWidget {
@@ -20,10 +22,42 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final ImagePicker _picker = ImagePicker();
   final PublicacionesApi _api = PublicacionesApi();
 
+  bool _esAutoridad = false; // Se actualizará en _loadUser
   bool _cargando = false;
 
   // Variable para controlar qué tipo de contenido se sube
   String _tipoSeleccionado = 'POST'; // Puede ser 'POST' o 'STORY'
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser(); // <--- FALTABA INICIAR ESTO
+  }
+
+  // 👇 LÓGICA QUE FALTABA PARA DETECTAR AL JEFE
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('user');
+    if (userStr != null) {
+      final user = jsonDecode(userStr);
+      final rol = user['nombre_rol'] ?? user['rol'] ?? '';
+
+      if (mounted) {
+        setState(() {
+          // Lista de roles que publican directo
+          const rolesJefes = [
+            'Admin',
+            'PapaEDI',
+            'MamaEDI',
+            'Padre',
+            'Madre',
+            'Tutor',
+          ];
+          _esAutoridad = rolesJefes.contains(rol);
+        });
+      }
+    }
+  }
 
   Future<void> _seleccionarImagen() async {
     final XFile? photo = await _picker.pickImage(source: ImageSource.gallery);
@@ -50,18 +84,26 @@ class _CreatePostPageState extends State<CreatePostPage> {
         idFamilia: widget.idFamilia,
         mensaje: _mensajeController.text,
         imagen: _imagenSeleccionada,
-        categoria: 'Familiar', // Siempre es Familiar en esta pantalla
-        tipo: _tipoSeleccionado, // Enviamos lo que el usuario eligió
+        categoria: 'Familiar',
+        tipo: _tipoSeleccionado,
       );
 
       if (mounted) {
-        // Mensaje diferente según el tipo
-        String mensajeExito = _tipoSeleccionado == 'STORY'
-            ? "Historia enviada a aprobación ⏳"
-            : "Publicación enviada a aprobación ⏳";
+        // 👇 MENSAJE INTELIGENTE
+        String mensajeExito;
+        if (_esAutoridad) {
+          mensajeExito = "¡Publicado correctamente! 🎉";
+        } else {
+          mensajeExito = _tipoSeleccionado == 'STORY'
+              ? "Historia enviada a aprobación ⏳"
+              : "Publicación enviada a aprobación ⏳";
+        }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(mensajeExito), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(mensajeExito),
+            backgroundColor: _esAutoridad ? Colors.green : Colors.orange,
+          ),
         );
         Navigator.pop(context);
       }
@@ -127,9 +169,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     borderRadius: BorderRadius.circular(12),
                     child: Image.file(
                       _imagenSeleccionada!,
-                      height: _tipoSeleccionado == 'STORY'
-                          ? 350
-                          : 250, // Historia más alta
+                      height: _tipoSeleccionado == 'STORY' ? 350 : 250,
                       width: double.infinity,
                       fit: BoxFit.cover,
                     ),
@@ -165,12 +205,15 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
             const SizedBox(height: 30),
 
-            // Botón Enviar
+            // Botón Enviar (CON TEXTO DINÁMICO)
             ElevatedButton(
               onPressed: _cargando ? null : _enviarPost,
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
-                backgroundColor: Colors.blueAccent,
+                // Cambiamos el color si es Autoridad para que se note la diferencia
+                backgroundColor: _esAutoridad
+                    ? Colors.green[600]
+                    : Colors.blueAccent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -185,7 +228,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       ),
                     )
                   : Text(
-                      "Enviar a Aprobación",
+                      // 👇 AQUÍ CAMBIA EL TEXTO SEGÚN EL ROL
+                      _esAutoridad ? "PUBLICAR AHORA" : "ENVIAR A APROBACIÓN",
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,

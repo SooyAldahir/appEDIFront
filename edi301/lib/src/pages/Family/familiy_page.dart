@@ -1,12 +1,13 @@
 import 'dart:convert';
-
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/models/family_model.dart';
 import 'package:edi301/services/familia_api.dart';
-import 'package:edi301/src/widgets/responsive_content.dart';
-import 'package:flutter/material.dart';
 import 'package:edi301/src/pages/Family/family_controller.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:edi301/src/widgets/responsive_content.dart';
+// 👇 1. IMPORTAMOS LA GALERÍA
+import 'package:edi301/src/widgets/family_gallery.dart';
 
 class FamiliyPage extends StatefulWidget {
   const FamiliyPage({super.key});
@@ -21,11 +22,11 @@ class _FamilyPageState extends State<FamiliyPage> {
   final FamiliaApi _familiaApi = FamiliaApi();
   late Future<Family?> _familyFuture;
   String _userRole = '';
+
   @override
   void initState() {
     super.initState();
     _loadUserRole();
-    // Inicia la carga de datos de la familia
     _familyFuture = _fetchFamilyData();
   }
 
@@ -35,7 +36,6 @@ class _FamilyPageState extends State<FamiliyPage> {
     if (userStr != null) {
       final user = jsonDecode(userStr);
       setState(() {
-        // Asegúrate que la llave coincida con tu backend (nombre_rol, rol, role, etc)
         _userRole = user['nombre_rol'] ?? user['rol'] ?? '';
       });
     }
@@ -43,27 +43,21 @@ class _FamilyPageState extends State<FamiliyPage> {
 
   Future<Family?> _fetchFamilyData() async {
     try {
-      // 1. Resolver el ID de la familia
       final int? familyId = await _controller.resolveFamilyId();
       if (familyId == null) {
         throw Exception('No se pudo encontrar el ID de la familia.');
       }
 
-      // 2. Obtener el token de autenticación
       final prefs = await SharedPreferences.getInstance();
-      // Asumimos que el token se guarda con la lave 'token'
       final String? authToken = prefs.getString('token');
 
-      // 3. Llamar a la API para obtener los datos de la familia
       final data = await _familiaApi.getById(familyId, authToken: authToken);
       if (data != null) {
-        // 4. Convertir el JSON a un objeto Family
         return Family.fromJson(data);
       }
       return null;
     } catch (e) {
       print('Error al cargar datos de la familia: $e');
-      // Opcional: mostrar un SnackBar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -112,7 +106,7 @@ class _FamilyPageState extends State<FamiliyPage> {
             final family = snapshot.data!;
             final String baseUrl = ApiHttp.baseUrl;
 
-            // Lógica para determinar la imagen de portada
+            // Lógica portada
             final ImageProvider coverImage;
             final String? coverUrl = family.fotoPortadaUrl;
             if (coverUrl != null && coverUrl.isNotEmpty) {
@@ -123,7 +117,7 @@ class _FamilyPageState extends State<FamiliyPage> {
               );
             }
 
-            // Lógica para determinar la imagen de perfil
+            // Lógica perfil
             final ImageProvider profileImage;
             final String? profileUrl = family.fotoPerfilUrl;
             if (profileUrl != null && profileUrl.isNotEmpty) {
@@ -163,11 +157,10 @@ class _FamilyPageState extends State<FamiliyPage> {
                   ),
                   const SizedBox(height: 5), const SizedBox(height: 5),
 
-                  // CONDICIÓN: Solo mostramos el botón si NO es alumno
                   if (![
                     'Hijo',
                     'HijoEDI',
-                    'Alumno',
+                    'ALUMNO',
                     'Estudiante',
                   ].contains(_userRole))
                     _bottomEditProfile(),
@@ -176,20 +169,19 @@ class _FamilyPageState extends State<FamiliyPage> {
                   const SizedBox(height: 10),
                   _buildToggleButtons(),
                   const SizedBox(height: 10),
+
+                  // 👇 AQUÍ ESTÁ LA INTEGRACIÓN
                   mostrarHijos
                       ? Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: () {
-                            // 1. Crea una lista combinada
-                            final List<FamilyMember> todosLosHijos = [
-                              ...family.householdChildren,
-                              ...family.assignedStudents,
-                            ];
-                            // 2. Pasa la lista combinada al widget
-                            return _buildHijosList(todosLosHijos);
-                          }(),
+                          child: _buildHijosList([
+                            ...family.householdChildren,
+                            ...family.assignedStudents,
+                          ]),
                         )
-                      : _buildFotosGrid(),
+                      : FamilyGallery(
+                          idFamilia: family.id ?? 0,
+                        ), // <--- ¡WIDGET NUEVO!
                 ],
               ),
             );
@@ -205,13 +197,11 @@ class _FamilyPageState extends State<FamiliyPage> {
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: ElevatedButton(
         onPressed: () async {
-          // Intenta obtener el ID de la familia
           final prefs = await SharedPreferences.getInstance();
           final rawUser = prefs.getString('user');
 
           if (rawUser != null) {
             final user = jsonDecode(rawUser);
-            // Busca el id_familia en diferentes formatos
             final idFamilia =
                 user['id_familia'] ??
                 user['FamiliaID'] ??
@@ -222,7 +212,6 @@ class _FamilyPageState extends State<FamiliyPage> {
               final id = int.tryParse(idFamilia.toString());
 
               if (id != null && id > 0) {
-                // Si la página 'edit' devuelve 'true', recarga los datos.
                 final result = await Navigator.pushNamed(
                   context,
                   'edit',
@@ -237,8 +226,6 @@ class _FamilyPageState extends State<FamiliyPage> {
               }
             }
           }
-
-          // Fallback
           _controller.goToEditPage(context);
         },
         style: ElevatedButton.styleFrom(
@@ -308,7 +295,6 @@ class _FamilyPageState extends State<FamiliyPage> {
     );
   }
 
-  // --- CAMBIO: La función ahora acepta la lista de hijos ---
   Widget _buildHijosList(List<FamilyMember> hijos) {
     if (hijos.isEmpty) {
       return const Center(
@@ -327,15 +313,12 @@ class _FamilyPageState extends State<FamiliyPage> {
       itemBuilder: (context, index) {
         final hijo = hijos[index];
         return ProfileCard(
-          // El modelo FamilyMember no tiene URL de imagen, usamos un placeholder.
           imageUrl: 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
           name: hijo.fullName,
           school: hijo.carrera,
           fechaNacimiento: hijo.fechaNacimiento,
           phoneNumber: hijo.telefono,
-          // --- CAMBIO: Acción de navegación al tocar la tarjeta ---
           onTap: () {
-            // Usamos idUsuario para navegar al detalle, igual que en SearchPage
             Navigator.pushNamed(
               context,
               'student_detail',
@@ -346,25 +329,11 @@ class _FamilyPageState extends State<FamiliyPage> {
       },
     );
   }
-  // --- FIN CAMBIO ---
-
-  Widget _buildFotosGrid() {
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-      ),
-      itemCount: 9,
-      itemBuilder: (context, index) {
-        return Container(color: Colors.amber);
-      },
-    );
-  }
 }
+
+// ... Las clases FamilyWidget, FamilyData, ProfileCard y FullScreenImagePage
+// ... se mantienen exactamente igual que en tu código original.
+// ... Solo asegúrate de que sigan al final del archivo.
 
 class FamilyWidget extends StatelessWidget {
   final ImageProvider backgroundImage;
@@ -378,7 +347,6 @@ class FamilyWidget extends StatelessWidget {
     required this.onTap,
   });
 
-  // Método auxiliar para navegar a la pantalla completa
   void _openFullScreen(BuildContext context, ImageProvider image, String tag) {
     Navigator.push(
       context,
@@ -392,11 +360,10 @@ class FamilyWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // --- 1. IMAGEN DE PORTADA ---
         GestureDetector(
           onTap: () => _openFullScreen(context, backgroundImage, 'coverTag'),
           child: Hero(
-            tag: 'coverTag', // Identificador único para la animación
+            tag: 'coverTag',
             child: ClipRRect(
               child: Image(
                 image: backgroundImage,
@@ -414,24 +381,20 @@ class FamilyWidget extends StatelessWidget {
             ),
           ),
         ),
-
-        // --- 2. IMAGEN DE PERFIL (Círculo) ---
         Positioned(
           bottom: 10,
           left: 10,
           child: GestureDetector(
-            // Al tocar la foto de perfil, se abre en grande
             onTap: () => _openFullScreen(context, circleImage, 'profileTag'),
             child: CircleAvatar(
               radius: 50,
               backgroundColor: Colors.white,
               child: Hero(
-                tag: 'profileTag', // Identificador único para la animación
+                tag: 'profileTag',
                 child: CircleAvatar(
                   radius: 46,
                   backgroundImage: circleImage,
                   onBackgroundImageError: (exception, stackTrace) {},
-                  // El contenedor decorativo transparente para el borde
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -494,14 +457,13 @@ class FamilyData extends StatelessWidget {
   }
 }
 
-// --- CAMBIO: Modificada la 'ProfileCard' para usar el callback onTap ---
 class ProfileCard extends StatelessWidget {
   final String imageUrl;
   final String name;
   final String? school;
   final String? fechaNacimiento;
   final String? phoneNumber;
-  final VoidCallback? onTap; // Nuevo parámetro
+  final VoidCallback? onTap;
 
   const ProfileCard({
     super.key,
@@ -510,13 +472,12 @@ class ProfileCard extends StatelessWidget {
     this.school,
     this.fechaNacimiento,
     this.phoneNumber,
-    this.onTap, // Recibir el callback
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      // Usar la función onTap pasada como parámetro
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(10),
@@ -559,7 +520,6 @@ class ProfileCard extends StatelessWidget {
   }
 }
 
-// --- NUEVO: Pantalla para ver la imagen en pantalla completa ---
 class FullScreenImagePage extends StatelessWidget {
   final ImageProvider imageProvider;
   final String heroTag;
@@ -587,9 +547,9 @@ class FullScreenImagePage extends StatelessWidget {
         child: Hero(
           tag: heroTag,
           child: InteractiveViewer(
-            panEnabled: true, // Permite mover la imagen
+            panEnabled: true,
             minScale: 0.5,
-            maxScale: 4.0, // Permite hacer zoom hasta 4x
+            maxScale: 4.0,
             child: Image(image: imageProvider, fit: BoxFit.contain),
           ),
         ),
