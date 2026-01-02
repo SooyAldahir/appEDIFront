@@ -1,11 +1,15 @@
-import 'package:edi301/src/pages/Home/home_controller.dart';
+import 'dart:convert'; // Necesario para jsonDecode
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Asegúrate de tener este import
+
+import 'package:edi301/src/pages/Home/home_controller.dart';
 import 'package:edi301/src/pages/News/news_page.dart';
 import 'package:edi301/src/pages/Family/familiy_page.dart';
 import 'package:edi301/src/pages/Search/search_page.dart';
 import 'package:edi301/src/pages/Perfil/perfil_page.dart';
 import 'package:edi301/src/pages/Admin/admin_page.dart';
+import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart'; // Importa la agenda
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -17,21 +21,97 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final HomeController _controller = HomeController();
   int _selectedIndex = 0;
-
-  final List<Widget> _pages = [
-    const NewsPage(),
-    const FamiliyPage(),
-    const SearchPage(),
-    const AdminPage(),
-    const PerfilPage(),
-  ];
+  String _userRole = '';
+  List<Map<String, dynamic>> _menuOptions = [];
 
   @override
   void initState() {
     super.initState();
+    _loadUserRole();
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
       _controller.init(context);
     });
+  }
+
+  Future<void> _loadUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('user');
+    String rol = '';
+    if (userStr != null) {
+      final user = jsonDecode(userStr);
+      // Ajusta la llave según cómo venga en tu JSON ('nombre_rol', 'rol', etc.)
+      rol = user['nombre_rol'] ?? user['rol'] ?? '';
+    }
+
+    if (mounted) {
+      setState(() {
+        _userRole = rol;
+        _menuOptions = _getMenuOptions(rol);
+      });
+    }
+  }
+
+  // --- 1. AQUÍ DEFINIMOS QUÉ PÁGINA ABRIR SEGÚN LA RUTA ---
+  Widget _getPageFromRoute(String route) {
+    switch (route) {
+      case 'news':
+        return const NewsPage();
+      case 'family':
+        return const FamiliyPage();
+      case 'search':
+        return const SearchPage(); // <--- ¡Restaurado!
+      case 'agenda':
+        return const AgendaPage();
+      case 'admin':
+        return const AdminPage();
+      case 'perfil':
+        return const PerfilPage();
+      default:
+        return const Center(child: Text("Página no encontrada"));
+    }
+  }
+
+  // --- 2. AQUÍ ARMAMOS EL MENÚ SEGÚN EL ROL ---
+  List<Map<String, dynamic>> _getMenuOptions(String rol) {
+    // Definimos TODAS las opciones posibles en el orden ideal
+    final allOptions = [
+      {'ruta': 'news', 'icon': Icons.newspaper, 'label': 'Noticias'},
+      {'ruta': 'family', 'icon': Icons.family_restroom, 'label': 'Familia'},
+      {
+        'ruta': 'search',
+        'icon': Icons.person_search,
+        'label': 'Buscar',
+      }, // <--- Indispensable
+      {'ruta': 'agenda', 'icon': Icons.calendar_month, 'label': 'Agenda'},
+      {'ruta': 'admin', 'icon': Icons.admin_panel_settings, 'label': 'Admin'},
+      {'ruta': 'perfil', 'icon': Icons.person, 'label': 'Perfil'},
+    ];
+
+    // Lógica de roles
+    if (rol == 'Admin') {
+      // El Admin ve TODO (6 botones).
+      // Si son muchos para el celular, Flutter los acomoda tipo "Shifting".
+      return allOptions;
+    }
+    // Padres e Hijos
+    else if ([
+      'Padre',
+      'Madre',
+      'Tutor',
+      'PapaEDI',
+      'MamaEDI',
+      'Hijo',
+      'HijoEDI',
+      'Alumno',
+      'Estudiante',
+    ].contains(rol)) {
+      // Solo ven: Noticias, Familia, Perfil (y Buscar si quieres que ellos también busquen)
+      return allOptions
+          .where((op) => ['news', 'family', 'perfil'].contains(op['ruta']))
+          .toList();
+    }
+
+    return [];
   }
 
   void _onItemTapped(int index) {
@@ -42,114 +122,71 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // LayoutBuilder nos dice cuánto espacio tenemos disponible
+    if (_menuOptions.isEmpty) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    // Seguridad para no desbordar el índice si cambia el rol
+    if (_selectedIndex >= _menuOptions.length) _selectedIndex = 0;
+
+    final currentRoute = _menuOptions[_selectedIndex]['ruta'];
+    final currentPage = _getPageFromRoute(currentRoute);
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Si el ancho es menor a 640px, usamos diseño de celular (barra abajo)
         if (constraints.maxWidth < 640) {
-          return _buildMobileLayout();
-        }
-        // Si es mayor, usamos diseño tablet (barra a la izquierda)
-        else {
-          return _buildTabletLayout();
+          // DISEÑO MÓVIL
+          return Scaffold(
+            body: currentPage,
+            bottomNavigationBar: BottomNavigationBar(
+              type: BottomNavigationBarType
+                  .fixed, // Mantiene iconos fijos aunque sean >3
+              backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+              selectedItemColor: const Color.fromRGBO(245, 188, 6, 1),
+              unselectedItemColor: Colors.white,
+              currentIndex: _selectedIndex,
+              onTap: _onItemTapped,
+              items: _menuOptions.map((op) {
+                return BottomNavigationBarItem(
+                  icon: Icon(op['icon'] as IconData),
+                  label: op['label'] as String,
+                );
+              }).toList(),
+            ),
+          );
+        } else {
+          // DISEÑO TABLET
+          return Scaffold(
+            body: Row(
+              children: [
+                NavigationRail(
+                  backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+                  selectedIndex: _selectedIndex,
+                  onDestinationSelected: _onItemTapped,
+                  labelType: NavigationRailLabelType.all,
+                  selectedLabelTextStyle: const TextStyle(
+                    color: Color.fromRGBO(245, 188, 6, 1),
+                  ),
+                  unselectedLabelTextStyle: const TextStyle(
+                    color: Colors.white,
+                  ),
+                  selectedIconTheme: const IconThemeData(
+                    color: Color.fromRGBO(245, 188, 6, 1),
+                  ),
+                  unselectedIconTheme: const IconThemeData(color: Colors.white),
+                  destinations: _menuOptions.map((op) {
+                    return NavigationRailDestination(
+                      icon: Icon(op['icon'] as IconData),
+                      label: Text(op['label'] as String),
+                    );
+                  }).toList(),
+                ),
+                Expanded(child: currentPage),
+              ],
+            ),
+          );
         }
       },
-    );
-  }
-
-  /// DISEÑO CELULAR: Menú abajo
-  Widget _buildMobileLayout() {
-    return Scaffold(
-      body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-        selectedItemColor: const Color.fromRGBO(245, 188, 6, 1),
-        unselectedItemColor: Colors.white,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-        items: [
-          BottomNavigationBarItem(
-            icon: _buildIcon(Icons.newspaper, 0),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildIcon(Icons.family_restroom_outlined, 1),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildIcon(Icons.person_search, 2),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: _buildIcon(Icons.admin_panel_settings, 3),
-            label: '',
-          ),
-          BottomNavigationBarItem(icon: _buildIcon(Icons.person, 4), label: ''),
-        ],
-      ),
-    );
-  }
-
-  /// DISEÑO TABLET/WEB: Menú lateral izquierdo (NavigationRail)
-  Widget _buildTabletLayout() {
-    return Scaffold(
-      body: Row(
-        children: [
-          NavigationRail(
-            backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: _onItemTapped,
-            labelType: NavigationRailLabelType.none,
-            // Centrar items verticalmente (opcional)
-            groupAlignment: 0.0,
-            destinations: [
-              NavigationRailDestination(
-                icon: _buildIcon(Icons.newspaper, 0),
-                label: const Text(''),
-              ),
-              NavigationRailDestination(
-                icon: _buildIcon(Icons.family_restroom_outlined, 1),
-                label: const Text(''),
-              ),
-              NavigationRailDestination(
-                icon: _buildIcon(Icons.person_search, 2),
-                label: const Text(''),
-              ),
-              NavigationRailDestination(
-                icon: _buildIcon(Icons.admin_panel_settings, 3),
-                label: const Text(''),
-              ),
-              NavigationRailDestination(
-                icon: _buildIcon(Icons.person, 4),
-                label: const Text(''),
-              ),
-            ],
-          ),
-
-          // El contenido ocupa el resto del espacio
-          Expanded(child: _pages[_selectedIndex]),
-        ],
-      ),
-    );
-  }
-
-  // Tu función original de iconos (la reutilizamos para ambos diseños)
-  Widget _buildIcon(IconData icon, int index) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: _selectedIndex == index
-            ? const Color.fromRGBO(245, 188, 6, 1) // Amarillo seleccionado
-            : Colors.transparent,
-      ),
-      padding: const EdgeInsets.all(7),
-      child: Icon(
-        icon,
-        color: _selectedIndex == index ? Colors.white : Colors.white70,
-      ),
     );
   }
 }

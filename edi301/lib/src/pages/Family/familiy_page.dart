@@ -20,11 +20,25 @@ class _FamilyPageState extends State<FamiliyPage> {
   final FamilyController _controller = FamilyController();
   final FamiliaApi _familiaApi = FamiliaApi();
   late Future<Family?> _familyFuture;
+  String _userRole = '';
   @override
   void initState() {
     super.initState();
+    _loadUserRole();
     // Inicia la carga de datos de la familia
     _familyFuture = _fetchFamilyData();
+  }
+
+  Future<void> _loadUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('user');
+    if (userStr != null) {
+      final user = jsonDecode(userStr);
+      setState(() {
+        // Asegúrate que la llave coincida con tu backend (nombre_rol, rol, role, etc)
+        _userRole = user['nombre_rol'] ?? user['rol'] ?? '';
+      });
+    }
   }
 
   Future<Family?> _fetchFamilyData() async {
@@ -147,8 +161,18 @@ class _FamilyPageState extends State<FamiliyPage> {
                           'Añade una descripción en "Editar Perfil".',
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  _bottomEditProfile(),
+                  const SizedBox(height: 5), const SizedBox(height: 5),
+
+                  // CONDICIÓN: Solo mostramos el botón si NO es alumno
+                  if (![
+                    'Hijo',
+                    'HijoEDI',
+                    'Alumno',
+                    'Estudiante',
+                  ].contains(_userRole))
+                    _bottomEditProfile(),
+
+                  const SizedBox(height: 10),
                   const SizedBox(height: 10),
                   _buildToggleButtons(),
                   const SizedBox(height: 10),

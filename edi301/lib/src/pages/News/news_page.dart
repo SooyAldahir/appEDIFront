@@ -1,5 +1,12 @@
-import 'package:edi301/src/widgets/responsive_content.dart';
+import 'dart:convert';
+import 'package:edi301/services/publicaciones_api.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:edi301/src/pages/News/news_controller.dart';
+import 'package:edi301/src/pages/News/create_postpage.dart';
+// Asegúrate de importar tu página de Notificaciones si tiene otro nombre
+// import 'package:edi301/src/pages/Notifications/notifications_page.dart';
 
 class NewsPage extends StatefulWidget {
   const NewsPage({super.key});
@@ -9,304 +16,282 @@ class NewsPage extends StatefulWidget {
 }
 
 class _NewsPageState extends State<NewsPage> {
+  final HomeController _controller = HomeController();
+  final PublicacionesApi _api = PublicacionesApi(); // <--- Instancia API
+
+  String _userRole = '';
+  int _userId = 0;
+  int? _familiaId;
+
+  // Variables para el feed
+  bool _loading = true;
+  List<dynamic> _posts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _initData();
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _controller.init(context);
+    });
+  }
+
+  Future<void> _initData() async {
+    await _loadUserData(); // Carga usuario y ID familia
+    if (_familiaId != null) {
+      _loadFeed(); // Si tenemos familia, cargamos noticias
+    } else {
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userStr = prefs.getString('user');
+    if (userStr != null) {
+      final user = jsonDecode(userStr);
+      if (mounted) {
+        setState(() {
+          _userRole = user['nombre_rol'] ?? user['rol'] ?? '';
+          _userId = user['id_usuario'] ?? 0;
+          final fId = user['id_familia'] ?? user['FamiliaID'];
+          if (fId != null) _familiaId = int.tryParse(fId.toString());
+        });
+      }
+    }
+  }
+
+  Future<void> _loadFeed() async {
+    if (_familiaId == null) return;
+    try {
+      final lista = await _api.getPostsFamilia(_familiaId!);
+      if (mounted) {
+        setState(() {
+          _posts = lista;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      print("Error cargando feed: $e");
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100], // Fondo gris suave
       appBar: AppBar(
-        elevation: 0,
+        title: const Text('Noticias', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-        title: const Text(
-          'Bienvenido, Aldahir Ballina',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.white),
-            onPressed: () {
-              _showNotificationsDialog(context);
-            },
-          ),
+          if ([
+            'Admin',
+            'Padre',
+            'Madre',
+            'Tutor',
+            'PapaEDI',
+            'MamaEDI',
+            'Hijo',
+            'HijoEDI',
+            'ALUMNO',
+            'Estudiante',
+          ].contains(_userRole))
+            IconButton(
+              icon: const Icon(Icons.notifications),
+              onPressed: () {
+                Navigator.pushNamed(context, 'notifications').then((_) {
+                  // Al volver de aprobar, recargamos el feed
+                  _loadFeed();
+                });
+              },
+            ),
+          const SizedBox(width: 10),
         ],
       ),
-      body: ResponsiveContent(
-        child: ListView(
-          children: const [
-            CustomPostWidget(
-              familyName: 'Familia Ballina Nuñez',
-              authorName: 'Aldahir Ballina',
-              imageUrl:
-                  'https://mott.pe/noticias/wp-content/uploads/2019/03/los-50-paisajes-maravillosos-del-mundo-para-tomar-fotos.jpg',
+
+      // --- BODY DEL FEED ---
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadFeed,
+              child: _posts.isEmpty
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(
+                        bottom: 80,
+                      ), // Espacio para el FAB
+                      itemCount: _posts.length,
+                      itemBuilder: (context, index) {
+                        return _buildPostCard(_posts[index]);
+                      },
+                    ),
             ),
-            CustomPostWidget(
-              familyName: 'Familia Ballina Nuñez',
-              authorName: 'Aldahir Ballina',
-              imageUrl:
-                  'https://mott.pe/noticias/wp-content/uploads/2019/03/la-isla-bora-bora-en-la-polinesia-francesa.jpg',
-            ),
-          ],
-        ),
-      ),
+
+      floatingActionButton: _shouldShowFab()
+          ? FloatingActionButton(
+              backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
+              child: const Icon(Icons.add, color: Colors.black),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CreatePostPage(
+                      idUsuario: _userId,
+                      idFamilia: _familiaId,
+                    ),
+                  ),
+                ).then((_) => _loadFeed()); // Recargar al volver
+              },
+            )
+          : null,
     );
   }
-}
 
-void _showNotificationsDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      title: const Text('Notificaciones'),
-      content: SizedBox(
-        width: 600,
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            _buildNotificationItem(
-              icon: Icons.cake_outlined,
-              color: Colors.pink,
-              text: 'Hoy es el cumpleaños de Juan Pérez.',
-            ),
-            _buildNotificationItem(
-              icon: Icons.event,
-              color: Colors.blue,
-              text: 'Reunión familiar programada para mañana a las 6 PM.',
-            ),
-            _buildNotificationItem(
-              icon: Icons.post_add,
-              color: Colors.green,
-              text: 'La familia López ha publicado nuevas fotos.',
-            ),
-            _buildNotificationItem(
-              icon: Icons.star_border,
-              color: Colors.amber,
-              text: 'No olvides calificar tu experiencia reciente.',
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cerrar'),
+  Widget _buildEmptyState() {
+    return ListView(
+      // ListView para que funcione el RefreshIndicator
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+        const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.newspaper, size: 80, color: Colors.grey),
+              SizedBox(height: 20),
+              Text(
+                "Aún no hay noticias.",
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+              Text(
+                "¡Sé el primero en publicar algo!",
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
         ),
       ],
-    ),
-  );
-}
+    );
+  }
 
-Widget _buildNotificationItem({
-  required IconData icon,
-  required Color color,
-  required String text,
-}) {
-  return ResponsiveContent(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: color.withOpacity(0.2),
-            child: Icon(icon, color: color),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(fontSize: 14))),
-        ],
-      ),
-    ),
-  );
-}
+  Widget _buildPostCard(Map<String, dynamic> post) {
+    // URL Base para imágenes
+    const baseUrl =
+        'http://192.168.100.41:3000'; // O usa ApiHttp.baseUrl si es pública
+    // Ajusta la URL según tu ApiHttp.baseUrl
 
-class CustomPostWidget extends StatefulWidget {
-  final String familyName;
-  final String authorName;
-  final String imageUrl;
-  final double width;
+    final nombre = "${post['nombre']} ${post['apellido'] ?? ''}";
+    final mensaje = post['mensaje'] ?? '';
+    final urlImagen = post['url_imagen'];
+    final fecha = post['created_at'] != null
+        ? post['created_at'].toString().substring(0, 10)
+        : '';
+    final esHistoria = post['tipo'] == 'STORY';
 
-  const CustomPostWidget({
-    super.key,
-    required this.familyName,
-    required this.authorName,
-    required this.imageUrl,
-    this.width = 300.0,
-  });
-
-  @override
-  State<CustomPostWidget> createState() => _CustomPostWidgetState();
-}
-
-class _CustomPostWidgetState extends State<CustomPostWidget> {
-  bool isLiked = false; // Estado para el botón de "me gusta"
-  List<String> comments = [
-    "¡Hermosa vista!",
-    "Me encanta esta foto",
-  ]; // Comentarios iniciales
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: widget.width,
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.grey[400],
-                  child: const Icon(Icons.person, color: Colors.white),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.familyName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      'By ${widget.authorName}',
-                      style: const TextStyle(fontSize: 12, color: Colors.red),
-                    ),
-                  ],
-                ),
-              ],
+          // 1. Cabecera (Usuario y Fecha)
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: esHistoria
+                  ? Colors.purple[100]
+                  : Colors.blue[100],
+              child: Text(
+                nombre[0],
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
-          ),
-          AspectRatio(
-            aspectRatio: 1.0,
-            child: Image.network(
-              widget.imageUrl,
-              fit: BoxFit.cover,
-              // loader
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return const Center(child: CircularProgressIndicator());
-              },
-              // en errores
-              errorBuilder: (context, error, stack) {
-                return const Center(child: Icon(Icons.broken_image, size: 64));
-              },
+            title: Text(
+              nombre,
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+            subtitle: Text(fecha),
+            trailing: esHistoria
+                ? const Chip(
+                    label: Text("Historia", style: TextStyle(fontSize: 10)),
+                    visualDensity: VisualDensity.compact,
+                  )
+                : null,
           ),
 
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10.0,
-              vertical: 8.0,
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(
-                    isLiked ? Icons.favorite : Icons.favorite_border,
-                    color: isLiked ? Colors.red : Colors.black,
+          // 2. Imagen (Si tiene)
+          if (urlImagen != null && urlImagen.toString().isNotEmpty)
+            Container(
+              constraints: const BoxConstraints(maxHeight: 400),
+              width: double.infinity,
+              color: Colors.black12,
+              child: Image.network(
+                '$baseUrl$urlImagen', // Asegúrate de que baseUrl esté bien
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, err, stack) => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: Icon(
+                      Icons.broken_image,
+                      size: 50,
+                      color: Colors.grey,
+                    ),
                   ),
-                  onPressed: () {
-                    setState(() {
-                      isLiked = !isLiked; // Alternar el estado de "me gusta"
-                    });
-                  },
                 ),
-                IconButton(
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  onPressed: () {
-                    _showCommentsDialog(
-                      context,
-                    ); // Mostrar cuadro de comentarios
-                  },
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  void _showCommentsDialog(BuildContext context) {
-    TextEditingController commentController = TextEditingController();
+          // 3. Texto del Post
+          if (mensaje.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(mensaje, style: const TextStyle(fontSize: 15)),
+            ),
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true, // Permitir que el cuadro ocupe más espacio
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: MediaQuery.of(context).viewInsets, // Ajustar para el teclado
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          // 4. Botones de interacción (Like/Comentar - Visuales por ahora)
+          const Divider(height: 1),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              const SizedBox(height: 10),
-              const Text(
-                'Comentarios',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-              const Divider(),
-              ListView.builder(
-                shrinkWrap: true,
-                itemCount: comments.length,
-                itemBuilder: (context, index) {
-                  return ListTile(title: Text(comments[index]));
-                },
-              ),
-              Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: TextField(
-                  controller: commentController,
-                  decoration: InputDecoration(
-                    hintText: 'Agregar un comentario...',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+              TextButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.favorite_border, color: Colors.grey),
+                label: const Text(
+                  "Me gusta",
+                  style: TextStyle(color: Colors.grey),
                 ),
               ),
-              ElevatedButton(
-                onPressed: () {
-                  if (commentController.text.isNotEmpty) {
-                    setState(() {
-                      comments.add(commentController.text);
-                    });
-                  }
-                  commentController.clear();
-                  Navigator.of(context).pop();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-                ),
-                child: const Text(
-                  'Agregar',
-                  style: TextStyle(color: Colors.white),
+              TextButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.chat_bubble_outline, color: Colors.grey),
+                label: const Text(
+                  "Comentar",
+                  style: TextStyle(color: Colors.grey),
                 ),
               ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
+  }
+
+  bool _shouldShowFab() {
+    // ... tu lógica de roles ...
+    const rolesPermitidos = [
+      'Admin',
+      'Padre',
+      'Madre',
+      'Tutor',
+      'PapaEDI',
+      'MamaEDI',
+      'Hijo',
+      'HijoEDI',
+      'ALUMNO',
+      'Estudiante',
+    ];
+    return rolesPermitidos.contains(_userRole);
   }
 }
