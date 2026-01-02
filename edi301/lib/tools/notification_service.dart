@@ -12,6 +12,21 @@ class NotificationService {
 
   NotificationService._internal();
 
+  Future<void> showNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    await _notifications.show(
+      id,
+      title,
+      body,
+      _platformDetails,
+      payload: payload,
+    );
+  }
+
   Future<void> init() async {
     // 1. Inicializar Timezones
     tz.initializeTimeZones();

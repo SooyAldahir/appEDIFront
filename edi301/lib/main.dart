@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart'; // <--- IMPORTANTE
 import 'package:edi301/tools/notification_service.dart'; // <--- Tu servicio
-
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:edi301/src/pages/Admin/agenda/agenda_detail_page.dart';
 import 'package:edi301/Login/login_page.dart';
 import 'package:edi301/Register/register_page.dart';
@@ -21,14 +21,43 @@ import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
 import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
 import 'package:edi301/src/pages/Admin/reportes/reportes_page.dart';
 
-// Modificamos el main para que sea asíncrono
+// 1. MANEJADOR DE FONDO (Debe ir FUERA del main y de cualquier clase)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+
+  print("Notificación en Background recibida: ${message.messageId}");
+}
+
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // 1. Asegura que el motor gráfico esté listo
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
 
-  await Firebase.initializeApp(); // 2. Inicializa la conexión con Firebase
+  // 2. Configurar manejador de fondo
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  await NotificationService()
-      .init(); // 3. Configura tus notificaciones locales y push
+  // Inicializar notificaciones locales
+  final notiService = NotificationService();
+  await notiService.init();
+  await notiService.requestPermissions(); // Pedir permiso al arrancar
+
+  // 3. OÍDO EN PRIMER PLANO (Foreground)
+  // Esto hace que vibre cuando tienes la app abierta
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print('Mensaje recibido en foreground: ${message.notification?.title}');
+
+    RemoteNotification? notification = message.notification;
+
+    if (notification != null) {
+      notiService.showNotification(
+        id: notification.hashCode,
+        title: notification.title ?? 'Sin título',
+        body: notification.body ?? '',
+        payload:
+            message.data['tipo'] ?? 'GENERAL', // Pasamos datos extra si hay
+      );
+    }
+  });
 
   runApp(const MyApp());
 }
