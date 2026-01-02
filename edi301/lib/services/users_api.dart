@@ -8,6 +8,19 @@ import 'package:edi301/models/family_model.dart' as fm;
 class UsersApi {
   final ApiHttp _http = ApiHttp();
 
+  Future<bool> updateFcmToken(int idUsuario, String token) async {
+    try {
+      final response = await _http.putJson(
+        '/api/usuarios/update-token',
+        data: {'id_usuario': idUsuario, 'session_token': token},
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("⚠️ Error actualizando FCM Token: $e");
+      return false;
+    }
+  }
+
   Future<void> deleteSoft(int id) async {
     final res = await _http.deleteJson('/api/users/$id');
     if (res.statusCode >= 400) {

@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-// 1. Importar AMBOS almacenamientos
 import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/token_storage.dart';
 import '../core/api_client_http.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:edi301/services/users_api.dart';
 
 class LoginController {
   final emailCtrl = TextEditingController();
@@ -13,8 +14,9 @@ class LoginController {
   final ApiHttp _http = ApiHttp();
   late BuildContext _ctx;
 
-  // 2. Instanciar el almacenamiento seguro
+  // Instancias de almacenamiento y APIs
   final TokenStorage _tokenStorage = TokenStorage();
+  final UsersApi _usersApi = UsersApi();
 
   void init(BuildContext context) => _ctx = context;
 
@@ -38,7 +40,11 @@ class LoginController {
     }
 
     loading.value = true;
+
     try {
+      // ---------------------------------------------------------
+      // 1. PETICIÓN DE LOGIN
+      // ---------------------------------------------------------
       final res = await _http.postJson(
         '/api/auth/login',
         data: {'login': login, 'password': password},
@@ -54,10 +60,17 @@ class LoginController {
       final token = (data['session_token'] ?? data['token'] ?? '').toString();
       if (token.isEmpty) throw Exception('No se recibió session_token');
 
-      // --- 3. Guardar el TOKEN en SecureStorage ---
+      // ---------------------------------------------------------
+      // 2. GUARDAR SESSION TOKEN (SECURE STORAGE)
+      // ---------------------------------------------------------
       await _tokenStorage.save(token);
+
+      // ---------------------------------------------------------
+      // 3. OBTENER INFORMACIÓN EXTRA (FAMILIA)
+      // ---------------------------------------------------------
       try {
         final idUsuario = data['id_usuario'] ?? data['IdUsuario'];
+
         if (idUsuario != null) {
           final familiaRes = await _http.getJson('/api/usuarios/$idUsuario');
           if (familiaRes.statusCode == 200) {
@@ -69,22 +82,41 @@ class LoginController {
                 usuarioCompleto['id_familia'] ?? usuarioCompleto['FamiliaID'];
             if (idFamilia != null) {
               data['id_familia'] = idFamilia;
-              print('✅ ID de familia obtenido: $idFamilia');
+              // print('✅ ID de familia obtenido: $idFamilia');
             }
           }
+
+          // =======================================================
+          // 4. REGISTRAR TOKEN DE NOTIFICACIONES (FIREBASE)
+          // =======================================================
+          // Esto se hace aquí porque ya tenemos el idUsuario confirmado
+          try {
+            String? fcmToken = await FirebaseMessaging.instance.getToken();
+            if (fcmToken != null) {
+              print("🔥 FCM Token obtenido: $fcmToken");
+              // Aseguramos que idUsuario sea int
+              int idInt = int.parse(idUsuario.toString());
+              await _usersApi.updateFcmToken(idInt, fcmToken);
+            }
+          } catch (e) {
+            print("⚠️ No se pudo registrar el token FCM: $e");
+            // No detenemos el login por esto, solo avisamos en consola
+          }
+          // =======================================================
         }
       } catch (e) {
-        print('⚠️ No se pudo obtener el ID de familia: $e');
-        // No es crítico, continúa con el login
+        print('⚠️ Error en carga de datos adicionales: $e');
       }
 
-      // --- 4. Guardar los DATOS DE USUARIO en SharedPreferences ---
-      // (Esto es lo que faltaba y arregla tu página de perfil)
+      // ---------------------------------------------------------
+      // 5. GUARDAR DATOS DE USUARIO (SHARED PREFERENCES)
+      // ---------------------------------------------------------
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user', jsonEncode(data));
-      // -----------------------------------------------------------
 
-      // Ruteo opcional según rol/tipo
+      // ---------------------------------------------------------
+      // 6. NAVEGACIÓN
+      // ---------------------------------------------------------
       final rol = (data['rol'] ?? data['role'] ?? '').toString();
       final tipoUsuario = (data['TipoUsuario'] ?? data['tipoUsuario'] ?? '')
           .toString();
@@ -102,20 +134,14 @@ class LoginController {
 
   // Mapa de roles -> ruta
   String _routeForRole(String rol, String tipoUsuario) {
-    // Todos los roles internos de la aplicación deben ir a 'home',
-    // donde el widget HomePage ajusta dinámicamente el BottomNavigationBar.
     switch (rol) {
       case 'Admin':
-        return 'home'; // <--- CAMBIO CLAVE: Admin ahora va a la ruta 'home'
       case 'PapaEDI':
       case 'MamaEDI':
-        return 'home';
       case 'HijoEDI':
       case 'HijoSanguineo':
-        return 'home';
+        return 'home'; // Todos van al Home y ahí se ajusta el menú
       default:
-        // Si el rol no coincide, pero es un usuario externo, también va a home.
-        if (tipoUsuario == 'EXTERNO') return 'home';
         return 'home';
     }
   }
