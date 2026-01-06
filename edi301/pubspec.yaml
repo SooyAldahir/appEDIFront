@@ -31,7 +31,7 @@ dependencies:
   http: ^1.2.2
   retry: ^3.1.2        # opcional (reintentos)
   http_parser: ^4.0.2  # opcional (mime/multipart)
-  shared_preferences: ^2.2.3
+  shared_preferences: ^2.5.4
   flutter:
     sdk: flutter
   url_launcher: ^6.3.1

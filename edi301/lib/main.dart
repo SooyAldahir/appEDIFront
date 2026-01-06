@@ -1,8 +1,10 @@
 import 'package:edi301/src/pages/Notifications/notifications_page.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart'; // <--- IMPORTANTE
-import 'package:edi301/tools/notification_service.dart'; // <--- Tu servicio
+import 'package:firebase_core/firebase_core.dart';
+import 'package:edi301/tools/notification_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // <--- 1. IMPORTAR ESTO
+
 import 'package:edi301/src/pages/Admin/agenda/agenda_detail_page.dart';
 import 'package:edi301/Login/login_page.dart';
 import 'package:edi301/Register/register_page.dart';
@@ -22,11 +24,10 @@ import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
 import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
 import 'package:edi301/src/pages/Admin/reportes/reportes_page.dart';
 
-// 1. MANEJADOR DE FONDO (Debe ir FUERA del main y de cualquier clase)
+// 1. MANEJADOR DE FONDO
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-
   print("Notificación en Background recibida: ${message.messageId}");
 }
 
@@ -40,10 +41,9 @@ void main() async {
   // Inicializar notificaciones locales
   final notiService = NotificationService();
   await notiService.init();
-  await notiService.requestPermissions(); // Pedir permiso al arrancar
+  await notiService.requestPermissions();
 
   // 3. OÍDO EN PRIMER PLANO (Foreground)
-  // Esto hace que vibre cuando tienes la app abierta
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     print('Mensaje recibido en foreground: ${message.notification?.title}');
 
@@ -54,17 +54,32 @@ void main() async {
         id: notification.hashCode,
         title: notification.title ?? 'Sin título',
         body: notification.body ?? '',
-        payload:
-            message.data['tipo'] ?? 'GENERAL', // Pasamos datos extra si hay
+        payload: message.data['tipo'] ?? 'GENERAL',
       );
     }
   });
 
-  runApp(const MyApp());
+  // -------------------------------------------------------------
+  // 4. VERIFICAR SESIÓN (Lógica de Persistencia) <--- NUEVO
+  // -------------------------------------------------------------
+  final prefs = await SharedPreferences.getInstance();
+  // Buscamos la llave 'user' que guardamos en el LoginController
+  final String? userJson = prefs.getString('user');
+
+  // Si hay datos, vamos a 'home', si no, a 'login'
+  final String rutaInicial = (userJson != null && userJson.isNotEmpty)
+      ? 'home'
+      : 'login';
+
+  // Pasamos la ruta decidida a MyApp
+  runApp(MyApp(initialRoute: rutaInicial));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  // Recibimos la ruta inicial
+  final String initialRoute; // <--- NUEVO
+
+  const MyApp({super.key, required this.initialRoute}); // <--- NUEVO
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +90,8 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
         useMaterial3: false,
       ),
-      initialRoute: 'login',
+      // Usamos la variable en lugar del texto fijo
+      initialRoute: initialRoute, // <--- CAMBIO AQUÍ
       routes: <String, WidgetBuilder>{
         'login': (context) => const LoginPage(),
         'register': (context) => const RegisterPage(),
@@ -83,11 +99,7 @@ class MyApp extends StatelessWidget {
         'family': (context) => const FamiliyPage(),
         'edit': (context) {
           final args = ModalRoute.of(context)?.settings.arguments;
-          // print('🎯 Edit route recibió argumentos: $args (tipo: ${args.runtimeType})');
           final familyId = args is int ? args : 0;
-          if (familyId == 0) {
-            // print('⚠️ ADVERTENCIA: familyId es 0');
-          }
           return EditPage(familyId: familyId);
         },
         'news': (context) => const NewsPage(),
