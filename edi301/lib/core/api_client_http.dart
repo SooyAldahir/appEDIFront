@@ -10,7 +10,7 @@ class ApiHttp extends http.BaseClient {
   static final ApiHttp _i = ApiHttp._internal();
   factory ApiHttp() => _i;
 
-  static const String baseUrl = 'http://192.168.100.41:3000';
+  static const String baseUrl = 'http://10.112.194.3:3000';
 
   final http.Client _inner = http.Client();
 

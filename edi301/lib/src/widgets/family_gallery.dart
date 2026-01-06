@@ -57,7 +57,7 @@ class _FamilyGalleryState extends State<FamilyGallery> {
 
     if (_fotos.isEmpty) {
       return Container(
-        height: 500, // Altura suficiente para que se vea bien
+        height: 0, // Altura suficiente para que se vea bien
         width: double.infinity,
         alignment: Alignment.center,
         child: Column(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:edi301/src/pages/Family/chat_family_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
@@ -77,6 +78,28 @@ class _FamilyPageState extends State<FamiliyPage> {
         automaticallyImplyLeading: false,
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         elevation: 0,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          // Necesitamos el ID y nombre de la familia actual
+          final familyData =
+              await _familyFuture; // Usamos el futuro que ya tienes cargado
+          if (familyData != null) {
+            // El ID puede venir como id o idFamilia (por el fix anterior)
+            final id = familyData.id ?? 0;
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChatFamilyPage(
+                  idFamilia: id,
+                  nombreFamilia: familyData.familyName,
+                ),
+              ),
+            );
+          }
+        },
+        backgroundColor: Color.fromRGBO(245, 188, 6, 1), // Verde WhatsApp
+        child: const Icon(Icons.chat, color: Colors.black),
       ),
       body: ResponsiveContent(
         child: FutureBuilder<Family?>(
