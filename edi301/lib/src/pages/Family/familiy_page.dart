@@ -7,7 +7,6 @@ import 'package:edi301/models/family_model.dart';
 import 'package:edi301/services/familia_api.dart';
 import 'package:edi301/src/pages/Family/family_controller.dart';
 import 'package:edi301/src/widgets/responsive_content.dart';
-// 👇 1. IMPORTAMOS LA GALERÍA
 import 'package:edi301/src/widgets/family_gallery.dart';
 
 class FamiliyPage extends StatefulWidget {
@@ -42,12 +41,13 @@ class _FamilyPageState extends State<FamiliyPage> {
     }
   }
 
+  // --- MODIFICADO: Ya no lanza error ni muestra SnackBar, solo retorna null ---
   Future<Family?> _fetchFamilyData() async {
     try {
       final int? familyId = await _controller.resolveFamilyId();
-      if (familyId == null) {
-        throw Exception('No se pudo encontrar el ID de la familia.');
-      }
+
+      // Si no hay ID, retornamos null pacíficamente
+      if (familyId == null) return null;
 
       final prefs = await SharedPreferences.getInstance();
       final String? authToken = prefs.getString('token');
@@ -58,15 +58,9 @@ class _FamilyPageState extends State<FamiliyPage> {
       }
       return null;
     } catch (e) {
-      print('Error al cargar datos de la familia: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al cargar datos: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      print('Error silencioso al cargar familia: $e');
+      // En caso de error de red, también retornamos null para mostrar la pantalla vacía
+      // (O podrías manejar un estado de error diferente si quisieras)
       return null;
     }
   }
@@ -78,54 +72,51 @@ class _FamilyPageState extends State<FamiliyPage> {
         automaticallyImplyLeading: false,
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         elevation: 0,
+        title: const Text("Mi Familia", style: TextStyle(color: Colors.white)),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          // Necesitamos el ID y nombre de la familia actual
-          final familyData =
-              await _familyFuture; // Usamos el futuro que ya tienes cargado
-          if (familyData != null) {
-            // El ID puede venir como id o idFamilia (por el fix anterior)
-            final id = familyData.id ?? 0;
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ChatFamilyPage(
-                  idFamilia: id,
-                  nombreFamilia: familyData.familyName,
-                ),
-              ),
+      // Solo mostramos el botón de chat si hay datos de familia
+      floatingActionButton: FutureBuilder<Family?>(
+        future: _familyFuture,
+        builder: (context, snapshot) {
+          if (snapshot.hasData && snapshot.data != null) {
+            return FloatingActionButton(
+              onPressed: () {
+                final familyData = snapshot.data!;
+                final id = familyData.id ?? 0;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ChatFamilyPage(
+                      idFamilia: id,
+                      nombreFamilia: familyData.familyName,
+                    ),
+                  ),
+                );
+              },
+              backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
+              child: const Icon(Icons.chat, color: Colors.black),
             );
           }
+          return const SizedBox(); // Ocultar botón si no hay familia
         },
-        backgroundColor: Color.fromRGBO(245, 188, 6, 1), // Verde WhatsApp
-        child: const Icon(Icons.chat, color: Colors.black),
       ),
       body: ResponsiveContent(
         child: FutureBuilder<Family?>(
           future: _familyFuture,
           builder: (context, snapshot) {
-            // --- ESTADO DE CARGA ---
+            // 1. ESTADO CARGANDO
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            // --- ESTADO DE ERROR ---
+            // 2. ESTADO SIN FAMILIA (Nuevo diseño limpio)
             if (snapshot.hasError ||
                 !snapshot.hasData ||
                 snapshot.data == null) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'No se pudieron cargar los datos de la familia.\n${snapshot.error ?? ''}',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              );
+              return _buildNoFamilyState();
             }
 
-            // --- ESTADO DE ÉXITO ---
+            // 3. ESTADO CON FAMILIA (Tu diseño original)
             final family = snapshot.data!;
             final String baseUrl = ApiHttp.baseUrl;
 
@@ -178,7 +169,7 @@ class _FamilyPageState extends State<FamiliyPage> {
                           'Añade una descripción en "Editar Perfil".',
                     ),
                   ),
-                  const SizedBox(height: 5), const SizedBox(height: 5),
+                  const SizedBox(height: 10),
 
                   if (![
                     'Hijo',
@@ -189,11 +180,9 @@ class _FamilyPageState extends State<FamiliyPage> {
                     _bottomEditProfile(),
 
                   const SizedBox(height: 10),
-                  const SizedBox(height: 10),
                   _buildToggleButtons(),
                   const SizedBox(height: 10),
 
-                  // 👇 AQUÍ ESTÁ LA INTEGRACIÓN
                   mostrarHijos
                       ? Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -202,9 +191,7 @@ class _FamilyPageState extends State<FamiliyPage> {
                             ...family.assignedStudents,
                           ]),
                         )
-                      : FamilyGallery(
-                          idFamilia: family.id ?? 0,
-                        ), // <--- ¡WIDGET NUEVO!
+                      : FamilyGallery(idFamilia: family.id ?? 0),
                 ],
               ),
             );
@@ -213,6 +200,39 @@ class _FamilyPageState extends State<FamiliyPage> {
       ),
     );
   }
+
+  // --- NUEVO WIDGET: PANTALLA VACÍA ---
+  Widget _buildNoFamilyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(30.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.family_restroom, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 20),
+            Text(
+              "Sin Asignación Familiar",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              "Aún no has sido asignado a ninguna familia en el sistema. Por favor contacta a la administración.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ... (El resto de tus widgets _bottomEditProfile, _buildToggleButtons,
+  //      _buildToggleButton, _buildHijosList, FamilyWidget, etc. SE MANTIENEN IGUAL) ...
 
   Widget _bottomEditProfile() {
     return Container(
@@ -354,9 +374,7 @@ class _FamilyPageState extends State<FamiliyPage> {
   }
 }
 
-// ... Las clases FamilyWidget, FamilyData, ProfileCard y FullScreenImagePage
-// ... se mantienen exactamente igual que en tu código original.
-// ... Solo asegúrate de que sigan al final del archivo.
+// --------------------- WIDGETS AUXILIARES ---------------------
 
 class FamilyWidget extends StatelessWidget {
   final ImageProvider backgroundImage;
@@ -531,7 +549,7 @@ class ProfileCard extends StatelessWidget {
                   style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
                 Text(
-                  'Tel: ${phoneNumber ?? 'No registrado'}',
+                  'Tel: ${phoneNumber ?? 'No registrada'}',
                   style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                 ),
               ],

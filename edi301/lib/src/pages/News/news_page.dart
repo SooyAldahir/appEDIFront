@@ -37,11 +37,7 @@ class _NewsPageState extends State<NewsPage> {
 
   Future<void> _initData() async {
     await _loadUserData();
-    if (_familiaId != null) {
-      _loadFeed();
-    } else {
-      setState(() => _loading = false);
-    }
+    _loadFeed();
   }
 
   Future<void> _loadUserData() async {
@@ -61,9 +57,8 @@ class _NewsPageState extends State<NewsPage> {
   }
 
   Future<void> _loadFeed() async {
-    if (_familiaId == null) return;
     try {
-      final lista = await _api.getPostsFamilia(_familiaId!);
+      final lista = await _api.getGlobalFeed();
       if (mounted) {
         setState(() {
           _posts = lista;
@@ -186,7 +181,17 @@ class _NewsPageState extends State<NewsPage> {
                       padding: const EdgeInsets.only(bottom: 80),
                       itemCount: _posts.length,
                       itemBuilder: (context, index) {
-                        return _buildPostCard(_posts[index], index);
+                        final item = _posts[index];
+
+                        // 👇 AGREGA ESTA CONDICIÓN
+                        if (item['tipo'] == 'EVENTO') {
+                          return _buildEventCard(
+                            item,
+                          ); // Si es evento, usa la tarjeta especial
+                        }
+
+                        // Si no, usa la tarjeta normal de siempre
+                        return _buildPostCard(item, index);
                       },
                     ),
             ),
@@ -207,6 +212,81 @@ class _NewsPageState extends State<NewsPage> {
               },
             )
           : null,
+    );
+  }
+
+  Widget _buildEventCard(Map<String, dynamic> evento) {
+    // Parseamos la fecha para mostrarla bonita
+    final fecha = DateTime.tryParse(evento['fecha_evento'].toString());
+    final fechaStr = fecha != null ? "${fecha.day}/${fecha.month}" : "";
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      elevation: 4,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        // Borde dorado para destacar que es un Evento Importante
+        side: const BorderSide(color: Color.fromRGBO(245, 188, 6, 1), width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start, // Alineamos todo a la izquierda
+        children: [
+          // Banner Superior "EVENTO PRÓXIMO"
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15),
+            decoration: const BoxDecoration(
+              color: Color.fromRGBO(245, 188, 6, 1), // Fondo Dorado
+              borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.event_available, color: Colors.black),
+                const SizedBox(width: 10),
+                const Text(
+                  "EVENTO PRÓXIMO",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const Spacer(),
+                Text(
+                  fechaStr,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Contenido del Evento (Título y Descripción)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 👇 AQUÍ SE MUESTRA EL TÍTULO QUE FALTABA
+                Text(
+                  evento['titulo'] ?? 'Evento Escolar',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromRGBO(19, 67, 107, 1), // Azul Institucional
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // La descripción (que en la base de datos viene como 'mensaje' por el alias)
+                Text(
+                  evento['mensaje'] ?? '',
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

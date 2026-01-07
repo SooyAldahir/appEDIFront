@@ -216,4 +216,13 @@ class PublicacionesApi {
       return false;
     }
   }
+
+  Future<List<dynamic>> getGlobalFeed() async {
+    final response = await _http.getJson('/api/publicaciones/feed/global');
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Error cargando feed global');
+    }
+  }
 }
