@@ -112,6 +112,7 @@ class LoginController {
       // 5. GUARDAR DATOS DE USUARIO (SHARED PREFERENCES)
       // ---------------------------------------------------------
       final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('session_token', token);
       await prefs.setString('user', jsonEncode(data));
 
       // ---------------------------------------------------------
