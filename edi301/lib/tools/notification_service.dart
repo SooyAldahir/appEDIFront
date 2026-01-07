@@ -1,4 +1,6 @@
 // lib/tools/notification_service.dart
+import 'dart:ui';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -39,7 +41,7 @@ class NotificationService {
 
     // 2. Configuración de Android
     const AndroidInitializationSettings initAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('ic_notification');
 
     // 3. Configuración de iOS
     const DarwinInitializationSettings initIOS = DarwinInitializationSettings(
@@ -72,6 +74,8 @@ class NotificationService {
         importance: Importance.max,
         priority: Priority.high,
         showWhen: true,
+        icon: 'ic_notification', // Asegura que use la silueta blanca
+        color: Color(0xFF13436B),
       );
   static const NotificationDetails _platformDetails = NotificationDetails(
     android: _androidDetails,
