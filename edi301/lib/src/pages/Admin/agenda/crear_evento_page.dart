@@ -1,230 +1,192 @@
-// lib/src/pages/Admin/agenda/crear_evento_page.dart
-import 'package:edi301/src/widgets/responsive_content.dart';
+import 'package:edi301/core/api_client_http.dart';
 import 'package:flutter/material.dart';
-import 'package:edi301/src/pages/Admin/agenda/agenda_controller.dart';
 
-class CrearEventoPage extends StatefulWidget {
-  const CrearEventoPage({super.key});
+class CreateEventPage extends StatefulWidget {
+  // Datos opcionales que vienen del constructor (NewsPage)
+  final Map<String, dynamic>? eventoExistente;
+
+  const CreateEventPage({super.key, this.eventoExistente});
 
   @override
-  State<CrearEventoPage> createState() => _CrearEventoPageState();
+  State<CreateEventPage> createState() => _CreateEventPageState();
 }
 
-class _CrearEventoPageState extends State<CrearEventoPage> {
-  final AgendaController _controller = AgendaController();
-  final _formKey = GlobalKey<FormState>();
+class _CreateEventPageState extends State<CreateEventPage> {
+  final _titleCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  final _daysCtrl = TextEditingController(text: '3');
+
+  DateTime? _selectedDate;
+  bool _loading = false;
+  int? _idEdicion; // Si es null = Crear, Si tiene valor = Editar
+
+  final ApiHttp _http = ApiHttp();
 
   @override
   void initState() {
     super.initState();
-    _controller.init(context);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _selectFecha(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _controller.fechaEvento ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2101),
-    );
-    if (picked != null && picked != _controller.fechaEvento) {
-      setState(() {
-        _controller.fechaEvento = picked;
-      });
+    // 1. CARGA DESDE CONSTRUCTOR (NewsPage)
+    // Importante: Aquí NO usamos setState porque la pantalla aún no se ha dibujado
+    if (widget.eventoExistente != null) {
+      _cargarDatosInterno(widget.eventoExistente!);
     }
   }
 
-  Future<void> _selectHora(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 2. CARGA DESDE RUTA (AgendaPage)
+    // Solo si no tenemos datos del constructor y aún no hemos cargado nada
+    if (widget.eventoExistente == null && _idEdicion == null) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args != null && args is Map) {
+        // Convertimos a mapa seguro y cargamos
+        _cargarDatosInterno(Map<String, dynamic>.from(args));
+      }
+    }
+  }
+
+  // Función auxiliar para llenar variables (SIN setState)
+  void _cargarDatosInterno(Map<String, dynamic> datos) {
+    print("🔧 Cargando datos de evento: $datos");
+
+    // Mapeo inteligente de ID (Soporta id_evento o id_actividad)
+    _idEdicion = datos['id_evento'] ?? datos['id_actividad'];
+
+    _titleCtrl.text = datos['titulo'] ?? '';
+
+    // Mapeo inteligente de Descripción (Soporta mensaje o descripcion)
+    _descCtrl.text = datos['mensaje'] ?? datos['descripcion'] ?? '';
+
+    _daysCtrl.text = (datos['dias_anticipacion'] ?? 3).toString();
+
+    if (datos['fecha_evento'] != null) {
+      _selectedDate = DateTime.tryParse(datos['fecha_evento'].toString());
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final initial = _selectedDate ?? now;
+    final picked = await showDatePicker(
       context: context,
-      initialTime: _controller.horaEvento ?? TimeOfDay.now(),
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 5),
     );
-    if (picked != null) {
-      setState(() {
-        _controller.horaEvento = picked;
-      });
+    if (picked != null) setState(() => _selectedDate = picked);
+  }
+
+  Future<void> _submit() async {
+    if (_titleCtrl.text.isEmpty || _selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Título y Fecha obligatorios")),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      final data = {
+        'titulo': _titleCtrl.text,
+        'descripcion': _descCtrl.text,
+        'fecha_evento': _selectedDate!.toIso8601String(),
+        'dias_anticipacion': int.tryParse(_daysCtrl.text) ?? 3,
+      };
+
+      if (_idEdicion == null) {
+        // --- CREAR ---
+        await _http.postJson('/api/agenda', data: data);
+      } else {
+        // --- EDITAR ---
+        await _http.putJson('/api/agenda/$_idEdicion', data: data);
+      }
+
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final primary = const Color.fromRGBO(19, 67, 107, 1);
+    final esEdicion = _idEdicion != null;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Crear Evento'),
-        backgroundColor: primary,
+        title: Text(esEdicion ? "Editar Evento" : "Nuevo Evento"),
+        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
       ),
-      body: ResponsiveContent(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              TextFormField(
-                controller: _controller.tituloCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Título del evento',
-                ),
-                validator: (v) => v!.isEmpty ? 'El título es requerido' : null,
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: ListView(
+          children: [
+            TextField(
+              controller: _titleCtrl,
+              decoration: const InputDecoration(
+                labelText: "Título del Evento",
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _controller.descCtrl,
-                decoration: const InputDecoration(labelText: 'Descripción'),
-                maxLines: 3,
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: _descCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: "Descripción",
+                border: OutlineInputBorder(),
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _controller.imagenCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'URL de la imagen (Opcional)',
-                ),
-                //keyboardType: TextInputType.url,
+            ),
+            const SizedBox(height: 15),
+            ListTile(
+              title: Text(
+                _selectedDate == null
+                    ? "Seleccionar Fecha del Evento"
+                    : "Fecha: ${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}",
               ),
-              const SizedBox(height: 24),
-
-              // --- Selectores de Fecha y Hora ---
-              Row(
-                children: [
-                  Expanded(
-                    child: ListTile(
-                      title: const Text('Fecha del Evento'),
-                      subtitle: Text(
-                        _controller.fechaEvento != null
-                            ? '${_controller.fechaEvento!.day}/${_controller.fechaEvento!.month}/${_controller.fechaEvento!.year}'
-                            : 'No seleccionada',
+              trailing: const Icon(Icons.calendar_today),
+              onTap: _pickDate,
+              tileColor: Colors.grey[200],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            const SizedBox(height: 15),
+            TextField(
+              controller: _daysCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: "¿Cuántos días antes mostrar?",
+                helperText: "Días de anticipación en el feed.",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: _loading ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
+                padding: const EdgeInsets.symmetric(vertical: 15),
+              ),
+              child: _loading
+                  ? const CircularProgressIndicator()
+                  : Text(
+                      esEdicion ? "Guardar Cambios" : "Publicar Evento",
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
                       ),
-                      leading: const Icon(Icons.calendar_today),
-                      onTap: () => _selectFecha(context),
                     ),
-                  ),
-                  Expanded(
-                    child: ListTile(
-                      title: const Text('Hora (Opcional)'),
-                      subtitle: Text(
-                        _controller.horaEvento != null
-                            ? _controller.horaEvento!.format(context)
-                            : 'No seleccionada',
-                      ),
-                      leading: const Icon(Icons.access_time),
-                      onTap: () => _selectHora(context),
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 32),
-
-              // --- Switch de Recordatorio ---
-              ValueListenableBuilder<bool>(
-                valueListenable: _controller.crearRecordatorio,
-                builder: (context, value, child) {
-                  return SwitchListTile(
-                    title: const Text('Establecer recordatorio'),
-                    subtitle: const Text(
-                      'Programar un recordatorio recurrente para este evento',
-                    ),
-                    value: value,
-                    onChanged: (newValue) {
-                      _controller.crearRecordatorio.value = newValue;
-                    },
-                  );
-                },
-              ),
-
-              // --- Opciones de Recordatorio (condicional) ---
-              ValueListenableBuilder<bool>(
-                valueListenable: _controller.crearRecordatorio,
-                builder: (context, crear, child) {
-                  if (!crear) return const SizedBox.shrink();
-
-                  // Estos son los campos para el *recordatorio*
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    color: Colors.blue.withOpacity(0.05),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Opciones del Recordatorio",
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _controller.recordatorioHoraCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Hora del recordatorio (ej: 13:00)',
-                            icon: Icon(Icons.alarm),
-                          ),
-                          validator: (v) => (v!.isEmpty || v.length < 5)
-                              ? 'Formato HH:MM requerido'
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          value: _controller.recordatorioTipo,
-                          decoration: const InputDecoration(
-                            labelText: 'Frecuencia',
-                            icon: Icon(Icons.repeat),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'DAY',
-                              child: Text('Diariamente'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'WEEK',
-                              child: Text('Semanalmente'),
-                            ),
-                          ],
-                          onChanged: (v) =>
-                              setState(() => _controller.recordatorioTipo = v!),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _controller.recordatorioDiasAntesCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Iniciar recordatorios (días antes)',
-                            icon: Icon(Icons.notification_add),
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 32),
-
-              // --- Botón de Guardar ---
-              ValueListenableBuilder<bool>(
-                valueListenable: _controller.loading,
-                builder: (context, isLoading, child) {
-                  return ElevatedButton(
-                    onPressed: isLoading
-                        ? null
-                        : () {
-                            if (_formKey.currentState!.validate()) {
-                              _controller.guardarEvento();
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: Text(isLoading ? 'GUARDANDO...' : 'GUARDAR EVENTO'),
-                  );
-                },
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

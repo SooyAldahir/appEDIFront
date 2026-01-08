@@ -1,27 +1,89 @@
-// lib/src/pages/Admin/agenda/agenda_detail_page.dart
+import 'package:edi301/core/api_client_http.dart'; // NECESARIO para borrar
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
-import 'package:edi301/services/eventos_api.dart'; // Para el modelo Evento
+import 'package:edi301/services/eventos_api.dart'; // Modelo Evento
 
 class AgendaDetailPage extends StatelessWidget {
   const AgendaDetailPage({super.key});
 
+  // --- FUNCIÓN BORRAR ---
+  void _deleteEvent(BuildContext context, Evento evento) async {
+    final api = ApiHttp();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Eliminar Evento"),
+        content: const Text("¿Seguro que deseas eliminar esta actividad?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        // Usamos idActividad que ya corregimos en el modelo
+        await api.deleteJson('/api/agenda/${evento.idActividad}');
+
+        if (context.mounted) {
+          Navigator.pop(
+            context,
+            true,
+          ); // Devuelve true para recargar la lista anterior
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("Error al eliminar: $e")));
+        }
+      }
+    }
+  }
+
+  // --- FUNCIÓN EDITAR ---
+  void _editEvent(BuildContext context, Evento evento) async {
+    // Preparamos los datos para la página de creación (CreateEventPage)
+    // que espera un Map<String, dynamic>
+    final eventoMap = {
+      'id_evento': evento.idActividad,
+      'titulo': evento.titulo,
+      'mensaje': evento.descripcion,
+      'fecha_evento': evento.fechaEvento.toIso8601String(),
+      'dias_anticipacion': evento.diasAnticipacion ?? 3,
+    };
+
+    // Navegamos a la ruta 'crear_evento' (que definimos en main.dart)
+    final result = await Navigator.pushNamed(
+      context,
+      'crear_evento',
+      arguments: eventoMap,
+    );
+
+    // Si se editó algo, regresamos para recargar la lista principal
+    if (result == true && context.mounted) {
+      Navigator.pop(context, true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Recibe el objeto Evento completo que pasamos desde la lista
     final evento = ModalRoute.of(context)!.settings.arguments as Evento;
     final primary = const Color.fromRGBO(19, 67, 107, 1);
 
-    // Función para formatear la hora (ej. 16:40:00 -> 16:40)
     String formatTime(String? timeStr) {
       if (timeStr == null || timeStr.isEmpty) return 'Todo el día';
-      if (timeStr.length > 5) {
-        return timeStr.substring(0, 5);
-      }
+      if (timeStr.length > 5) return timeStr.substring(0, 5);
       return timeStr;
     }
 
-    // Función para formatear la fecha (ej. 12/11/2025)
     String formatDate(DateTime date) {
       return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
     }
@@ -30,20 +92,20 @@ class AgendaDetailPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(evento.titulo),
         backgroundColor: primary,
+        iconTheme: const IconThemeData(color: Colors.white), // Iconos blancos
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
         actions: [
+          // BOTÓN EDITAR
           IconButton(
-            tooltip: 'Editar (Pendiente)',
+            tooltip: 'Editar',
             icon: const Icon(Icons.edit),
-            onPressed: () {
-              // Próximamente
-            },
+            onPressed: () => _editEvent(context, evento),
           ),
+          // BOTÓN ELIMINAR
           IconButton(
-            tooltip: 'Eliminar (Pendiente)',
+            tooltip: 'Eliminar',
             icon: const Icon(Icons.delete),
-            onPressed: () {
-              // Próximamente
-            },
+            onPressed: () => _deleteEvent(context, evento),
           ),
         ],
       ),
@@ -51,7 +113,6 @@ class AgendaDetailPage extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Mostrar imagen si existe
             if (evento.imagen != null && evento.imagen!.startsWith('http'))
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
@@ -60,17 +121,8 @@ class AgendaDetailPage extends StatelessWidget {
                   height: 200,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (ctx, err, stack) => Container(
-                    height: 200,
-                    color: Colors.grey[200],
-                    child: const Center(
-                      child: Icon(
-                        Icons.broken_image,
-                        size: 100,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ),
+                  errorBuilder: (ctx, err, stack) =>
+                      Container(height: 200, color: Colors.grey[200]),
                 ),
               ),
             const SizedBox(height: 16),
@@ -83,7 +135,6 @@ class AgendaDetailPage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Fecha y Hora
             _InfoTile(
               icon: Icons.calendar_today,
               label: 'Fecha',
@@ -94,9 +145,16 @@ class AgendaDetailPage extends StatelessWidget {
               label: 'Hora',
               value: formatTime(evento.horaEvento),
             ),
-            const Divider(height: 32),
 
-            // Descripción
+            // AQUI MOSTRAMOS LOS DÍAS ANTICIPADOS
+            if (evento.diasAnticipacion != null)
+              _InfoTile(
+                icon: Icons.notifications_active,
+                label: 'Avisar desde',
+                value: "${evento.diasAnticipacion} días antes",
+              ),
+
+            const Divider(height: 32),
             _InfoTile(
               icon: Icons.description_outlined,
               label: 'Descripción',
@@ -111,7 +169,6 @@ class AgendaDetailPage extends StatelessWidget {
   }
 }
 
-// Widget auxiliar para mostrar la información
 class _InfoTile extends StatelessWidget {
   final IconData icon;
   final String label;

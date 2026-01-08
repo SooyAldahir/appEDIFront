@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:edi301/core/api_client_http.dart'; // Asegúrate de importar tu ApiHttp para llamadas directas si la API services no las tiene
 import 'package:edi301/services/publicaciones_api.dart';
+import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -215,10 +216,46 @@ class _NewsPageState extends State<NewsPage> {
     );
   }
 
+  void _deleteEvent(int idEvento) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Eliminar Evento"),
+        content: const Text(
+          "¿Estás seguro de eliminar este evento de la agenda?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancelar"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Eliminar", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _http.deleteJson('/api/agenda/$idEvento');
+        _loadFeed(); // Recargar el feed para que desaparezca
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error al eliminar: $e")));
+      }
+    }
+  }
+
+  // REEMPLAZA TU FUNCIÓN _buildEventCard ACTUAL CON ESTA:
   Widget _buildEventCard(Map<String, dynamic> evento) {
-    // Parseamos la fecha para mostrarla bonita
     final fecha = DateTime.tryParse(evento['fecha_evento'].toString());
     final fechaStr = fecha != null ? "${fecha.day}/${fecha.month}" : "";
+
+    // Verificamos si es Admin (para mostrar controles)
+    final esAdmin = ['Admin'].contains(_userRole);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -226,19 +263,17 @@ class _NewsPageState extends State<NewsPage> {
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
-        // Borde dorado para destacar que es un Evento Importante
         side: const BorderSide(color: Color.fromRGBO(245, 188, 6, 1), width: 2),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start, // Alineamos todo a la izquierda
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Banner Superior "EVENTO PRÓXIMO"
+          // Banner Superior
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15),
             decoration: const BoxDecoration(
-              color: Color.fromRGBO(245, 188, 6, 1), // Fondo Dorado
+              color: Color.fromRGBO(245, 188, 6, 1),
               borderRadius: BorderRadius.vertical(top: Radius.circular(13)),
             ),
             child: Row(
@@ -257,27 +292,46 @@ class _NewsPageState extends State<NewsPage> {
                     fontSize: 16,
                   ),
                 ),
+
+                // 👇 MENÚ DE EDICIÓN (SOLO ADMIN)
+                if (esAdmin)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, color: Colors.black),
+                    onSelected: (value) async {
+                      // Solo verificamos si es borrar
+                      if (value == 'delete') {
+                        _deleteEvent(evento['id_evento']);
+                      }
+                    },
+                    itemBuilder: (ctx) => [
+                      // Solo mostramos la opción de eliminar
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text(
+                          "Eliminar",
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
 
-          // Contenido del Evento (Título y Descripción)
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 👇 AQUÍ SE MUESTRA EL TÍTULO QUE FALTABA
                 Text(
                   evento['titulo'] ?? 'Evento Escolar',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color.fromRGBO(19, 67, 107, 1), // Azul Institucional
+                    color: Color.fromRGBO(19, 67, 107, 1),
                   ),
                 ),
                 const SizedBox(height: 8),
-                // La descripción (que en la base de datos viene como 'mensaje' por el alias)
                 Text(
                   evento['mensaje'] ?? '',
                   style: const TextStyle(fontSize: 16),

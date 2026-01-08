@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:edi301/tools/notification_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // <--- 1. IMPORTAR ESTO
-
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/src/pages/Admin/agenda/agenda_detail_page.dart';
 import 'package:edi301/Login/login_page.dart';
 import 'package:edi301/Register/register_page.dart';
@@ -112,7 +111,7 @@ class MyApp extends StatelessWidget {
         'family_detail': (_) => const FamilyDetailPage(),
         'student_detail': (_) => const StudentDetailPage(),
         'agenda': (context) => const AgendaPage(),
-        'crear_evento': (context) => const CrearEventoPage(),
+        'crear_evento': (context) => const CreateEventPage(),
         'agenda_detail': (context) => const AgendaDetailPage(),
         'reportes': (context) => const ReportesPage(),
         'notifications': (_) => const NotificationsPage(),

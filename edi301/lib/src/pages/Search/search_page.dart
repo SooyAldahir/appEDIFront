@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:edi301/services/search_api.dart';
 import 'package:edi301/src/pages/Admin/add_family/add_family_controller.dart';
 import 'package:url_launcher/url_launcher.dart'; // <-- 1. Importar
+import 'package:edi301/services/chat_api.dart';
+import 'package:edi301/src/pages/Chat/chat_page.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -19,6 +21,7 @@ class _SearchPageState extends State<SearchPage> {
   bool _searched = false;
 
   final _api = SearchApi();
+  final ChatApi _chatApi = ChatApi();
 
   @override
   void dispose() {
@@ -57,6 +60,26 @@ class _SearchPageState extends State<SearchPage> {
     } finally {
       _loading.value = false;
       setState(() => _searched = true);
+    }
+  }
+
+  void _startChat(int idUsuario, String nombre) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Abriendo chat..."),
+        duration: Duration(milliseconds: 800),
+      ),
+    );
+
+    final idSala = await _chatApi.initPrivateChat(idUsuario);
+
+    if (idSala != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatPage(idSala: idSala, nombreChat: nombre),
+        ),
+      );
     }
   }
 
@@ -199,7 +222,6 @@ class _SearchPageState extends State<SearchPage> {
   Widget _userTile(UserMini u) {
     final tipo = (u.tipo).toUpperCase();
     final fullName = '${u.nombre} ${u.apellido}'.trim();
-
     final doc = (tipo == 'EMPLEADO' && u.numEmpleado != null)
         ? 'No. empleado: ${u.numEmpleado}'
         : (u.matricula != null ? 'Matrícula: ${u.matricula}' : '');
@@ -211,13 +233,18 @@ class _SearchPageState extends State<SearchPage> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // --- 4. BOTÓN DE DETALLE (CORREGIDO) ---
+          // 🔥 BOTÓN NUEVO DE CHAT
+          IconButton(
+            tooltip: 'Enviar mensaje',
+            icon: const Icon(Icons.chat_bubble_outline, color: Colors.blue),
+            onPressed: () => _startChat(u.id, fullName),
+          ),
+
+          // BOTÓN EXISTENTE DE DETALLE
           IconButton(
             tooltip: 'Ver detalle',
             icon: const Icon(Icons.remove_red_eye_outlined),
             onPressed: () {
-              // Ahora pasamos el ID de usuario, que es lo que espera
-              // la página de detalle.
               Navigator.pushNamed(context, 'student_detail', arguments: u.id);
             },
           ),

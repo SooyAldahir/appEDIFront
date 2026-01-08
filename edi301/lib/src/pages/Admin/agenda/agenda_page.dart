@@ -63,12 +63,20 @@ class _AgendaPageState extends State<AgendaPage> {
                   ),
                   isThreeLine: evento.descripcion != null,
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.pushNamed(
+
+                  // --- AQUÍ ESTÁ EL CAMBIO IMPORTANTE ---
+                  onTap: () async {
+                    // Navegamos al detalle y esperamos respuesta
+                    final result = await Navigator.pushNamed(
                       context,
                       'agenda_detail',
                       arguments: evento,
                     );
+
+                    // Si devuelve true (se editó o eliminó), recargamos
+                    if (result == true) {
+                      _loadEventos();
+                    }
                   },
                 );
               },

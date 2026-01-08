@@ -1,60 +1,76 @@
-// lib/services/eventos_api.dart
 import 'dart:convert';
 import '../core/api_client_http.dart';
 
-// --- MODELO (para la lista) ---
-// (Lo ponemos aquí para simplicidad)
+// --- MODELO ---
 class Evento {
-  final int id;
+  // Usamos 'idActividad' para ser consistentes con la BD y el código del detalle
+  final int idActividad;
   final String titulo;
   final String? descripcion;
   final DateTime fechaEvento;
   final String? horaEvento;
   final String? imagen;
-  final String estado;
+  final String estadoPublicacion;
+  // 👇 CAMPO NUEVO
+  final int? diasAnticipacion;
 
   Evento({
-    required this.id,
+    required this.idActividad,
     required this.titulo,
     this.descripcion,
     required this.fechaEvento,
     this.horaEvento,
     this.imagen,
-    required this.estado,
+    required this.estadoPublicacion,
+    this.diasAnticipacion,
   });
 
-  factory Evento.fromJson(Map<String, dynamic> j) {
+  factory Evento.fromJson(Map<String, dynamic> json) {
     return Evento(
-      id: j['id_actividad'],
-      titulo: j['titulo'],
-      descripcion: j['descripcion'],
-      fechaEvento: DateTime.parse(j['fecha_evento']),
-      horaEvento: j['hora_evento'],
-      imagen: j['imagen'],
-      estado: j['estado_publicacion'],
+      // 👇 MAPEO ROBUSTO:
+      // Busca 'id_actividad' (lista) o 'id_evento' (feed) o usa 0 por defecto
+      idActividad: json['id_actividad'] ?? json['id_evento'] ?? 0,
+
+      titulo: json['titulo'] ?? '',
+      descripcion:
+          json['descripcion'] ?? json['mensaje'], // Soporta alias del feed
+      // Manejo seguro de fechas
+      fechaEvento: json['fecha_evento'] != null
+          ? DateTime.parse(json['fecha_evento'].toString())
+          : DateTime.now(),
+
+      horaEvento: json['hora_evento'],
+      imagen: json['imagen'],
+      estadoPublicacion: json['estado_publicacion'] ?? 'Publicada',
+
+      // 👇 LECTURA DEL NUEVO CAMPO
+      diasAnticipacion: json['dias_anticipacion'],
     );
   }
 }
-// --- FIN DEL MODELO ---
 
+// --- API SERVICE ---
 class EventosApi {
   final ApiHttp _http = ApiHttp();
 
-  // --- FUNCIÓN CORREGIDA ---
+  // --- FUNCIÓN CREAR (MEJORADA) ---
   Future<Map<String, dynamic>> crearEvento({
     required String titulo,
     required DateTime fecha,
-    String? hora, // (ej: "13:00")
+    String? hora,
     String? descripcion,
     String? imagenUrl,
+    int diasAnticipacion = 3, // 👇 Agregamos esto con valor default
   }) async {
     final payload = {
       "titulo": titulo,
       "descripcion": descripcion,
-      "fecha_evento": fecha.toIso8601String().split('T').first, // "YYYY-MM-DD"
-      "hora_evento": hora, // "HH:MM"
+      "fecha_evento": fecha
+          .toIso8601String(), // Enviamos ISO completo, el backend lo maneja
+      "hora_evento": hora,
       "imagen": imagenUrl,
       "estado_publicacion": "Publicada",
+      "dias_anticipacion": diasAnticipacion, // 👇 Lo enviamos al backend
     };
 
     final res = await _http.postJson('/api/agenda', data: payload);
@@ -69,8 +85,8 @@ class EventosApi {
     }
     throw Exception('La API no retornó un evento válido');
   }
-  // --- FIN FUNCIÓN CORREGIDA ---
 
+  // --- FUNCIÓN LISTAR ---
   Future<List<Evento>> listar() async {
     final res = await _http.getJson('/api/agenda');
 
@@ -88,7 +104,6 @@ class EventosApi {
           .toList();
     }
 
-    // Fallback por si acaso
     return <Evento>[];
   }
 }

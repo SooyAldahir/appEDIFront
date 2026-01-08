@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:edi301/services/chat_api.dart';
+import 'package:edi301/src/pages/Chat/chat_page.dart';
 import 'package:edi301/src/pages/Family/chat_family_page.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,6 +30,18 @@ class _FamilyPageState extends State<FamiliyPage> {
     super.initState();
     _loadUserRole();
     _familyFuture = _fetchFamilyData();
+  }
+
+  void _startChat(int idUsuario, String nombre) async {
+    final idSala = await ChatApi().initPrivateChat(idUsuario);
+    if (idSala != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatPage(idSala: idSala, nombreChat: nombre),
+        ),
+      );
+    }
   }
 
   Future<void> _loadUserRole() async {
@@ -368,6 +382,7 @@ class _FamilyPageState extends State<FamiliyPage> {
               arguments: hijo.idUsuario,
             );
           },
+          onChat: () => _startChat(hijo.idUsuario, hijo.fullName),
         );
       },
     );
@@ -505,6 +520,7 @@ class ProfileCard extends StatelessWidget {
   final String? fechaNacimiento;
   final String? phoneNumber;
   final VoidCallback? onTap;
+  final VoidCallback? onChat;
 
   const ProfileCard({
     super.key,
@@ -514,6 +530,7 @@ class ProfileCard extends StatelessWidget {
     this.fechaNacimiento,
     this.phoneNumber,
     this.onTap,
+    this.onChat,
   });
 
   @override
@@ -530,30 +547,40 @@ class ProfileCard extends StatelessWidget {
           children: [
             CircleAvatar(backgroundImage: NetworkImage(imageUrl), radius: 30),
             const SizedBox(width: 15),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+            // Usamos Expanded para que el texto ocupe el espacio disponible
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                Text(
-                  school ?? 'Escuela no registrada',
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                ),
-                Text(
-                  'Nacimiento: ${fechaNacimiento ?? 'No registrada'}',
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                ),
-                Text(
-                  'Tel: ${phoneNumber ?? 'No registrada'}',
-                  style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                ),
-              ],
+                  Text(
+                    school ?? 'Escuela no registrada',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[800]),
+                  ),
+                  if (phoneNumber != null)
+                    Text(
+                      'Tel: $phoneNumber',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                    ),
+                ],
+              ),
             ),
+
+            // 👇 3. EL BOTÓN DE CHAT AQUÍ A LA DERECHA
+            if (onChat != null)
+              IconButton(
+                icon: const Icon(
+                  Icons.chat_bubble,
+                  color: Color.fromRGBO(19, 67, 107, 1),
+                ),
+                onPressed: onChat,
+              ),
           ],
         ),
       ),

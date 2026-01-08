@@ -1,7 +1,7 @@
-import 'dart:convert'; // Necesario para jsonDecode
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Asegúrate de tener este import
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:edi301/src/pages/Home/home_controller.dart';
 import 'package:edi301/src/pages/News/news_page.dart';
@@ -9,7 +9,8 @@ import 'package:edi301/src/pages/Family/familiy_page.dart';
 import 'package:edi301/src/pages/Search/search_page.dart';
 import 'package:edi301/src/pages/Perfil/perfil_page.dart';
 import 'package:edi301/src/pages/Admin/admin_page.dart';
-import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart'; // Importa la agenda
+import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
+import 'package:edi301/src/pages/Chat/my_chats_page.dart'; // <--- 1. IMPORTAR EL CHAT
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -39,7 +40,6 @@ class _HomePageState extends State<HomePage> {
     String rol = '';
     if (userStr != null) {
       final user = jsonDecode(userStr);
-      // Ajusta la llave según cómo venga en tu JSON ('nombre_rol', 'rol', etc.)
       rol = user['nombre_rol'] ?? user['rol'] ?? '';
     }
 
@@ -51,15 +51,17 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // --- 1. AQUÍ DEFINIMOS QUÉ PÁGINA ABRIR SEGÚN LA RUTA ---
+  // --- 2. AGREGAR EL CASO 'CHAT' AL ROUTER ---
   Widget _getPageFromRoute(String route) {
     switch (route) {
       case 'news':
         return const NewsPage();
+      case 'chat': // <--- NUEVO: Si la ruta es 'chat', abre MyChatsPage
+        return const MyChatsPage();
       case 'family':
         return const FamiliyPage();
       case 'search':
-        return const SearchPage(); // <--- ¡Restaurado!
+        return const SearchPage();
       case 'agenda':
         return const AgendaPage();
       case 'admin':
@@ -71,17 +73,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // --- 2. AQUÍ ARMAMOS EL MENÚ SEGÚN EL ROL ---
+  // --- 3. AGREGAR LA OPCIÓN AL MENÚ ---
   List<Map<String, dynamic>> _getMenuOptions(String rol) {
-    // Definimos TODAS las opciones posibles en el orden ideal
     final allOptions = [
       {'ruta': 'news', 'icon': Icons.newspaper, 'label': 'Noticias'},
-      {'ruta': 'family', 'icon': Icons.family_restroom, 'label': 'Familia'},
+      // Lo pongo aquí para que aparezca después de noticias (muy accesible)
       {
-        'ruta': 'search',
-        'icon': Icons.person_search,
-        'label': 'Buscar',
-      }, // <--- Indispensable
+        'ruta': 'chat',
+        'icon': Icons.chat_bubble,
+        'label': 'Mensajes',
+      }, // <--- NUEVO
+      {'ruta': 'family', 'icon': Icons.family_restroom, 'label': 'Familia'},
+      {'ruta': 'search', 'icon': Icons.person_search, 'label': 'Buscar'},
       {'ruta': 'agenda', 'icon': Icons.calendar_month, 'label': 'Agenda'},
       {'ruta': 'admin', 'icon': Icons.admin_panel_settings, 'label': 'Admin'},
       {'ruta': 'perfil', 'icon': Icons.person, 'label': 'Perfil'},
@@ -89,8 +92,7 @@ class _HomePageState extends State<HomePage> {
 
     // Lógica de roles
     if (rol == 'Admin') {
-      // El Admin ve TODO (6 botones).
-      // Si son muchos para el celular, Flutter los acomoda tipo "Shifting".
+      // El Admin ve TODO (Incluido el chat)
       return allOptions;
     }
     // Padres e Hijos
@@ -105,9 +107,11 @@ class _HomePageState extends State<HomePage> {
       'Alumno',
       'Estudiante',
     ].contains(rol)) {
-      // Solo ven: Noticias, Familia, Perfil (y Buscar si quieres que ellos también busquen)
+      // <--- AGREGAMOS 'chat' A LA LISTA DE PERMITIDOS
       return allOptions
-          .where((op) => ['news', 'family', 'perfil'].contains(op['ruta']))
+          .where(
+            (op) => ['news', 'chat', 'family', 'perfil'].contains(op['ruta']),
+          )
           .toList();
     }
 
@@ -126,7 +130,6 @@ class _HomePageState extends State<HomePage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // Seguridad para no desbordar el índice si cambia el rol
     if (_selectedIndex >= _menuOptions.length) _selectedIndex = 0;
 
     final currentRoute = _menuOptions[_selectedIndex]['ruta'];
@@ -135,12 +138,10 @@ class _HomePageState extends State<HomePage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 640) {
-          // DISEÑO MÓVIL
           return Scaffold(
             body: currentPage,
             bottomNavigationBar: BottomNavigationBar(
-              type: BottomNavigationBarType
-                  .fixed, // Mantiene iconos fijos aunque sean >3
+              type: BottomNavigationBarType.fixed,
               backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
               selectedItemColor: const Color.fromRGBO(245, 188, 6, 1),
               unselectedItemColor: Colors.white,
@@ -155,7 +156,6 @@ class _HomePageState extends State<HomePage> {
             ),
           );
         } else {
-          // DISEÑO TABLET
           return Scaffold(
             body: Row(
               children: [
