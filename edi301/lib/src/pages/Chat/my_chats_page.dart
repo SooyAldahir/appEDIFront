@@ -117,7 +117,7 @@ class _MyChatsPageState extends State<MyChatsPage> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text(
-                    chat['ultimo_mensaje'] ?? 'Imagen o Archivo...',
+                    chat['ultimo_mensaje'] ?? 'Incia la conversascion...',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
