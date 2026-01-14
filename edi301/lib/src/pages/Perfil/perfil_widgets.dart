@@ -8,18 +8,30 @@ class HeaderCard extends StatelessWidget {
     required this.residence,
     required this.status,
     required this.avatarUrl,
-    required this.showAvatar,
     required this.primary,
     required this.statusColor,
-    required this.onToggleAvatar,
+    required this.onEditAvatar, // 🔥 Cambiamos toggle por edit
     this.onTapStatus,
   });
 
   final String name, family, residence, status, avatarUrl;
-  final bool showAvatar;
   final Color primary, statusColor;
-  final ValueChanged<bool> onToggleAvatar;
+  final VoidCallback onEditAvatar; // 🔥 Acción para subir foto
   final VoidCallback? onTapStatus;
+
+  // 🔥 Helper para validar URL
+  ImageProvider _getImageProvider() {
+    if (avatarUrl.isNotEmpty &&
+        avatarUrl != '—' &&
+        !avatarUrl.contains('null')) {
+      // Si la URL es válida, la usamos
+      return NetworkImage(avatarUrl);
+    }
+    // Si no, placeholder vacío o asset
+    return const AssetImage(
+      'assets/img/7141724.png',
+    ); // Asegúrate de tener un asset o usa NetworkImage con una url fija de internet
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,21 +47,53 @@ class HeaderCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                if (showAvatar)
-                  CircleAvatar(
-                    radius: 44,
-                    backgroundColor: Colors.white,
-                    child: CircleAvatar(
-                      radius: 40,
-                      backgroundImage: NetworkImage(avatarUrl),
+                // 📸 AVATAR CON BOTÓN DE EDICIÓN
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 44,
+                      backgroundColor: Colors.white,
+                      child: CircleAvatar(
+                        radius: 40,
+                        backgroundColor: Colors.grey[200],
+                        backgroundImage: _getImageProvider(),
+                        // Si falla la carga de red, mostramos icono
+                        onBackgroundImageError: (_, __) {},
+                        child: (avatarUrl.isEmpty || avatarUrl.contains('null'))
+                            ? const Icon(
+                                Icons.person,
+                                size: 40,
+                                color: Colors.grey,
+                              )
+                            : null,
+                      ),
                     ),
-                  )
-                else
-                  const CircleAvatar(
-                    radius: 44,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.person, size: 44, color: Colors.black54),
-                  ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: GestureDetector(
+                        onTap: onEditAvatar,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Color.fromRGBO(
+                              245,
+                              188,
+                              6,
+                              1,
+                            ), // Amarillo EDI
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            size: 18,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Container(
@@ -71,7 +115,6 @@ class HeaderCard extends StatelessWidget {
                           runSpacing: -8,
                           children: [
                             ActionChip(
-                              // <--- Cambiar Chip por ActionChip o InkWell
                               avatar: onTapStatus != null
                                   ? const Icon(
                                       Icons.edit,
@@ -82,54 +125,32 @@ class HeaderCard extends StatelessWidget {
                               label: Text(status),
                               backgroundColor: statusColor.withOpacity(
                                 onTapStatus != null ? 1 : 0.15,
-                              ), // Más visible si es editable
+                              ),
                               labelStyle: TextStyle(
                                 color: onTapStatus != null
                                     ? Colors.white
                                     : statusColor,
                                 fontWeight: FontWeight.w600,
                               ),
-                              onPressed:
-                                  onTapStatus, // Si es null, actúa como un chip normal (deshabilitado)
+                              onPressed: onTapStatus,
                               visualDensity: VisualDensity.compact,
                               side: BorderSide.none,
                             ),
-                            Chip(
-                              label: Text(status),
-                              backgroundColor: statusColor.withOpacity(.15),
-                              labelStyle: TextStyle(
-                                color: statusColor,
-                                fontWeight: FontWeight.w600,
+                            if (residence.isNotEmpty && residence != '—')
+                              Chip(
+                                label: Text('Residencia: $residence'),
+                                visualDensity: VisualDensity.compact,
+                                backgroundColor: Colors.white,
                               ),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            Chip(
-                              label: Text('Residencia: $residence'),
-                              visualDensity: VisualDensity.compact,
-                              backgroundColor: Colors.white,
-                            ),
-                            Chip(
-                              label: Text('Familia: $family'),
-                              visualDensity: VisualDensity.compact,
-                              backgroundColor: Colors.white,
-                            ),
+                            if (family.isNotEmpty && family != '—')
+                              Chip(
+                                label: Text('Familia: $family'),
+                                visualDensity: VisualDensity.compact,
+                                backgroundColor: Colors.white,
+                              ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Text(
-                              showAvatar ? 'Ocultar foto' : 'Mostrar foto',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            const SizedBox(width: 8),
-                            Switch(
-                              value: showAvatar,
-                              activeColor: Colors.white,
-                              onChanged: onToggleAvatar,
-                            ),
-                          ],
-                        ),
+                        // ❌ ELIMINADO EL SWITCH DE OCULTAR FOTO
                       ],
                     ),
                   ),
@@ -225,14 +246,14 @@ class SettingsCard extends StatelessWidget {
     required this.primary,
     required this.notif,
     required this.darkMode,
-    required this.showAvatar,
+    // required this.showAvatar, // ❌ Ya no se usa
     required this.bgRefresh,
     required this.birthdayReminder,
     required this.onChanged,
   });
 
   final Color primary;
-  final bool notif, darkMode, showAvatar, bgRefresh, birthdayReminder;
+  final bool notif, darkMode, bgRefresh, birthdayReminder;
   final void Function(String key, bool value) onChanged;
 
   @override

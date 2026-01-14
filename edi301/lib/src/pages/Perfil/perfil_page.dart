@@ -1,11 +1,13 @@
-import 'dart:async'; // <--- 1. Importar para 'mounted'
+import 'dart:async';
 import 'dart:convert';
 import 'package:edi301/services/estados_api.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/src/pages/Perfil/perfil_widgets.dart';
-import 'package:edi301/auth/token_storage.dart'; // <--- 2. Importar almacenamiento seguro
+import 'package:edi301/auth/token_storage.dart';
+import 'package:image_picker/image_picker.dart'; // 🔥 1. Importar Image Picker
+import 'package:http/http.dart' as http; // 🔥 Importar http para MultipartFile
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -19,8 +21,91 @@ class _PerfilPageState extends State<PerfilPage> {
   int? _userId;
 
   final EstadosApi _estadosApi = EstadosApi();
+  final ApiHttp _http = ApiHttp();
+  final TokenStorage _storage = TokenStorage();
 
-  // 1) Lee 'user' de SharedPreferences y mapea a tu UI
+  // Datos base
+  Map<String, dynamic> data = {
+    'name': '—',
+    'matricula': '—',
+    'phone': '—',
+    'email': '—',
+    'residence': '—',
+    'family': '—',
+    'address': '—',
+    'birthday': '—',
+    'avatarUrl':
+        '', // Lo dejamos vacío para que el widget decida el placeholder
+    'status': 'Activo',
+    'grade': '—',
+  };
+
+  bool notif = true;
+  bool darkMode = false;
+  // bool showAvatar = true; // ❌ Ya no se usa
+  bool bgRefresh = true;
+  bool birthdayReminder = true;
+
+  bool _loading = true;
+  final primary = const Color.fromRGBO(19, 67, 107, 1);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  // --- 🔥 NUEVA FUNCIÓN PARA SUBIR FOTO ---
+  Future<void> _pickAndUploadProfile() async {
+    final picker = ImagePicker();
+    // Abrir galería
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image == null) return; // Usuario canceló
+
+    setState(() => _loading = true);
+
+    try {
+      // Obtenemos los datos actuales para re-enviarlos y evitar que se borren
+      // (Aunque el backend debería ser robusto, esto es doble seguridad)
+      Map<String, String> currentData = {
+        'nombre': data['name'].toString().split(
+          ' ',
+        )[0], // Solo primer nombre aprox
+        // Puedes agregar más campos si tu backend lo requiere estrictamente
+      };
+
+      // Enviamos al endpoint PUT /api/usuarios/:id
+      final stream = await _http.multipart(
+        '/api/usuarios/$_userId',
+        method: 'PUT',
+        files: [await http.MultipartFile.fromPath('foto', image.path)],
+        fields: currentData,
+      );
+
+      if (stream.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Foto actualizada con éxito")),
+        );
+        // Recargamos el perfil para que baje la nueva URL
+        await _fetchFromServer();
+      } else {
+        print("Error subida: ${stream.statusCode}");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error al subir la imagen")),
+        );
+      }
+    } catch (e) {
+      print("Error upload: $e");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // 1) Lee 'user' de SharedPreferences
   Future<void> _hydrateFromLocal() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -28,19 +113,15 @@ class _PerfilPageState extends State<PerfilPage> {
       if (raw == null) return;
 
       final u = jsonDecode(raw) as Map<String, dynamic>;
-
-      // CORRECCIÓN: Usamos (?? '') para asegurar que nunca sea null
       String tipo = (u['tipo_usuario'] ?? u['TipoUsuario'] ?? '').toString();
 
-      // Para el ID, aseguramos que sea int
       int id = 0;
-      if (u['id_usuario'] != null) {
+      if (u['id_usuario'] != null)
         id = int.tryParse(u['id_usuario'].toString()) ?? 0;
-      } else if (u['IdUsuario'] != null) {
+      else if (u['IdUsuario'] != null)
         id = int.tryParse(u['IdUsuario'].toString()) ?? 0;
-      } else if (u['id'] != null) {
+      else if (u['id'] != null)
         id = int.tryParse(u['id'].toString()) ?? 0;
-      }
 
       String nombre = (u['nombre'] ?? u['Nombre'] ?? '').toString();
       String apellido = (u['apellido'] ?? u['Apellido'] ?? '').toString();
@@ -64,10 +145,7 @@ class _PerfilPageState extends State<PerfilPage> {
           'avatarUrl':
               (u['foto_perfil'] ?? u['FotoPerfil'] ?? data['avatarUrl'])
                   .toString(),
-
-          // Asegurar que leemos el estado correctamente sin nulos
           'status': (u['estado'] ?? u['Estado'] ?? 'Activo').toString(),
-
           'grade': (u['carrera'] ?? '—').toString(),
           'family': (u['nombre_familia'] ?? '—').toString(),
         };
@@ -77,29 +155,146 @@ class _PerfilPageState extends State<PerfilPage> {
     }
   }
 
-  // ... Método para mostrar el selector de estados ...
+  Future<void> _fetchFromServer() async {
+    try {
+      // ... Lógica para obtener ID ...
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('user');
+      if (raw == null) return;
+      final uLocal = jsonDecode(raw) as Map<String, dynamic>;
+      final id = uLocal['IdUsuario'] ?? uLocal['id_usuario'] ?? _userId;
+
+      if (id == null) return;
+
+      final res = await _http.getJson('/api/usuarios/$id');
+      if (res.statusCode >= 400) return;
+
+      final x = jsonDecode(res.body) as Map<String, dynamic>;
+
+      String nombre = (x['nombre'] ?? x['Nombre'] ?? uLocal['nombre'] ?? '')
+          .toString();
+      String apellido =
+          (x['apellido'] ?? x['Apellido'] ?? uLocal['apellido'] ?? '')
+              .toString();
+      String colorHex = (x['color_estado'] ?? '#13436B').toString();
+
+      // Fix URL de avatar
+      String avatar = (x['foto_perfil'] ?? x['FotoPerfil'] ?? data['avatarUrl'])
+          .toString();
+      if (avatar.isNotEmpty && !avatar.startsWith('http')) {
+        avatar = '${ApiHttp.baseUrl}$avatar';
+      }
+
+      setState(() {
+        data = {
+          ...data,
+          'name': (('$nombre $apellido').trim().isEmpty)
+              ? data['name']
+              : ('$nombre $apellido').trim(),
+          'email': (x['correo'] ?? x['E_mail'] ?? data['email']).toString(),
+          'matricula': (x['matricula'] ?? x['Matricula'] ?? data['matricula'])
+              .toString(),
+          'phone': (x['telefono'] ?? x['Telefono'] ?? data['phone']).toString(),
+          'residence': (x['residencia'] ?? x['Residencia'] ?? data['residence'])
+              .toString(),
+          'address': (x['direccion'] ?? x['Direccion'] ?? data['address'])
+              .toString(),
+          'birthday':
+              (x['fecha_nacimiento'] ??
+                      x['Fecha_Nacimiento'] ??
+                      data['birthday'])
+                  .toString(),
+          'avatarUrl': avatar,
+          'status': (x['estado'] ?? x['Estado'] ?? data['status']).toString(),
+          'statusColorHex': colorHex,
+          'grade': (x['carrera'] ?? data['grade']).toString(),
+          'family': (x['nombre_familia'] ?? data['family']).toString(),
+        };
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() => _loading = true);
+    await _hydrateFromLocal();
+    await _fetchFromServer();
+    if (mounted) setState(() => _loading = false);
+  }
+
+  // Función Logout
+  Future<void> _handleLogout() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar Sesión'),
+        content: const Text('¿Estás seguro de que deseas cerrar tu sesión?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Cerrar Sesión'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await _http.postJson('/api/auth/logout');
+    } catch (_) {}
+    await _storage.clear();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user');
+
+    if (mounted)
+      Navigator.of(context).pushNamedAndRemoveUntil('login', (_) => false);
+  }
+
+  // ... (Helpers s(), isInternal, _statusColor, _showEstadoSelector, _updateEstado se quedan igual) ...
+  String s(String k, [String d = '—']) {
+    final v = data[k];
+    if (v == null) return d;
+    final t = v.toString().trim();
+    return t.isEmpty ? d : t;
+  }
+
+  bool get isInternal => s('residence').toLowerCase().startsWith('intern');
+  Color _statusColor(String st) {
+    final low = st.toLowerCase();
+    if (low.contains('inac') || low.contains('baja') || low.contains('suspend'))
+      return Colors.red;
+    if (low.contains('pend') || low.contains('proce')) return Colors.orange;
+    return Colors.green;
+  }
+
   void _showEstadoSelector() async {
     if (!_isAlumno || _userId == null) return;
-
-    // 1. Cargar catálogo
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
-
     final catalogo = await _estadosApi.getCatalogo();
     if (!mounted) return;
-    Navigator.pop(context); // cerrar loading
-
+    Navigator.pop(context);
     if (catalogo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se pudieron cargar los estados')),
       );
       return;
     }
-
-    // 2. Mostrar BottomSheet para elegir
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -125,12 +320,11 @@ class _PerfilPageState extends State<PerfilPage> {
                     leading: Icon(
                       Icons.circle,
                       size: 16,
-                      // Usamos el color que viene del catálogo
                       color: hexToColor(item['color'] ?? '#000000'),
                     ),
                     title: Text(item['descripcion']),
                     onTap: () async {
-                      Navigator.pop(context); // cerrar modal
+                      Navigator.pop(context);
                       await _updateEstado(item['id_cat_estado']);
                     },
                   );
@@ -144,204 +338,21 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   Future<void> _updateEstado(int idCatEstado) async {
-    // Loading local
     setState(() => _loading = true);
     final success = await _estadosApi.updateEstado(_userId!, idCatEstado);
-
     if (success) {
-      await _fetchFromServer(); // Recargar perfil para ver el nuevo estado
-      if (mounted) {
+      await _fetchFromServer();
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Estado actualizado correctamente')),
         );
-      }
     } else {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error al actualizar estado')),
         );
-      }
     }
     setState(() => _loading = false);
-  }
-
-  // Datos base (fallbacks)
-  Map<String, dynamic> data = {
-    'name': '—',
-    'matricula': '—',
-    'phone': '—',
-    'email': '—',
-    'residence': '—', // 'Interna' | 'Externa'
-    'family': '—', // <--- Este campo se llenará desde la API
-    'address': '—',
-    'birthday': '—',
-    'avatarUrl': 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
-    'status': 'Activo',
-    'grade': '—',
-  };
-
-  bool notif = true;
-  bool darkMode = false;
-  bool showAvatar = true;
-  bool bgRefresh = true;
-  bool birthdayReminder = true;
-
-  bool _loading = true;
-  final primary = const Color.fromRGBO(19, 67, 107, 1);
-
-  // --- 3. Definir http y storage como variables de clase ---
-  final ApiHttp _http = ApiHttp();
-  final TokenStorage _storage = TokenStorage();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile(); // hidrata desde local y servidor
-  }
-
-  // 1) Lee 'user' de SharedPreferences y mapea a tu UI
-
-  // 2) Completa desde API /api/usuarios/:id para traer campos nuevos/actualizados
-  Future<void> _fetchFromServer() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString('user');
-      if (raw == null) return;
-      final u = jsonDecode(raw) as Map<String, dynamic>;
-      final id = u['IdUsuario'] ?? u['id_usuario'] ?? u['id'] ?? u['Id'];
-
-      if (id == null) return;
-
-      // Usar la ruta correcta en español
-      final res = await _http.getJson('/api/usuarios/$id');
-      if (res.statusCode >= 400) return;
-
-      final x = jsonDecode(res.body) as Map<String, dynamic>;
-
-      String nombre = (x['nombre'] ?? x['Nombre'] ?? u['nombre'] ?? '')
-          .toString();
-      String apellido = (x['apellido'] ?? x['Apellido'] ?? u['apellido'] ?? '')
-          .toString();
-      String colorHex = (x['color_estado'] ?? '#13436B').toString();
-
-      setState(() {
-        data = {
-          ...data,
-          'name': (('$nombre $apellido').trim().isEmpty)
-              ? data['name']
-              : ('$nombre $apellido').trim(),
-          'email': (x['correo'] ?? x['E_mail'] ?? data['email']).toString(),
-          'matricula': (x['matricula'] ?? x['Matricula'] ?? data['matricula'])
-              .toString(),
-          'phone': (x['telefono'] ?? x['Telefono'] ?? data['phone']).toString(),
-          'residence': (x['residencia'] ?? x['Residencia'] ?? data['residence'])
-              .toString(),
-          'address': (x['direccion'] ?? x['Direccion'] ?? data['address'])
-              .toString(),
-          'birthday':
-              (x['fecha_nacimiento'] ??
-                      x['Fecha_Nacimiento'] ??
-                      data['birthday'])
-                  .toString(),
-          'avatarUrl':
-              (x['foto_perfil'] ?? x['FotoPerfil'] ?? data['avatarUrl'])
-                  .toString(),
-          'status': (x['estado'] ?? x['Estado'] ?? data['status']).toString(),
-          'statusColorHex': colorHex,
-          'grade': (x['carrera'] ?? data['grade']).toString(),
-          // --- 5. AÑADIR EL CAMPO DE FAMILIA DESDE LA API ---
-          'family': (x['nombre_familia'] ?? data['family']).toString(),
-        };
-      });
-    } catch (_) {
-      // silencioso; nos quedamos con lo local
-    }
-  }
-
-  Future<void> _loadProfile() async {
-    setState(() => _loading = true);
-    await _hydrateFromLocal();
-    await _fetchFromServer();
-    setState(() => _loading = false);
-  }
-
-  // --- 6. NUEVA FUNCIÓN DE LOGOUT ---
-  Future<void> _handleLogout() async {
-    // Mostrar diálogo de confirmación
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cerrar Sesión'),
-        content: const Text('¿Estás seguro de que deseas cerrar tu sesión?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false), // No
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true), // Sí
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Cerrar Sesión'),
-          ),
-        ],
-      ),
-    );
-
-    // Si el usuario no confirma (presiona Cancelar o fuera del diálogo)
-    if (confirmed != true) {
-      return;
-    }
-
-    // Si el widget ya no está montado, no hacer nada más
-    if (!mounted) return;
-
-    // Mostrar un spinner de carga
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      // Llamar a la API de logout (esto invalidará el token en el backend)
-      await _http.postJson('/api/auth/logout');
-    } catch (e) {
-      // Ignorar errores, lo importante es borrar el token local
-      debugPrint('Error al llamar a /api/auth/logout: $e');
-    }
-
-    // Limpiar el token del almacenamiento seguro
-    await _storage.clear();
-
-    // Limpiar SharedPreferences (donde guardabas 'user')
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('user');
-
-    // Si sigue montado, navegar a login y limpiar todas las rutas
-    if (mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil('login', (_) => false);
-    }
-  }
-
-  // ===== helpers UI existentes =====
-  String s(String k, [String d = '—']) {
-    final v = data[k];
-    if (v == null) return d;
-    final t = v.toString().trim();
-    return t.isEmpty ? d : t;
-  }
-
-  bool get isInternal => s('residence').toLowerCase().startsWith('intern');
-
-  Color _statusColor(String st) {
-    final low = st.toLowerCase();
-    if (low.contains('inac') ||
-        low.contains('baja') ||
-        low.contains('suspend')) {
-      return Colors.red;
-    }
-    if (low.contains('pend') || low.contains('proce')) return Colors.orange;
-    return Colors.green;
   }
 
   @override
@@ -370,11 +381,10 @@ class _PerfilPageState extends State<PerfilPage> {
               floating: true,
               snap: true,
               actions: [
-                // --- 7. REEMPLAZAR BOTÓN DE EDITAR POR LOGOUT ---
                 IconButton(
                   tooltip: 'Cerrar sesión',
                   icon: const Icon(Icons.logout),
-                  onPressed: _handleLogout, // Llamar a la nueva función
+                  onPressed: _handleLogout,
                 ),
               ],
             ),
@@ -401,13 +411,14 @@ class _PerfilPageState extends State<PerfilPage> {
               residence: s('residence'),
               status: s('status', 'Activo'),
               avatarUrl: s('avatarUrl'),
-              showAvatar: showAvatar,
               primary: p,
               statusColor: data['statusColorHex'] != null
                   ? hexToColor(data['statusColorHex'])
                   : _statusColor(s('status', 'Activo')),
-              onToggleAvatar: (v) => setState(() => showAvatar = v),
-              // Solo pasamos la función si es alumno
+
+              // 🔥 CONECTAMOS LA NUEVA FUNCIÓN
+              onEditAvatar: _pickAndUploadProfile,
+
               onTapStatus: _isAlumno ? _showEstadoSelector : null,
             ),
             const SizedBox(height: 12),
@@ -463,7 +474,7 @@ class _PerfilPageState extends State<PerfilPage> {
               primary: p,
               notif: notif,
               darkMode: darkMode,
-              showAvatar: showAvatar,
+              // showAvatar: showAvatar, // ❌ Eliminado
               bgRefresh: bgRefresh,
               birthdayReminder: birthdayReminder,
               onChanged: (k, v) => setState(() {
@@ -474,9 +485,7 @@ class _PerfilPageState extends State<PerfilPage> {
                   case 'dark':
                     darkMode = v;
                     break;
-                  case 'avatar':
-                    showAvatar = v;
-                    break;
+                  // case 'avatar': showAvatar = v; break;
                   case 'bg':
                     bgRefresh = v;
                     break;
@@ -493,7 +502,6 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 }
 
-// Función auxiliar para convertir Hex a Color
 Color hexToColor(String hexString, {Color defaultColor = Colors.blue}) {
   try {
     final buffer = StringBuffer();

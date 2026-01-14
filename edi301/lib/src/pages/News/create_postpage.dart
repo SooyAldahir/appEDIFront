@@ -1,8 +1,8 @@
-import 'dart:convert'; // <--- FALTABA ESTO
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // <--- FALTABA ESTO
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/publicaciones_api.dart';
 
 class CreatePostPage extends StatefulWidget {
@@ -22,19 +22,18 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final ImagePicker _picker = ImagePicker();
   final PublicacionesApi _api = PublicacionesApi();
 
-  bool _esAutoridad = false; // Se actualizará en _loadUser
+  bool _esAutoridad = false;
   bool _cargando = false;
 
-  // Variable para controlar qué tipo de contenido se sube
-  String _tipoSeleccionado = 'POST'; // Puede ser 'POST' o 'STORY'
+  // 🔥 [CAMBIO] Tipo fijo, ya no hay historias
+  final String _tipoSeleccionado = 'POST';
 
   @override
   void initState() {
     super.initState();
-    _loadUser(); // <--- FALTABA INICIAR ESTO
+    _loadUser();
   }
 
-  // 👇 LÓGICA QUE FALTABA PARA DETECTAR AL JEFE
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
     final userStr = prefs.getString('user');
@@ -44,7 +43,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
       if (mounted) {
         setState(() {
-          // Lista de roles que publican directo
           const rolesJefes = [
             'Admin',
             'PapaEDI',
@@ -89,15 +87,9 @@ class _CreatePostPageState extends State<CreatePostPage> {
       );
 
       if (mounted) {
-        // 👇 MENSAJE INTELIGENTE
-        String mensajeExito;
-        if (_esAutoridad) {
-          mensajeExito = "¡Publicado correctamente! 🎉";
-        } else {
-          mensajeExito = _tipoSeleccionado == 'STORY'
-              ? "Historia enviada a aprobación ⏳"
-              : "Publicación enviada a aprobación ⏳";
-        }
+        String mensajeExito = _esAutoridad
+            ? "¡Publicado correctamente! 🎉"
+            : "Publicación enviada a aprobación ⏳";
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -122,7 +114,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Crear Contenido"),
+        title: const Text("Crear Publicación"), // 🔥 Título más claro
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -131,25 +123,12 @@ class _CreatePostPageState extends State<CreatePostPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // --- SELECTOR DE TIPO (POST vs HISTORIA) ---
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildTypeChip('Publicación', 'POST', Icons.grid_view),
-                const SizedBox(width: 15),
-                _buildTypeChip('Historia', 'STORY', Icons.history_edu),
-              ],
-            ),
-            const SizedBox(height: 20),
-
             // Área de texto
             TextField(
               controller: _mensajeController,
               maxLines: 5,
               decoration: InputDecoration(
-                hintText: _tipoSeleccionado == 'STORY'
-                    ? "Agrega un texto a tu historia..."
-                    : "¿Qué quieres compartir hoy?",
+                hintText: "¿Qué quieres compartir hoy?",
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -169,7 +148,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     borderRadius: BorderRadius.circular(12),
                     child: Image.file(
                       _imagenSeleccionada!,
-                      height: _tipoSeleccionado == 'STORY' ? 350 : 250,
+                      height: 250, // 🔥 Altura fija estándar
                       width: double.infinity,
                       fit: BoxFit.cover,
                     ),
@@ -194,7 +173,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
             OutlinedButton.icon(
               onPressed: _seleccionarImagen,
               icon: const Icon(Icons.photo_library),
-              label: const Text("Seleccionar Foto/Video"),
+              label: const Text("Agregar Foto"),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
@@ -205,12 +184,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
             const SizedBox(height: 30),
 
-            // Botón Enviar (CON TEXTO DINÁMICO)
+            // Botón Enviar
             ElevatedButton(
               onPressed: _cargando ? null : _enviarPost,
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
-                // Cambiamos el color si es Autoridad para que se note la diferencia
                 backgroundColor: _esAutoridad
                     ? Colors.green[600]
                     : Colors.blueAccent,
@@ -228,7 +206,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       ),
                     )
                   : Text(
-                      // 👇 AQUÍ CAMBIA EL TEXTO SEGÚN EL ROL
                       _esAutoridad ? "PUBLICAR AHORA" : "ENVIAR A APROBACIÓN",
                       style: const TextStyle(
                         fontSize: 16,
@@ -239,38 +216,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
           ],
         ),
       ),
-    );
-  }
-
-  // Widget auxiliar para los botones de selección
-  Widget _buildTypeChip(String label, String value, IconData icon) {
-    final isSelected = _tipoSeleccionado == value;
-    return ChoiceChip(
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 18,
-            color: isSelected ? Colors.white : Colors.grey[600],
-          ),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.grey[600],
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
-      selected: isSelected,
-      onSelected: (bool selected) {
-        if (selected) setState(() => _tipoSeleccionado = value);
-      },
-      selectedColor: Colors.blueAccent,
-      backgroundColor: Colors.grey[200],
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     );
   }
 }

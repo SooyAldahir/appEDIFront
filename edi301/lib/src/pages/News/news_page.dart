@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:edi301/core/api_client_http.dart'; // Asegúrate de importar tu ApiHttp para llamadas directas si la API services no las tiene
+import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/services/publicaciones_api.dart';
 import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
 import 'package:flutter/material.dart';
@@ -18,7 +18,7 @@ class NewsPage extends StatefulWidget {
 class _NewsPageState extends State<NewsPage> {
   final HomeController _controller = HomeController();
   final PublicacionesApi _api = PublicacionesApi();
-  final ApiHttp _http = ApiHttp(); // Para likes y comments rápidos
+  final ApiHttp _http = ApiHttp();
 
   String _userRole = '';
   int _userId = 0;
@@ -72,7 +72,25 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-  // --- LÓGICA DE TIEMPO RELATIVO ---
+  // 🔥 ESTA ES LA FUNCIÓN QUE FALTABA
+  String _fixUrl(String? url) {
+    if (url == null || url.isEmpty || url == 'null') return '';
+
+    // 1. Si ya es una URL completa (http...)
+    if (url.startsWith('http')) {
+      // Si apunta a localhost, intentamos arreglarla con la BaseUrl actual (10.0.2.2 para Android)
+      if (url.contains('localhost')) {
+        // Reemplazamos localhost:3000 por la base configurada en ApiHttp
+        return url.replaceFirst('http://localhost:3000', ApiHttp.baseUrl);
+      }
+      return url;
+    }
+
+    // 2. Si es una ruta relativa (/uploads/...), le pegamos la base correcta
+    final path = url.startsWith('/') ? url : '/$url';
+    return '${ApiHttp.baseUrl}$path';
+  }
+
   String _timeAgo(String? dateStr) {
     if (dateStr == null) return '';
     final date = DateTime.tryParse(dateStr);
@@ -92,23 +110,19 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-  // --- LÓGICA DE LIKE ---
   void _toggleLike(int index) async {
     final post = _posts[index];
     final isLiked = post['is_liked'] == 1;
     final postId = post['id_post'];
 
-    // Optimistic UI Update (Actualizar visualmente antes de la respuesta)
     setState(() {
       _posts[index]['is_liked'] = isLiked ? 0 : 1;
       _posts[index]['likes_count'] += isLiked ? -1 : 1;
     });
 
-    // Llamada API silenciosa
     try {
       await _http.postJson('/api/publicaciones/$postId/like');
     } catch (e) {
-      // Si falla, revertimos
       setState(() {
         _posts[index]['is_liked'] = isLiked ? 1 : 0;
         _posts[index]['likes_count'] += isLiked ? 1 : -1;
@@ -116,7 +130,6 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-  // --- ELIMINAR POST ---
   void _deletePost(int postId) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -137,9 +150,8 @@ class _NewsPageState extends State<NewsPage> {
     );
 
     if (confirm == true) {
-      // Llamada API para borrar (usando ApiHttp directamente para borrar)
       await _http.deleteJson('/api/publicaciones/$postId');
-      _loadFeed(); // Recargar lista
+      _loadFeed();
     }
   }
 
@@ -183,15 +195,9 @@ class _NewsPageState extends State<NewsPage> {
                       itemCount: _posts.length,
                       itemBuilder: (context, index) {
                         final item = _posts[index];
-
-                        // 👇 AGREGA ESTA CONDICIÓN
                         if (item['tipo'] == 'EVENTO') {
-                          return _buildEventCard(
-                            item,
-                          ); // Si es evento, usa la tarjeta especial
+                          return _buildEventCard(item);
                         }
-
-                        // Si no, usa la tarjeta normal de siempre
                         return _buildPostCard(item, index);
                       },
                     ),
@@ -240,7 +246,7 @@ class _NewsPageState extends State<NewsPage> {
     if (confirm == true) {
       try {
         await _http.deleteJson('/api/agenda/$idEvento');
-        _loadFeed(); // Recargar el feed para que desaparezca
+        _loadFeed();
       } catch (e) {
         ScaffoldMessenger.of(
           context,
@@ -249,12 +255,9 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-  // REEMPLAZA TU FUNCIÓN _buildEventCard ACTUAL CON ESTA:
   Widget _buildEventCard(Map<String, dynamic> evento) {
     final fecha = DateTime.tryParse(evento['fecha_evento'].toString());
     final fechaStr = fecha != null ? "${fecha.day}/${fecha.month}" : "";
-
-    // Verificamos si es Admin (para mostrar controles)
     final esAdmin = ['Admin'].contains(_userRole);
 
     return Card(
@@ -268,7 +271,6 @@ class _NewsPageState extends State<NewsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Banner Superior
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15),
@@ -292,19 +294,15 @@ class _NewsPageState extends State<NewsPage> {
                     fontSize: 16,
                   ),
                 ),
-
-                // 👇 MENÚ DE EDICIÓN (SOLO ADMIN)
                 if (esAdmin)
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert, color: Colors.black),
                     onSelected: (value) async {
-                      // Solo verificamos si es borrar
                       if (value == 'delete') {
                         _deleteEvent(evento['id_evento']);
                       }
                     },
                     itemBuilder: (ctx) => [
-                      // Solo mostramos la opción de eliminar
                       const PopupMenuItem(
                         value: 'delete',
                         child: Text(
@@ -317,7 +315,6 @@ class _NewsPageState extends State<NewsPage> {
               ],
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -366,27 +363,19 @@ class _NewsPageState extends State<NewsPage> {
   }
 
   Widget _buildPostCard(Map<String, dynamic> post, int index) {
-    const baseUrl =
-        'http://10.0.2.2:3000'; // Ajusta a tu IP si usas dispositivo físico
+    // 🔥 ELIMINADA la variable 'baseUrl' local. Usamos _fixUrl.
 
     final nombreUsuario = "${post['nombre']} ${post['apellido'] ?? ''}";
     final nombreFamilia = post['nombre_familia'];
     final mensaje = post['mensaje'] ?? '';
     final urlImagen = post['url_imagen'];
     final tiempo = _timeAgo(post['created_at']);
-    final esHistoria = post['tipo'] == 'STORY';
-    final esMiPost = post['id_usuario'] == _userId; // Verificar si es mi post
+    // final esHistoria = post['tipo'] == 'STORY'; // Ya no usamos historias
+    final esMiPost = post['id_usuario'] == _userId;
 
-    // Datos de interacción
     final likesCount = post['likes_count'] ?? 0;
     final isLiked = post['is_liked'] == 1;
     final comentariosCount = post['comentarios_count'] ?? 0;
-
-    // Título dinámico: Nombre Usuario o "Con la Familia X"
-    final tituloHeader =
-        (nombreFamilia != null && nombreFamilia.toString().isNotEmpty)
-        ? nombreUsuario
-        : "Con la $nombreFamilia";
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -395,19 +384,16 @@ class _NewsPageState extends State<NewsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. CABECERA
-          // 1. CABECERA
           ListTile(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 4,
             ),
             leading: CircleAvatar(
-              backgroundColor: esHistoria
-                  ? Colors.purple[100]
-                  : Colors.blue[100],
+              backgroundColor: Colors.blue[100],
+              // 🔥 Usamos _fixUrl para la foto de perfil
               backgroundImage: post['foto_perfil'] != null
-                  ? NetworkImage('$baseUrl${post['foto_perfil']}')
+                  ? NetworkImage(_fixUrl(post['foto_perfil']))
                   : null,
               child: post['foto_perfil'] == null
                   ? Text(
@@ -427,11 +413,9 @@ class _NewsPageState extends State<NewsPage> {
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   )
                 : null,
-
-            // --- AQUÍ ESTÁ EL CAMBIO PARA LOS 3 PUNTITOS ---
             trailing: esMiPost
                 ? PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert), // El icono de 3 puntos
+                    icon: const Icon(Icons.more_vert),
                     onSelected: (value) {
                       if (value == 'delete') {
                         _deletePost(post['id_post']);
@@ -454,13 +438,16 @@ class _NewsPageState extends State<NewsPage> {
                           ),
                         ],
                   )
-                : null, // Si no es mi post, no muestra nada
+                : null,
           ),
 
           // 2. IMAGEN (Doble Tap para Like)
-          if (urlImagen != null && urlImagen.toString().isNotEmpty)
+          // 🔥 Usamos _fixUrl aquí para arreglar la imagen
+          if (urlImagen != null &&
+              urlImagen.toString().isNotEmpty &&
+              urlImagen != 'null')
             GestureDetector(
-              onDoubleTap: () => _toggleLike(index), // <--- DOBLE CLICK = LIKE
+              onDoubleTap: () => _toggleLike(index),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -469,7 +456,7 @@ class _NewsPageState extends State<NewsPage> {
                     width: double.infinity,
                     color: Colors.black12,
                     child: Image.network(
-                      '$baseUrl$urlImagen',
+                      _fixUrl(urlImagen), // <--- USO DE LA FUNCIÓN
                       fit: BoxFit.cover,
                       errorBuilder: (ctx, err, stack) => const SizedBox(
                         height: 200,
@@ -485,12 +472,10 @@ class _NewsPageState extends State<NewsPage> {
               ),
             ),
 
-          // 3. BARRA DE ACCIONES (Likes y Comentarios)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
-                // LIKE BUTTON
                 InkWell(
                   onTap: () => _toggleLike(index),
                   child: Row(
@@ -509,8 +494,6 @@ class _NewsPageState extends State<NewsPage> {
                   ),
                 ),
                 const SizedBox(width: 20),
-
-                // COMMENT BUTTON
                 InkWell(
                   onTap: () => _showCommentsModal(context, post['id_post']),
                   child: Row(
@@ -533,7 +516,6 @@ class _NewsPageState extends State<NewsPage> {
             ),
           ),
 
-          // 4. DESCRIPCIÓN Y TIEMPO
           if (mensaje.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -555,7 +537,7 @@ class _NewsPageState extends State<NewsPage> {
                   Text(
                     tiempo,
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  ), // <-- "HACE 2 HORAS"
+                  ),
                   const SizedBox(height: 10),
                 ],
               ),
@@ -565,7 +547,6 @@ class _NewsPageState extends State<NewsPage> {
     );
   }
 
-  // --- MODAL DE COMENTARIOS ---
   void _showCommentsModal(BuildContext context, int postId) {
     showModalBottomSheet(
       context: context,
@@ -574,27 +555,27 @@ class _NewsPageState extends State<NewsPage> {
       builder: (ctx) => CommentsSheet(
         postId: postId,
         http: _http,
-        // 👇 AGREGAMOS ESTOS DATOS
         currentUserId: _userId,
         currentUserRole: _userRole,
+        fixUrl: _fixUrl, // 🔥 Pasamos la función al modal
       ),
     );
   }
 
   bool _shouldShowFab() {
-    // ... tu lógica ...
     return true;
   }
 }
 
 // -----------------------------------------------------------------------------
-// WIDGET EXTRA: HOJA DE COMENTARIOS (Estilo Chat)
+// WIDGET EXTRA: HOJA DE COMENTARIOS
 // -----------------------------------------------------------------------------
 class CommentsSheet extends StatefulWidget {
   final int postId;
   final ApiHttp http;
-  final int currentUserId; // <--- Nuevo
-  final String currentUserRole; // <--- Nuevo
+  final int currentUserId;
+  final String currentUserRole;
+  final Function(String?) fixUrl; // 🔥 Recibimos la función
 
   const CommentsSheet({
     super.key,
@@ -602,6 +583,7 @@ class CommentsSheet extends StatefulWidget {
     required this.http,
     required this.currentUserId,
     required this.currentUserRole,
+    required this.fixUrl,
   });
 
   @override
@@ -650,7 +632,6 @@ class _CommentsSheetState extends State<CommentsSheet> {
     }
   }
 
-  // --- FUNCIÓN PARA BORRAR ---
   void _deleteComment(int commentId) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -675,7 +656,7 @@ class _CommentsSheetState extends State<CommentsSheet> {
         await widget.http.deleteJson(
           '/api/publicaciones/comentarios/$commentId',
         );
-        _loadComments(); // Recargar lista
+        _loadComments();
       } catch (e) {
         print("Error al borrar: $e");
       }
@@ -717,8 +698,6 @@ class _CommentsSheetState extends State<CommentsSheet> {
                     itemBuilder: (ctx, i) {
                       final c = _comments[i];
                       final nombre = "${c['nombre']} ${c['apellido'] ?? ''}";
-
-                      // Verificar si puedo borrar (Soy dueño O soy Admin)
                       final soyDueno = c['id_usuario'] == widget.currentUserId;
                       final soyAdmin = [
                         'Admin',
@@ -727,13 +706,14 @@ class _CommentsSheetState extends State<CommentsSheet> {
                       ].contains(widget.currentUserRole);
                       final puedoBorrar = soyDueno || soyAdmin;
 
+                      // 🔥 Usamos fixUrl aquí
+                      final fotoUrl = widget.fixUrl(c['foto_perfil']);
+
                       return ListTile(
                         leading: CircleAvatar(
                           radius: 18,
                           backgroundImage: c['foto_perfil'] != null
-                              ? NetworkImage(
-                                  'http://10.0.2.2:3000${c['foto_perfil']}',
-                                )
+                              ? NetworkImage(fotoUrl)
                               : null,
                           child: c['foto_perfil'] == null
                               ? Text(nombre[0])
@@ -763,7 +743,6 @@ class _CommentsSheetState extends State<CommentsSheet> {
                             ],
                           ),
                         ),
-                        // OPCIÓN DE BORRAR (Trailing Icon o Long Press)
                         trailing: puedoBorrar
                             ? IconButton(
                                 icon: const Icon(
