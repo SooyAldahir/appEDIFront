@@ -172,6 +172,8 @@ class _NewsPageState extends State<NewsPage> {
             'Tutor',
             'PapaEDI',
             'MamaEDI',
+            'ALUMNO',
+            'HijoEDI',
           ].contains(_userRole))
             IconButton(
               icon: const Icon(Icons.notifications),
