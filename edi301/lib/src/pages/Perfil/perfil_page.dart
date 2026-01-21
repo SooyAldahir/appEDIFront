@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/src/pages/Perfil/perfil_widgets.dart';
 import 'package:edi301/auth/token_storage.dart';
-import 'package:image_picker/image_picker.dart'; // 🔥 1. Importar Image Picker
-import 'package:http/http.dart' as http; // 🔥 Importar http para MultipartFile
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -34,15 +34,13 @@ class _PerfilPageState extends State<PerfilPage> {
     'family': '—',
     'address': '—',
     'birthday': '—',
-    'avatarUrl':
-        '', // Lo dejamos vacío para que el widget decida el placeholder
+    'avatarUrl': '',
     'status': 'Activo',
     'grade': '—',
   };
 
   bool notif = true;
   bool darkMode = false;
-  // bool showAvatar = true; // ❌ Ya no se usa
   bool bgRefresh = true;
   bool birthdayReminder = true;
 
@@ -55,27 +53,19 @@ class _PerfilPageState extends State<PerfilPage> {
     _loadProfile();
   }
 
-  // --- 🔥 NUEVA FUNCIÓN PARA SUBIR FOTO ---
   Future<void> _pickAndUploadProfile() async {
     final picker = ImagePicker();
-    // Abrir galería
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
-    if (image == null) return; // Usuario canceló
+    if (image == null) return;
 
     setState(() => _loading = true);
 
     try {
-      // Obtenemos los datos actuales para re-enviarlos y evitar que se borren
-      // (Aunque el backend debería ser robusto, esto es doble seguridad)
       Map<String, String> currentData = {
-        'nombre': data['name'].toString().split(
-          ' ',
-        )[0], // Solo primer nombre aprox
-        // Puedes agregar más campos si tu backend lo requiere estrictamente
+        'nombre': data['name'].toString().split(' ')[0],
       };
 
-      // Enviamos al endpoint PUT /api/usuarios/:id
       final stream = await _http.multipart(
         '/api/usuarios/$_userId',
         method: 'PUT',
@@ -87,7 +77,6 @@ class _PerfilPageState extends State<PerfilPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Foto actualizada con éxito")),
         );
-        // Recargamos el perfil para que baje la nueva URL
         await _fetchFromServer();
       } else {
         print("Error subida: ${stream.statusCode}");
@@ -105,7 +94,6 @@ class _PerfilPageState extends State<PerfilPage> {
     }
   }
 
-  // 1) Lee 'user' de SharedPreferences
   Future<void> _hydrateFromLocal() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -157,7 +145,6 @@ class _PerfilPageState extends State<PerfilPage> {
 
   Future<void> _fetchFromServer() async {
     try {
-      // ... Lógica para obtener ID ...
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('user');
       if (raw == null) return;
@@ -178,7 +165,6 @@ class _PerfilPageState extends State<PerfilPage> {
               .toString();
       String colorHex = (x['color_estado'] ?? '#13436B').toString();
 
-      // Fix URL de avatar
       String avatar = (x['foto_perfil'] ?? x['FotoPerfil'] ?? data['avatarUrl'])
           .toString();
       if (avatar.isNotEmpty && !avatar.startsWith('http')) {
@@ -221,7 +207,6 @@ class _PerfilPageState extends State<PerfilPage> {
     if (mounted) setState(() => _loading = false);
   }
 
-  // Función Logout
   Future<void> _handleLogout() async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -262,7 +247,6 @@ class _PerfilPageState extends State<PerfilPage> {
       Navigator.of(context).pushNamedAndRemoveUntil('login', (_) => false);
   }
 
-  // ... (Helpers s(), isInternal, _statusColor, _showEstadoSelector, _updateEstado se quedan igual) ...
   String s(String k, [String d = '—']) {
     final v = data[k];
     if (v == null) return d;
@@ -416,7 +400,6 @@ class _PerfilPageState extends State<PerfilPage> {
                   ? hexToColor(data['statusColorHex'])
                   : _statusColor(s('status', 'Activo')),
 
-              // 🔥 CONECTAMOS LA NUEVA FUNCIÓN
               onEditAvatar: _pickAndUploadProfile,
 
               onTapStatus: _isAlumno ? _showEstadoSelector : null,
@@ -474,7 +457,6 @@ class _PerfilPageState extends State<PerfilPage> {
               primary: p,
               notif: notif,
               darkMode: darkMode,
-              // showAvatar: showAvatar, // ❌ Eliminado
               bgRefresh: bgRefresh,
               birthdayReminder: birthdayReminder,
               onChanged: (k, v) => setState(() {
@@ -485,7 +467,6 @@ class _PerfilPageState extends State<PerfilPage> {
                   case 'dark':
                     darkMode = v;
                     break;
-                  // case 'avatar': showAvatar = v; break;
                   case 'bg':
                     bgRefresh = v;
                     break;

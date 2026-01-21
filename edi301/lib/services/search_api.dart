@@ -6,7 +6,7 @@ class UserMini {
   final int id;
   final String nombre;
   final String apellido;
-  final String tipo; // 'ALUMNO' | 'EMPLEADO' | 'EXTERNO'
+  final String tipo;
   final int? matricula;
   final int? numEmpleado;
   final String? email;
@@ -97,7 +97,6 @@ List<FamilyMini> _parseFamilies(dynamic v) {
 class SearchApi {
   final ApiHttp _http = ApiHttp();
 
-  /// GET seguro: devuelve el body ya decodificado (List/Map) o [] si falla.
   Future<dynamic> _safeGet(String path, {Map<String, dynamic>? query}) async {
     try {
       final res = await _http.getJson(path, query: query);
@@ -120,8 +119,6 @@ class SearchApi {
     }
 
     final isNumeric = RegExp(r'^\d+$').hasMatch(q);
-
-    // Peticiones en paralelo (ajusta los paths a tu backend real)
     final alumnosF = _safeGet(
       '/api/usuarios',
       query: {'tipo': 'ALUMNO', 'q': q},
@@ -134,7 +131,6 @@ class SearchApi {
       '/api/usuarios',
       query: {'tipo': 'EXTERNO', 'q': q},
     );
-
     final familiasByMatF = isNumeric
         ? _safeGet(
             '/api/usuarios/familias/by-doc/search',
@@ -152,12 +148,12 @@ class SearchApi {
         : Future.value(const []);
 
     final resps = await Future.wait<dynamic>([
-      alumnosF, // 0
-      empleadosF, // 1
-      familiasByMatF, // 2
-      familiasByEmpF, // 3
-      familiasByNameF, // 4
-      externosF, // 5
+      alumnosF,
+      empleadosF,
+      familiasByMatF,
+      familiasByEmpF,
+      familiasByNameF,
+      externosF,
     ]);
 
     List<dynamic> _ensureList(dynamic d) {
@@ -190,7 +186,6 @@ class SearchApi {
         .where((u) => u.tipo.toUpperCase() == 'EXTERNO')
         .toList();
 
-    // Familias
     List<FamilyMini> familias;
     if (isNumeric) {
       final a = _ensureList(
@@ -199,7 +194,6 @@ class SearchApi {
       final b = _ensureList(
         resps[3],
       ).map((e) => FamilyMini.fromJson(Map<String, dynamic>.from(e))).toList();
-      // unir y deduplicar por id
       final map = <int, FamilyMini>{};
       for (final f in [...a, ...b]) map[f.id] = f;
       familias = map.values.toList();
@@ -218,7 +212,6 @@ class SearchApi {
   }
 }
 
-/// util pequeño para campos numéricos que pueden venir como String/int/null
 int? _toIntOrNull(dynamic v) {
   if (v == null) return null;
   if (v is int) return v;

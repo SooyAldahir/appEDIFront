@@ -16,19 +16,14 @@ class AgendaController {
   DateTime? fechaEvento;
   TimeOfDay? horaEvento;
 
-  // Controladores para el Recordatorio
-  // --- CORRECCIÓN AQUÍ ---
-  final crearRecordatorio = ValueNotifier<bool>(
-    false,
-  ); // Antes: ValueListenable
-  // ---------------------
+  final crearRecordatorio = ValueNotifier<bool>(false);
+
   final recordatorioHoraCtrl = TextEditingController(text: '13:00');
   final recordatorioDiasAntesCtrl = TextEditingController(text: '7');
-  String recordatorioTipo = 'DAY'; // 'DAY' o 'WEEK'
+  String recordatorioTipo = 'DAY';
 
   void init(BuildContext context) {
     this.context = context;
-    // Fecha por defecto al crear
     fechaEvento = DateTime.now().add(const Duration(days: 1));
   }
 
@@ -52,7 +47,6 @@ class AgendaController {
     }
 
     try {
-      // 1. Guardar el evento en tu backend /api/agenda
       await _api.crearEvento(
         titulo: tituloCtrl.text,
         fecha: fechaEvento!,
@@ -60,15 +54,13 @@ class AgendaController {
         descripcion: descCtrl.text,
         imagenUrl: imagenCtrl.text,
       );
-
-      // 2. Si el usuario marcó "Establecer recordatorio", llamar al Tool
       if (crearRecordatorio.value) {
         await _crearRecordatorioRecurrente();
       }
 
       if (context.mounted) {
         _snack('Evento creado con éxito', isError: false);
-        Navigator.pop(context, true); // Devuelve 'true' para refrescar la lista
+        Navigator.pop(context, true);
       }
     } catch (e) {
       _snack(e.toString().replaceFirst('Exception: ', ''));
@@ -80,26 +72,16 @@ class AgendaController {
   Future<void> _crearRecordatorioRecurrente() async {
     try {
       final diasAntes = int.parse(recordatorioDiasAntesCtrl.text);
-      final hora = recordatorioHoraCtrl.text.trim(); // "13:00"
-
-      // Calcular fechas para el recordatorio
+      final hora = recordatorioHoraCtrl.text.trim();
       final fechaFin = fechaEvento!;
       final fechaInicio = fechaFin.subtract(Duration(days: diasAntes));
-
-      // Formatear fechas a YYYY-MM-DD
       final String startDateStr = fechaInicio
           .toIso8601String()
           .split('T')
           .first;
       final String endDateStr = fechaFin.toIso8601String().split('T').first;
-
-      // Formatear hora a hh:mm:ss
       final String timeStr = (hora.length == 5) ? '$hora:00' : '13:00:00';
-
-      // --- CORRECCIÓN AQUÍ ---
-      // Llamar a la función con minúscula (camelCase)
       await reminders_tool.createReminder(
-        // ---------------------
         title: tituloCtrl.text,
         description: descCtrl.text,
         start_date: startDateStr,
@@ -108,10 +90,9 @@ class AgendaController {
         repeat_interval_unit: recordatorioTipo == 'DAY'
             ? reminders_tool.RepeatIntervalUnit.DAY
             : reminders_tool.RepeatIntervalUnit.WEEK,
-        repeat_every_n: 1, // Diariamente o Semanalmente
+        repeat_every_n: 1,
       );
     } catch (e) {
-      // Si el recordatorio falla, solo mostramos un aviso
       _snack('Evento guardado, pero falló al crear el recordatorio: $e');
     }
   }
@@ -128,7 +109,6 @@ class AgendaController {
   }
 }
 
-// Extensión para convertir TimeOfDay a "HH:MM"
 extension TimeOfDayExtension on TimeOfDay {
   String to24HourString() {
     final String hourStr = hour.toString().padLeft(2, '0');

@@ -7,7 +7,7 @@ class ResponsiveContent extends StatelessWidget {
   const ResponsiveContent({
     super.key,
     required this.child,
-    this.maxWidth = 600, // Ancho máximo ideal para tabletas/web
+    this.maxWidth = 600,
   });
 
   @override

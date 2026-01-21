@@ -15,17 +15,14 @@ class ReportesPage extends StatefulWidget {
 class _ReportesPageState extends State<ReportesPage> {
   final GetFamilyController _searchController = GetFamilyController();
   final ReporteFamiliasService _reportService = ReporteFamiliasService();
-
-  // Estado de carga para el reporte general
   bool _isLoadingGeneral = false;
-  // Estado de carga para reportes individuales (mapeado por ID de familia)
   final Map<int, bool> _loadingIndividual = {};
 
   @override
   void initState() {
     super.initState();
     _searchController.init(context);
-    _searchController.searchNow(); // Cargar todas las familias al inicio
+    _searchController.searchNow();
   }
 
   @override
@@ -34,7 +31,6 @@ class _ReportesPageState extends State<ReportesPage> {
     super.dispose();
   }
 
-  // --- Funciones para llamar al servicio ---
   Future<void> _generarReporteGeneral() async {
     setState(() => _isLoadingGeneral = true);
     try {
@@ -79,7 +75,6 @@ class _ReportesPageState extends State<ReportesPage> {
       ),
     );
   }
-  // ----------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +88,6 @@ class _ReportesPageState extends State<ReportesPage> {
       body: ResponsiveContent(
         child: Column(
           children: [
-            // 1. Botón de Reporte General
             Padding(
               padding: const EdgeInsets.all(16),
               child: ElevatedButton.icon(
@@ -119,11 +113,7 @@ class _ReportesPageState extends State<ReportesPage> {
             ),
 
             const Divider(thickness: 2),
-
-            // 2. Buscador de Reporte Individual
             _textFieldSearch(),
-
-            // 3. Lista de Familias
             Expanded(
               child: ValueListenableBuilder<List<fm.Family>>(
                 valueListenable: _searchController.results,
@@ -143,7 +133,6 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  // --- Widgets de Búsqueda y Lista (Copiados de GetFamilyPage) ---
   Widget _textFieldSearch() {
     return Container(
       margin: const EdgeInsets.fromLTRB(10, 10, 10, 20),

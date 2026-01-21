@@ -1,6 +1,4 @@
-// lib/tools/notification_service.dart
 import 'dart:ui';
-
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
@@ -30,27 +28,20 @@ class NotificationService {
   }
 
   Future<void> init() async {
-    // 1. Inicializar Timezones
     tz.initializeTimeZones();
-    // (Opcional) Configurar la zona horaria local, ej: México
     try {
       tz.setLocalLocation(tz.getLocation('America/Mexico_City'));
-    } catch (_) {
-      // Fallback si falla
-    }
+    } catch (_) {}
 
-    // 2. Configuración de Android
     const AndroidInitializationSettings initAndroid =
         AndroidInitializationSettings('ic_notification');
 
-    // 3. Configuración de iOS
     const DarwinInitializationSettings initIOS = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
 
-    // 4. Inicializar
     const InitializationSettings initSettings = InitializationSettings(
       android: initAndroid,
       iOS: initIOS,
@@ -58,23 +49,19 @@ class NotificationService {
 
     await _notifications.initialize(
       initSettings,
-      // (Opcional) Manejar toque en notificación cuando la app está cerrada/background
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        // print('Notificación tocada, payload: ${response.payload}');
-      },
+      onDidReceiveNotificationResponse: (NotificationResponse response) {},
     );
   }
 
-  // --- Detalles del Canal de Notificación ---
   static const AndroidNotificationDetails _androidDetails =
       AndroidNotificationDetails(
-        'generic_reminders', // ID del canal
-        'Recordatorios', // Nombre del canal
+        'generic_reminders',
+        'Recordatorios',
         channelDescription: 'Recordatorios genéricos de la app',
         importance: Importance.max,
         priority: Priority.high,
         showWhen: true,
-        icon: 'ic_notification', // Asegura que use la silueta blanca
+        icon: 'ic_notification',
         color: Color(0xFF13436B),
       );
   static const NotificationDetails _platformDetails = NotificationDetails(
@@ -82,14 +69,13 @@ class NotificationService {
     iOS: DarwinNotificationDetails(presentAlert: true, presentSound: true),
   );
 
-  // --- Función para programar la notificación ---
   Future<void> scheduleZonedNotification({
     required int id,
     required String title,
     required String body,
     required tz.TZDateTime scheduledDate,
     String? payload,
-    DateTimeComponents? matchDateTimeComponents, // Para repeticiones
+    DateTimeComponents? matchDateTimeComponents,
   }) async {
     await _notifications.zonedSchedule(
       id,
@@ -105,7 +91,6 @@ class NotificationService {
     );
   }
 
-  // --- Pedir permisos (importante para Android 13+ y iOS) ---
   Future<bool> requestPermissions() async {
     final plugin = _notifications
         .resolvePlatformSpecificImplementation<

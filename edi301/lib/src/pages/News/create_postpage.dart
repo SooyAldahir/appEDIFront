@@ -25,7 +25,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
   bool _esAutoridad = false;
   bool _cargando = false;
 
-  // 🔥 [CAMBIO] Tipo fijo, ya no hay historias
   final String _tipoSeleccionado = 'POST';
 
   @override
@@ -114,7 +113,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Crear Publicación"), // 🔥 Título más claro
+        title: const Text("Crear Publicación"),
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -123,7 +122,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Área de texto
             TextField(
               controller: _mensajeController,
               maxLines: 5,
@@ -138,8 +136,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
               ),
             ),
             const SizedBox(height: 20),
-
-            // Previsualización de imagen
             if (_imagenSeleccionada != null)
               Stack(
                 alignment: Alignment.topRight,
@@ -148,7 +144,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     borderRadius: BorderRadius.circular(12),
                     child: Image.file(
                       _imagenSeleccionada!,
-                      height: 250, // 🔥 Altura fija estándar
+                      height: 250,
                       width: double.infinity,
                       fit: BoxFit.cover,
                     ),
@@ -168,8 +164,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
               ),
 
             const SizedBox(height: 20),
-
-            // Botón para subir foto
             OutlinedButton.icon(
               onPressed: _seleccionarImagen,
               icon: const Icon(Icons.photo_library),
@@ -183,8 +177,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
             ),
 
             const SizedBox(height: 30),
-
-            // Botón Enviar
             ElevatedButton(
               onPressed: _cargando ? null : _enviarPost,
               style: ElevatedButton.styleFrom(

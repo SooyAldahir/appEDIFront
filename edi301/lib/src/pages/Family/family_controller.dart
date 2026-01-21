@@ -1,9 +1,7 @@
 import 'dart:convert';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:edi301/services/users_api.dart';
 
 class FamilyController {
@@ -23,8 +21,6 @@ class FamilyController {
       Navigator.pushNamed(context, 'edit', arguments: familyId);
       return;
     }
-
-    // Si no, intenta resolver el ID del usuario logueado
 
     final id = await _resolveFamilyId();
 
@@ -66,11 +62,8 @@ class FamilyController {
     if (data == null) return null;
 
     if (data is Map) {
-      // 1. Primero, busca una clave que coincida en este nivel
       for (final entry in data.entries) {
         final key = entry.key.toString().toLowerCase();
-
-        // Criterio de búsqueda (id_familia, familia_id, etc.)
         if (key.contains('familia') && key.contains('id')) {
           final parsed = _asInt(entry.value);
           if (parsed != null) {
@@ -79,15 +72,12 @@ class FamilyController {
           }
         }
       }
-
-      // 2. Si no se encontró, busca en valores anidados (SOLO si son Mapas o Listas)
       for (final entry in data.entries) {
         final value = entry.value;
         if (value is Map || value is List) {
           final nested = _extractFamilyId(value);
           if (nested != null) return nested;
         }
-        // Ya no llama recursivamente a valores simples como '1'
       }
     } else if (data is List) {
       for (final item in data) {
@@ -95,8 +85,6 @@ class FamilyController {
         if (nested != null) return nested;
       }
     }
-
-    // No llama a _asInt en la data base, previniendo el error
     return null;
   }
 

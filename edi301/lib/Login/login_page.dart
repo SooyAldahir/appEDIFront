@@ -13,7 +13,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final LoginController _controller = LoginController();
 
-  bool _obscure = true; // por defecto oculta
+  bool _obscure = true;
 
   @override
   void initState() {
@@ -100,7 +100,6 @@ class _LoginPageState extends State<LoginPage> {
           border: InputBorder.none,
           contentPadding: const EdgeInsets.all(15),
           prefixIcon: const Icon(Icons.key, color: Colors.white),
-          // botón ojo
           suffixIcon: IconButton(
             onPressed: () => setState(() => _obscure = !_obscure),
             tooltip: _obscure ? 'Mostrar contraseña' : 'Ocultar contraseña',

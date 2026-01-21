@@ -1,21 +1,17 @@
 import 'dart:convert';
 import 'package:edi301/core/api_client_http.dart';
-import 'package:edi301/auth/token_storage.dart'; // 👈 IMPORTANTE: Usamos tu gestor oficial
+import 'package:edi301/auth/token_storage.dart';
 import 'package:http/http.dart' as http;
 
 class MensajesApi {
   final String _baseUrl = ApiHttp.baseUrl;
-  // Instanciamos el storage oficial
   final TokenStorage _tokenStorage = TokenStorage();
-
-  // 1. Obtener historial del chat
   Future<List<dynamic>> getMensajesFamilia(int idFamilia) async {
     try {
-      // 👇 CAMBIO CLAVE: Leemos el token desde TokenStorage, no a mano
       final token = await _tokenStorage.read();
 
       if (token == null || token.isEmpty) {
-        print("⚠️ Chat: No hay token válido en TokenStorage.");
+        print("Chat: No hay token válido en TokenStorage.");
         return [];
       }
 
@@ -32,23 +28,21 @@ class MensajesApi {
       if (response.statusCode == 200) {
         return List<dynamic>.from(jsonDecode(response.body));
       } else {
-        print("⚠️ Error Chat ${response.statusCode}: ${response.body}");
+        print("Error Chat ${response.statusCode}: ${response.body}");
         return [];
       }
     } catch (e) {
-      print("⚠️ Error excepción chat: $e");
+      print("Error excepción chat: $e");
       return [];
     }
   }
 
-  // 2. Enviar mensaje
   Future<bool> enviarMensaje(int idFamilia, String mensaje) async {
     try {
-      // 👇 CAMBIO CLAVE: Leemos el token desde TokenStorage
       final token = await _tokenStorage.read();
 
       if (token == null || token.isEmpty) {
-        print("⚠️ Chat: No hay token, no se puede enviar.");
+        print("Chat: No hay token, no se puede enviar.");
         return false;
       }
 
@@ -67,12 +61,12 @@ class MensajesApi {
         return true;
       } else {
         print(
-          "⚠️ Error enviando mensaje ${response.statusCode}: ${response.body}",
+          "Error enviando mensaje ${response.statusCode}: ${response.body}",
         );
         return false;
       }
     } catch (e) {
-      print("⚠️ Error excepción enviando: $e");
+      print("Error excepción enviando: $e");
       return false;
     }
   }

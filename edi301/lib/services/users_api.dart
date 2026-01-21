@@ -16,7 +16,7 @@ class UsersApi {
       );
       return response.statusCode == 200;
     } catch (e) {
-      print("⚠️ Error actualizando FCM Token: $e");
+      print("Error actualizando FCM Token: $e");
       return false;
     }
   }
@@ -28,7 +28,6 @@ class UsersApi {
     }
   }
 
-  /// Familias por documento (matrícula o numEmpleado)
   Future<List<fm.Family>> familiasByDocumento({
     int? matricula,
     int? numEmpleado,
@@ -107,14 +106,12 @@ class UsersApi {
 
   Future<User> login(String email, String password) async {
     final r = await _http.postJson(
-      '/api/users/login', // o '/api/auth/login' si así es tu ruta real
+      '/api/users/login',
       data: {"E_mail": email, "Contrasena": password},
     );
     if (r.statusCode >= 400) {
       throw Exception('Error ${r.statusCode}: ${r.body}');
     }
-
-    // <<<< aquí era jsonDecode (no jsonEncode)
     final Map<String, dynamic> data =
         jsonDecode(r.body) as Map<String, dynamic>;
 
@@ -135,7 +132,6 @@ class UsersApi {
       throw Exception('Error ${r.statusCode}: ${r.body}');
     }
 
-    // <<<< aquí también era jsonDecode
     final Map<String, dynamic> data =
         jsonDecode(r.body) as Map<String, dynamic>;
 

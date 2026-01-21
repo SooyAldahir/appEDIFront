@@ -10,27 +10,22 @@ class HeaderCard extends StatelessWidget {
     required this.avatarUrl,
     required this.primary,
     required this.statusColor,
-    required this.onEditAvatar, // 🔥 Cambiamos toggle por edit
+    required this.onEditAvatar,
     this.onTapStatus,
   });
 
   final String name, family, residence, status, avatarUrl;
   final Color primary, statusColor;
-  final VoidCallback onEditAvatar; // 🔥 Acción para subir foto
+  final VoidCallback onEditAvatar;
   final VoidCallback? onTapStatus;
 
-  // 🔥 Helper para validar URL
   ImageProvider _getImageProvider() {
     if (avatarUrl.isNotEmpty &&
         avatarUrl != '—' &&
         !avatarUrl.contains('null')) {
-      // Si la URL es válida, la usamos
       return NetworkImage(avatarUrl);
     }
-    // Si no, placeholder vacío o asset
-    return const AssetImage(
-      'assets/img/7141724.png',
-    ); // Asegúrate de tener un asset o usa NetworkImage con una url fija de internet
+    return const AssetImage('assets/img/7141724.png');
   }
 
   @override
@@ -47,7 +42,6 @@ class HeaderCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // 📸 AVATAR CON BOTÓN DE EDICIÓN
                 Stack(
                   children: [
                     CircleAvatar(
@@ -57,7 +51,6 @@ class HeaderCard extends StatelessWidget {
                         radius: 40,
                         backgroundColor: Colors.grey[200],
                         backgroundImage: _getImageProvider(),
-                        // Si falla la carga de red, mostramos icono
                         onBackgroundImageError: (_, __) {},
                         child: (avatarUrl.isEmpty || avatarUrl.contains('null'))
                             ? const Icon(
@@ -76,12 +69,7 @@ class HeaderCard extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.all(6),
                           decoration: const BoxDecoration(
-                            color: Color.fromRGBO(
-                              245,
-                              188,
-                              6,
-                              1,
-                            ), // Amarillo EDI
+                            color: Color.fromRGBO(245, 188, 6, 1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -150,7 +138,6 @@ class HeaderCard extends StatelessWidget {
                               ),
                           ],
                         ),
-                        // ❌ ELIMINADO EL SWITCH DE OCULTAR FOTO
                       ],
                     ),
                   ),
@@ -246,7 +233,6 @@ class SettingsCard extends StatelessWidget {
     required this.primary,
     required this.notif,
     required this.darkMode,
-    // required this.showAvatar, // ❌ Ya no se usa
     required this.bgRefresh,
     required this.birthdayReminder,
     required this.onChanged,

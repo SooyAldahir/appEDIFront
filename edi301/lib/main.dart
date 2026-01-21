@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:edi301/src/pages/Notifications/notifications_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -23,7 +24,6 @@ import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
 import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
 import 'package:edi301/src/pages/Admin/reportes/reportes_page.dart';
 
-// 1. MANEJADOR DE FONDO
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -34,15 +34,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
 
-  // 2. Configurar manejador de fondo
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // Inicializar notificaciones locales
   final notiService = NotificationService();
   await notiService.init();
   await notiService.requestPermissions();
 
-  // 3. OÍDO EN PRIMER PLANO (Foreground)
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     print('Mensaje recibido en foreground: ${message.notification?.title}');
 
@@ -58,27 +55,31 @@ void main() async {
     }
   });
 
-  // -------------------------------------------------------------
-  // 4. VERIFICAR SESIÓN (Lógica de Persistencia) <--- NUEVO
-  // -------------------------------------------------------------
   final prefs = await SharedPreferences.getInstance();
-  // Buscamos la llave 'user' que guardamos en el LoginController
+
   final String? userJson = prefs.getString('user');
 
-  // Si hay datos, vamos a 'home', si no, a 'login'
   final String rutaInicial = (userJson != null && userJson.isNotEmpty)
       ? 'home'
       : 'login';
 
-  // Pasamos la ruta decidida a MyApp
+  HttpOverrides.global = MyHttpOverrides();
   runApp(MyApp(initialRoute: rutaInicial));
 }
 
-class MyApp extends StatelessWidget {
-  // Recibimos la ruta inicial
-  final String initialRoute; // <--- NUEVO
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
+  }
+}
 
-  const MyApp({super.key, required this.initialRoute}); // <--- NUEVO
+class MyApp extends StatelessWidget {
+  final String initialRoute;
+
+  const MyApp({super.key, required this.initialRoute});
 
   @override
   Widget build(BuildContext context) {
@@ -89,8 +90,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.white),
         useMaterial3: false,
       ),
-      // Usamos la variable en lugar del texto fijo
-      initialRoute: initialRoute, // <--- CAMBIO AQUÍ
+      initialRoute: initialRoute,
       routes: <String, WidgetBuilder>{
         'login': (context) => const LoginPage(),
         'register': (context) => const RegisterPage(),

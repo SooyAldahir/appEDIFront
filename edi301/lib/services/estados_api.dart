@@ -1,5 +1,3 @@
-// En lib/services/estados_api.dart
-
 import 'dart:convert';
 import 'package:edi301/core/api_client_http.dart';
 
@@ -15,7 +13,6 @@ class EstadosApi {
   }
 
   Future<bool> updateEstado(int idUsuario, int idCatEstado) async {
-    // CORRECCIÓN AQUÍ: Agregamos "data:" antes de las llaves { }
     final res = await _http.postJson(
       '/api/estados',
       data: {

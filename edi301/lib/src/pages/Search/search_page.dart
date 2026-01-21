@@ -2,7 +2,7 @@ import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/services/search_api.dart';
 import 'package:edi301/src/pages/Admin/add_family/add_family_controller.dart';
-import 'package:url_launcher/url_launcher.dart'; // <-- 1. Importar
+import 'package:url_launcher/url_launcher.dart';
 import 'package:edi301/services/chat_api.dart';
 import 'package:edi301/src/pages/Chat/chat_page.dart';
 
@@ -83,7 +83,6 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  // --- 2. Añadir helper para botones de contacto ---
   Future<void> _makeAction(
     String scheme,
     String path,
@@ -105,7 +104,6 @@ class _SearchPageState extends State<SearchPage> {
       await launchUrl(uri);
     }
   }
-  // ------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -233,14 +231,11 @@ class _SearchPageState extends State<SearchPage> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 🔥 BOTÓN NUEVO DE CHAT
           IconButton(
             tooltip: 'Enviar mensaje',
             icon: const Icon(Icons.chat_bubble_outline, color: Colors.blue),
             onPressed: () => _startChat(u.id, fullName),
           ),
-
-          // BOTÓN EXISTENTE DE DETALLE
           IconButton(
             tooltip: 'Ver detalle',
             icon: const Icon(Icons.remove_red_eye_outlined),
@@ -260,9 +255,6 @@ class _SearchPageState extends State<SearchPage> {
         : Colors.red;
 
     void openFamily() {
-      // --- 5. LÓGICA DE NAVEGACIÓN (CORREGIDA) ---
-      // Ya no buscamos en la lista estática.
-      // Pasamos el ID de la familia directamente.
       Navigator.pushNamed(context, 'family_detail', arguments: f.id);
     }
 
@@ -292,7 +284,7 @@ class _SearchPageState extends State<SearchPage> {
       textInputAction: TextInputAction.search,
       onSubmitted: _runSearch,
       onChanged: (v) {
-        if (v.trim().length >= 3) _runSearch(v); // búsqueda en vivo
+        if (v.trim().length >= 3) _runSearch(v);
       },
       decoration: InputDecoration(
         hintText: 'Ingrese matrícula, # de empleado o nombre de familia',

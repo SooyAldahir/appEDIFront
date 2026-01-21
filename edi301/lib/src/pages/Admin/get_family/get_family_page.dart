@@ -8,7 +8,7 @@ class GetFamilyPage extends StatefulWidget {
   const GetFamilyPage({super.key});
 
   @override
-  State<GetFamilyPage> createState() => _GetFamiliyPageState(); // 👈 usa GetFamiliyPage
+  State<GetFamilyPage> createState() => _GetFamiliyPageState();
 }
 
 class _GetFamiliyPageState extends State<GetFamilyPage> {
@@ -96,9 +96,7 @@ class _GetFamiliyPageState extends State<GetFamilyPage> {
     );
   }
 
-  // 👇 Usa el alias fm.Family en las firmas
   Widget _buildFamilyCards(List<fm.Family> families) {
-    // dentro de _buildFamilyCards(...)
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -115,11 +113,7 @@ class _GetFamiliyPageState extends State<GetFamilyPage> {
           child: InkWell(
             borderRadius: BorderRadius.circular(15),
             onTap: () {
-              Navigator.pushNamed(
-                context,
-                'family_detail', // 👈 nueva ruta
-                arguments: f, // pasamos el índice
-              );
+              Navigator.pushNamed(context, 'family_detail', arguments: f);
             },
             child: Padding(
               padding: const EdgeInsets.all(15),

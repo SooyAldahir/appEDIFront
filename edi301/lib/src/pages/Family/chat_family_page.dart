@@ -33,7 +33,6 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
     super.initState();
     _loadUser();
     _cargarMensajes();
-    // Actualizar cada 5 segundos
     _timer = Timer.periodic(
       const Duration(seconds: 5),
       (_) => _cargarMensajes(quiet: true),
@@ -91,9 +90,7 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
     }
   }
 
-  // 👇 FUNCIÓN MÁGICA: Genera un color consistente basado en el nombre
   Color _getColorForName(String name) {
-    // Paleta de colores oscuros para que se lean bien sobre fondo gris
     final List<Color> colors = [
       Colors.red[700]!,
       Colors.pink[700]!,
@@ -106,7 +103,6 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
       Colors.orange[800]!,
       Colors.brown[700]!,
     ];
-    // Usamos el hash del nombre para elegir siempre el mismo color
     return colors[name.hashCode.abs() % colors.length];
   }
 
@@ -118,12 +114,7 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         elevation: 0,
       ),
-      backgroundColor: const Color.fromARGB(
-        255,
-        255,
-        255,
-        255,
-      ), // Fondo estilo WhatsApp (Opcional)
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
       body: Column(
         children: [
           Expanded(
@@ -138,8 +129,6 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
               },
             ),
           ),
-
-          // BARRA DE ESCRIBIR
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
@@ -202,15 +191,12 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
         ? msg['created_at'].toString().substring(11, 16)
         : '';
 
-    // Colores
     final colorFondo = esMio
-        ? const Color.fromRGBO(19, 67, 107, 1) // Azul Institucional (Míos)
-        : Color.fromRGBO(245, 188, 6, 1); // Blanco (Otros)
+        ? const Color.fromRGBO(19, 67, 107, 1)
+        : Color.fromRGBO(245, 188, 6, 1);
 
     final colorTexto = esMio ? Colors.white : Colors.black87;
     final colorHora = esMio ? Colors.white70 : Colors.grey[600];
-
-    // Obtenemos el nombre para calcular su color
     final nombreUsuario = msg['nombre'] ?? 'Desconocido';
     final colorNombre = _getColorForName(nombreUsuario);
 
@@ -222,7 +208,6 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Avatar (Solo si no es mío)
           if (!esMio) ...[
             CircleAvatar(
               radius: 14,
@@ -244,7 +229,6 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
             const SizedBox(width: 6),
           ],
 
-          // La Burbuja
           ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.75,
@@ -274,7 +258,6 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Nombre con COLOR DINÁMICO (Solo si no es mío)
                   if (!esMio)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
@@ -282,14 +265,12 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
                         nombreUsuario,
                         style: TextStyle(
                           fontSize: 12,
-                          color:
-                              colorNombre, // 👈 Aquí se aplica el color único
+                          color: colorNombre,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
 
-                  // Mensaje
                   Text(
                     msg['mensaje'] ?? '',
                     style: TextStyle(fontSize: 15, color: colorTexto),
@@ -297,7 +278,6 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
 
                   const SizedBox(height: 4),
 
-                  // Hora
                   Align(
                     alignment: Alignment.bottomRight,
                     child: Text(

@@ -55,12 +55,10 @@ class _FamilyPageState extends State<FamiliyPage> {
     }
   }
 
-  // --- MODIFICADO: Ya no lanza error ni muestra SnackBar, solo retorna null ---
   Future<Family?> _fetchFamilyData() async {
     try {
       final int? familyId = await _controller.resolveFamilyId();
 
-      // Si no hay ID, retornamos null pacíficamente
       if (familyId == null) return null;
 
       final prefs = await SharedPreferences.getInstance();
@@ -73,8 +71,6 @@ class _FamilyPageState extends State<FamiliyPage> {
       return null;
     } catch (e) {
       print('Error silencioso al cargar familia: $e');
-      // En caso de error de red, también retornamos null para mostrar la pantalla vacía
-      // (O podrías manejar un estado de error diferente si quisieras)
       return null;
     }
   }
@@ -88,7 +84,6 @@ class _FamilyPageState extends State<FamiliyPage> {
         elevation: 0,
         title: const Text("Mi Familia", style: TextStyle(color: Colors.white)),
       ),
-      // Solo mostramos el botón de chat si hay datos de familia
       floatingActionButton: FutureBuilder<Family?>(
         future: _familyFuture,
         builder: (context, snapshot) {
@@ -111,30 +106,23 @@ class _FamilyPageState extends State<FamiliyPage> {
               child: const Icon(Icons.chat, color: Colors.black),
             );
           }
-          return const SizedBox(); // Ocultar botón si no hay familia
+          return const SizedBox();
         },
       ),
       body: ResponsiveContent(
         child: FutureBuilder<Family?>(
           future: _familyFuture,
           builder: (context, snapshot) {
-            // 1. ESTADO CARGANDO
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-
-            // 2. ESTADO SIN FAMILIA (Nuevo diseño limpio)
             if (snapshot.hasError ||
                 !snapshot.hasData ||
                 snapshot.data == null) {
               return _buildNoFamilyState();
             }
-
-            // 3. ESTADO CON FAMILIA (Tu diseño original)
             final family = snapshot.data!;
             final String baseUrl = ApiHttp.baseUrl;
-
-            // Lógica portada
             final ImageProvider coverImage;
             final String? coverUrl = family.fotoPortadaUrl;
             if (coverUrl != null && coverUrl.isNotEmpty) {
@@ -144,8 +132,6 @@ class _FamilyPageState extends State<FamiliyPage> {
                 'assets/img/familia-extensa-e1591818033557.jpg',
               );
             }
-
-            // Lógica perfil
             final ImageProvider profileImage;
             final String? profileUrl = family.fotoPerfilUrl;
             if (profileUrl != null && profileUrl.isNotEmpty) {
@@ -215,7 +201,6 @@ class _FamilyPageState extends State<FamiliyPage> {
     );
   }
 
-  // --- NUEVO WIDGET: PANTALLA VACÍA ---
   Widget _buildNoFamilyState() {
     return Center(
       child: Padding(
@@ -244,9 +229,6 @@ class _FamilyPageState extends State<FamiliyPage> {
       ),
     );
   }
-
-  // ... (El resto de tus widgets _bottomEditProfile, _buildToggleButtons,
-  //      _buildToggleButton, _buildHijosList, FamilyWidget, etc. SE MANTIENEN IGUAL) ...
 
   Widget _bottomEditProfile() {
     return Container(
@@ -388,8 +370,6 @@ class _FamilyPageState extends State<FamiliyPage> {
     );
   }
 }
-
-// --------------------- WIDGETS AUXILIARES ---------------------
 
 class FamilyWidget extends StatelessWidget {
   final ImageProvider backgroundImage;
@@ -547,7 +527,6 @@ class ProfileCard extends StatelessWidget {
           children: [
             CircleAvatar(backgroundImage: NetworkImage(imageUrl), radius: 30),
             const SizedBox(width: 15),
-            // Usamos Expanded para que el texto ocupe el espacio disponible
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -572,7 +551,6 @@ class ProfileCard extends StatelessWidget {
               ),
             ),
 
-            // 👇 3. EL BOTÓN DE CHAT AQUÍ A LA DERECHA
             if (onChat != null)
               IconButton(
                 icon: const Icon(

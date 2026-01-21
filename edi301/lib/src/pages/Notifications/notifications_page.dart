@@ -31,8 +31,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (userStr != null) {
       final user = jsonDecode(userStr);
       final rol = user['nombre_rol'] ?? user['rol'] ?? '';
-
-      // Definimos si es "Juez" (Padre/Admin) o "Autor" (Hijo)
       final esJuez = [
         'Admin',
         'Padre',
@@ -45,13 +43,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
       List<dynamic> datos = [];
 
       if (esJuez) {
-        // Si es Padre: Carga pendientes de la familia
         final idFamilia = user['id_familia'] ?? user['FamiliaID'];
         if (idFamilia != null) {
           datos = await _api.getPendientes(int.parse(idFamilia.toString()));
         }
       } else {
-        // Si es Hijo: Carga SU historial
         datos = await _api.getMisPosts();
       }
 
@@ -67,7 +63,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> _procesar(int idPost, bool aprobar) async {
-    if (!_esPadre) return; // Seguridad extra
+    if (!_esPadre) return;
 
     final index = _items.indexWhere((p) => p['id_post'] == idPost);
     final itemBackup = index != -1 ? _items[index] : null;
@@ -104,12 +100,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
               itemBuilder: (context, index) {
                 final item = _items[index];
                 return _esPadre
-                    ? _buildApproverCard(
-                        item,
-                      ) // Tarjeta para Padre (con botones)
-                    : _buildStatusCard(
-                        item,
-                      ); // Tarjeta para Hijo (solo ver estado)
+                    ? _buildApproverCard(item)
+                    : _buildStatusCard(item);
               },
             ),
     );
@@ -139,9 +131,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-  // --- TARJETA PARA EL PADRE (Aprobar/Rechazar) ---
   Widget _buildApproverCard(Map<String, dynamic> item) {
-    // 1. LÓGICA DE URL (Igual que en la del alumno)
     String? rawUrl = item['url_imagen'];
     String urlFinal = "";
 
@@ -149,7 +139,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
       if (rawUrl.startsWith('http')) {
         urlFinal = rawUrl;
       } else {
-        // Le pegamos la IP del servidor
         urlFinal = '${ApiHttp.baseUrl}$rawUrl';
       }
     }
@@ -158,7 +147,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
       elevation: 3,
       margin: const EdgeInsets.only(bottom: 12),
       child: Column(
-        // Usamos Column para apilar elementos
         children: [
           ListTile(
             leading: CircleAvatar(
@@ -182,16 +170,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ),
-
-          // 2. LA IMAGEN (Importante: ponerla aquí)
           if (urlFinal.isNotEmpty)
             Container(
-              height: 250, // Un poco más grande para que el padre vea bien
+              height: 250,
               width: double.infinity,
               color: Colors.black12,
               child: Image.network(
                 urlFinal,
-                fit: BoxFit.contain, // Contain para que se vea la foto entera
+                fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
                   return Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -202,7 +188,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         color: Colors.grey,
                       ),
                       const SizedBox(height: 5),
-                      // Esto nos ayudará a depurar si falla
                       Text(
                         "Error url: $urlFinal",
                         textAlign: TextAlign.center,
@@ -217,7 +202,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ),
             ),
 
-          // 3. BOTONES DE ACCIÓN
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -249,7 +233,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-  // --- TARJETA PARA EL HIJO (Ver Estado) ---
   Widget _buildStatusCard(Map<String, dynamic> item) {
     final estado = item['estado'];
     Color colorEstado = Colors.grey;
@@ -266,7 +249,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
       iconEstado = Icons.hourglass_top;
     }
 
-    // 👇 1. LÓGICA PARA ARREGLAR LA URL DE LA IMAGEN 👇
     String? rawUrl = item['url_imagen'];
     String urlFinal = "";
 
@@ -274,7 +256,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
       if (rawUrl.startsWith('http')) {
         urlFinal = rawUrl;
       } else {
-        // Concatenamos la URL base si viene relativa (/uploads/...)
         urlFinal = '${ApiHttp.baseUrl}$rawUrl';
       }
     }
@@ -282,7 +263,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return Card(
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 10),
-      // 👇 Usamos Column para poner Texto arriba e Imagen abajo
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -300,8 +280,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
               style: const TextStyle(fontSize: 12),
             ),
           ),
-
-          // 👇 2. WIDGET DE LA IMAGEN (Esto es lo que faltaba) 👇
           if (urlFinal.isNotEmpty)
             Container(
               height: 200,
@@ -321,7 +299,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 },
               ),
             ),
-          const SizedBox(height: 10), // Un pequeño espacio al final
+          const SizedBox(height: 10),
         ],
       ),
     );

@@ -1,4 +1,3 @@
-// lib/models/institutional_user.dart
 import 'dart:convert';
 
 class InstitutionalUser {
@@ -9,12 +8,10 @@ class InstitutionalUser {
   final String? residencia;
   final String? nivelEducativo;
   final String? campo;
-  final String? leNombreEscuelaOficial; // Esto será la 'carrera'
+  final String? leNombreEscuelaOficial;
   final String? sexo;
   final int? numEmpleado;
   final String? direccion;
-
-  // --- NUEVOS CAMPOS ---
   final String? fechaNacimiento;
   final String? celular;
 
@@ -30,7 +27,6 @@ class InstitutionalUser {
     this.sexo,
     this.numEmpleado,
     this.direccion,
-    // --- NUEVOS ---
     this.fechaNacimiento,
     this.celular,
   });
@@ -54,7 +50,6 @@ class InstitutionalUser {
     return InstitutionalUser(
       matricula: esEmpleado ? null : parseInt(json['MATRICULA']),
       numEmpleado: esEmpleado ? parseInt(json['MATRICULA']) : null,
-
       nombre: json['NOMBRES'] ?? json['NOMBRE'] ?? 'Sin Nombre',
       apellidos: json['APELLIDOS'] ?? 'Sin Apellidos',
       correoInstitucional:
@@ -68,9 +63,6 @@ class InstitutionalUser {
       ), // Carrera/Depto
       sexo: cleanString(json['SEXO']),
       direccion: cleanString(json['DIRECCION']),
-
-      // --- MAPEO DE NUEVOS CAMPOS ---
-      // La API devuelve 'FECHA_NACIMIENTO' y 'CELULAR'
       fechaNacimiento: cleanString(json['FECHA_NACIMIENTO']),
       celular: cleanString(json['CELULAR']),
     );

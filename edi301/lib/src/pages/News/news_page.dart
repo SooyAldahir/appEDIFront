@@ -72,21 +72,16 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
-  // 🔥 ESTA ES LA FUNCIÓN QUE FALTABA
   String _fixUrl(String? url) {
     if (url == null || url.isEmpty || url == 'null') return '';
 
-    // 1. Si ya es una URL completa (http...)
     if (url.startsWith('http')) {
-      // Si apunta a localhost, intentamos arreglarla con la BaseUrl actual (10.0.2.2 para Android)
       if (url.contains('localhost')) {
-        // Reemplazamos localhost:3000 por la base configurada en ApiHttp
         return url.replaceFirst('http://localhost:3000', ApiHttp.baseUrl);
       }
       return url;
     }
 
-    // 2. Si es una ruta relativa (/uploads/...), le pegamos la base correcta
     final path = url.startsWith('/') ? url : '/$url';
     return '${ApiHttp.baseUrl}$path';
   }
@@ -365,16 +360,12 @@ class _NewsPageState extends State<NewsPage> {
   }
 
   Widget _buildPostCard(Map<String, dynamic> post, int index) {
-    // 🔥 ELIMINADA la variable 'baseUrl' local. Usamos _fixUrl.
-
     final nombreUsuario = "${post['nombre']} ${post['apellido'] ?? ''}";
     final nombreFamilia = post['nombre_familia'];
     final mensaje = post['mensaje'] ?? '';
     final urlImagen = post['url_imagen'];
     final tiempo = _timeAgo(post['created_at']);
-    // final esHistoria = post['tipo'] == 'STORY'; // Ya no usamos historias
     final esMiPost = post['id_usuario'] == _userId;
-
     final likesCount = post['likes_count'] ?? 0;
     final isLiked = post['is_liked'] == 1;
     final comentariosCount = post['comentarios_count'] ?? 0;
@@ -393,7 +384,6 @@ class _NewsPageState extends State<NewsPage> {
             ),
             leading: CircleAvatar(
               backgroundColor: Colors.blue[100],
-              // 🔥 Usamos _fixUrl para la foto de perfil
               backgroundImage: post['foto_perfil'] != null
                   ? NetworkImage(_fixUrl(post['foto_perfil']))
                   : null,
@@ -442,9 +432,6 @@ class _NewsPageState extends State<NewsPage> {
                   )
                 : null,
           ),
-
-          // 2. IMAGEN (Doble Tap para Like)
-          // 🔥 Usamos _fixUrl aquí para arreglar la imagen
           if (urlImagen != null &&
               urlImagen.toString().isNotEmpty &&
               urlImagen != 'null')
@@ -458,7 +445,7 @@ class _NewsPageState extends State<NewsPage> {
                     width: double.infinity,
                     color: Colors.black12,
                     child: Image.network(
-                      _fixUrl(urlImagen), // <--- USO DE LA FUNCIÓN
+                      _fixUrl(urlImagen),
                       fit: BoxFit.cover,
                       errorBuilder: (ctx, err, stack) => const SizedBox(
                         height: 200,
@@ -559,7 +546,7 @@ class _NewsPageState extends State<NewsPage> {
         http: _http,
         currentUserId: _userId,
         currentUserRole: _userRole,
-        fixUrl: _fixUrl, // 🔥 Pasamos la función al modal
+        fixUrl: _fixUrl,
       ),
     );
   }
@@ -569,15 +556,12 @@ class _NewsPageState extends State<NewsPage> {
   }
 }
 
-// -----------------------------------------------------------------------------
-// WIDGET EXTRA: HOJA DE COMENTARIOS
-// -----------------------------------------------------------------------------
 class CommentsSheet extends StatefulWidget {
   final int postId;
   final ApiHttp http;
   final int currentUserId;
   final String currentUserRole;
-  final Function(String?) fixUrl; // 🔥 Recibimos la función
+  final Function(String?) fixUrl;
 
   const CommentsSheet({
     super.key,
@@ -707,8 +691,6 @@ class _CommentsSheetState extends State<CommentsSheet> {
                         'MamaEDI',
                       ].contains(widget.currentUserRole);
                       final puedoBorrar = soyDueno || soyAdmin;
-
-                      // 🔥 Usamos fixUrl aquí
                       final fotoUrl = widget.fixUrl(c['foto_perfil']);
 
                       return ListTile(

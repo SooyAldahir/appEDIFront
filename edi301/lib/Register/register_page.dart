@@ -2,7 +2,7 @@ import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/Register/register_controller.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:edi301/models/institutional_user.dart'; // <-- Importa el nuevo modelo
+import 'package:edi301/models/institutional_user.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -58,11 +58,9 @@ class _RegisterPageState extends State<RegisterPage> {
             width: double.infinity,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              // --- Escucha el "paso" actual del registro ---
               child: ValueListenableBuilder<int>(
                 valueListenable: _controller.registrationStep,
                 builder: (context, step, child) {
-                  // Muestra la UI correspondiente al paso
                   switch (step) {
                     case 1:
                       return _buildStep1VerifyEmail();
@@ -70,7 +68,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       return _buildStep2VerifyCode();
                     case 3:
                       return _buildStep3SetPassword();
-                    case 0: // Por defecto
+                    case 0:
                     default:
                       return _buildStep0EnterDocument();
                   }
@@ -83,7 +81,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// --- PASO 0: Ingresar Documento ---
   Widget _buildStep0EnterDocument() {
     return Column(
       children: [
@@ -105,21 +102,16 @@ class _RegisterPageState extends State<RegisterPage> {
           icon: Icons.badge_outlined,
           keyboard: TextInputType.number,
         ),
-        _buttonAction(
-          text: 'Buscar',
-          onPressed: _controller.searchByDocument, // Llama a la nueva función
-        ),
+        _buttonAction(text: 'Buscar', onPressed: _controller.searchByDocument),
       ],
     );
   }
 
-  /// --- PASO 1: Mostrar Datos y Verificar Correo ---
   Widget _buildStep1VerifyEmail() {
     return ValueListenableBuilder<InstitutionalUser?>(
       valueListenable: _controller.foundUser,
       builder: (context, user, child) {
         if (user == null) {
-          // Si los datos se pierden, regresa al paso 0
           _controller.registrationStep.value = 0;
           return const Center(child: Text('Error, intente de nuevo.'));
         }
@@ -144,26 +136,16 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ),
             const SizedBox(height: 15),
-
-            // --- INICIO DE CORRECCIÓN ---
             _buildDataRow('Nombre:', '${user.nombre} ${user.apellidos}'),
             _buildDataRow(
               'Matricula/ NumEmpleado:',
               (user.matricula ?? user.numEmpleado).toString(),
             ),
             _buildDataRow('Escuela:', user.leNombreEscuelaOficial ?? 'N/A'),
-
-            // --- AÑADIDOS ---
             _buildDataRow('Nivel:', user.nivelEducativo ?? 'N/A'),
             _buildDataRow('Campus:', user.campo ?? 'N/A'),
             _buildDataRow('Residencia:', user.residencia ?? 'N/A'),
-
-            // --- FIN DE AÑADIDOS ---
-            _buildDataRow(
-              'Correo:',
-              user.correoOculto,
-            ), // Muestra el correo oculto
-            // --- FIN DE CORRECCIÓN ---
+            _buildDataRow('Correo:', user.correoOculto),
             const SizedBox(height: 20),
             const Text(
               'Para verificar tu identidad, escribe tu correo institucional completo:',
@@ -185,7 +167,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// --- PASO 2: Ingresar Código de Verificación ---
   Widget _buildStep2VerifyCode() {
     return Column(
       children: [
@@ -207,11 +188,7 @@ class _RegisterPageState extends State<RegisterPage> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 30),
-
-        // --- AQUÍ USAMOS EL NUEVO WIDGET DE CUADROS ---
         _buildOtpRow(),
-
-        // ----------------------------------------------
         const SizedBox(height: 20),
         _buttonAction(
           text: 'Validar Código',
@@ -221,7 +198,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// --- PASO 3: Crear Contraseña ---
   Widget _buildStep3SetPassword() {
     return Column(
       children: [
@@ -243,61 +219,50 @@ class _RegisterPageState extends State<RegisterPage> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
-
-        // --- INICIO DE MODIFICACIÓN ---
-
-        // Campo de Contraseña
         _textField(
           controller: _controller.passCtrl,
           hint: 'Contraseña',
           icon: Icons.key_outlined,
-          obscure: _obscurePass, // Usa la variable de estado
+          obscure: _obscurePass,
           suffixIcon: IconButton(
-            // Añade el botón "ojito"
             icon: Icon(
               _obscurePass ? Icons.visibility : Icons.visibility_off,
               color: Colors.white70,
             ),
             onPressed: () {
               setState(() {
-                _obscurePass = !_obscurePass; // Cambia el estado
+                _obscurePass = !_obscurePass;
               });
             },
           ),
         ),
 
-        // Campo de Confirmar Contraseña
         _textField(
           controller: _controller.confirmPassCtrl,
           hint: 'Confirmar contraseña',
           icon: Icons.key_outlined,
-          obscure: _obscureConfirm, // Usa la variable de estado
+          obscure: _obscureConfirm,
           suffixIcon: IconButton(
-            // Añade el botón "ojito"
             icon: Icon(
               _obscureConfirm ? Icons.visibility : Icons.visibility_off,
               color: Colors.white70,
             ),
             onPressed: () {
               setState(() {
-                _obscureConfirm = !_obscureConfirm; // Cambia el estado
+                _obscureConfirm = !_obscureConfirm;
               });
             },
           ),
         ),
 
-        // --- FIN DE MODIFICACIÓN ---
         _buttonAction(
           text: 'Completar Registro',
-          onPressed: _controller.register, // Llama a la función final
+          onPressed: _controller.register,
         ),
       ],
     );
   }
 
-  // --- WIDGETS REUTILIZABLES ---
-
-  // Fila para mostrar los datos
   Widget _buildDataRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -319,7 +284,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // Widget reutilizable para campos de texto
   Widget _textField({
     required TextEditingController controller,
     required String hint,
@@ -350,7 +314,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // Widget de los cuadros OTP
   Widget _buildOtpRow() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -372,31 +335,23 @@ class _RegisterPageState extends State<RegisterPage> {
             decoration: InputDecoration(
               counterText: "",
               filled: true,
-              fillColor: Colors.transparent, // Fondo transparente
+              fillColor: Colors.transparent,
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: accentColor,
-                  width: 2,
-                ), // Amarillo
+                borderSide: const BorderSide(color: accentColor, width: 2),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: Colors.white,
-                  width: 2,
-                ), // Blanco al escribir
+                borderSide: const BorderSide(color: Colors.white, width: 2),
               ),
             ),
             onChanged: (value) {
               if (value.length == 1 && index < 3) {
-                FocusScope.of(context).nextFocus(); // Salta al siguiente
+                FocusScope.of(context).nextFocus();
               } else if (value.isEmpty && index > 0) {
-                FocusScope.of(context).previousFocus(); // Regresa al anterior
+                FocusScope.of(context).previousFocus();
               }
-
-              // Actualiza el controlador PRINCIPAL concatenando todo
               String code = "";
               for (var c in _otpControllers) {
                 code += c.text;
@@ -409,7 +364,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // Widget reutilizable para el botón
   Widget _buttonAction({
     required String text,
     required VoidCallback onPressed,
@@ -452,7 +406,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // --- NUEVO WIDGET PARA EL OTP (CÓDIGO) ---
   Widget _buildOtpInput() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -461,40 +414,23 @@ class _RegisterPageState extends State<RegisterPage> {
           width: 60,
           height: 60,
           child: TextField(
-            autofocus: index == 0, // El primero tiene foco automático
+            autofocus: index == 0,
             onChanged: (value) {
-              // 1. Lógica de Foco: Si escribe, va al siguiente. Si borra, al anterior.
               if (value.length == 1 && index < 3) {
                 FocusScope.of(context).nextFocus();
               } else if (value.isEmpty && index > 0) {
                 FocusScope.of(context).previousFocus();
               }
 
-              // 2. Actualizar el controlador principal
-              // Nota: Esto es un truco simple. Almacenamos el valor en el controlador
-              // concatenando lo que haya en estas cajas.
-              // Para ser más robusto, idealmente usaríamos 4 controladores,
-              // pero para este ejemplo rápido, vamos a asumir que el usuario escribe en orden.
-
-              // Una forma más segura de sincronizar con tu controller principal:
               String currentCode = _controller.verificationCodeCtrl.text;
               if (currentCode.length > index) {
-                // Reemplazar caracter existente
                 List<String> chars = currentCode.split('');
                 if (value.isNotEmpty) {
                   chars[index] = value;
-                } else {
-                  // Si borró, lo dejamos vacío o manejamos según lógica
-                }
-                // Esto es complejo de sincronizar perfectamente con un solo string controller.
-                // MEJOR ESTRATEGIA:
-                // Vamos a actualizar el texto del controlador principal DIRECTAMENTE
-                // en el evento verifyCode, leyendo de 4 controladores locales.
+                } else {}
               }
             },
-            // Usaremos controladores locales temporales para la UI
-            // (Ver implementación completa abajo en el paso 2)
-            controller: null, // Lo definiremos en el builder
+            controller: null,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             style: const TextStyle(
@@ -502,25 +438,19 @@ class _RegisterPageState extends State<RegisterPage> {
               color: Colors.white,
               fontWeight: FontWeight.bold,
             ),
-            maxLength: 1, // Solo 1 dígito por caja
+            maxLength: 1,
             decoration: InputDecoration(
-              counterText: "", // Oculta el contador "0/1"
+              counterText: "",
               filled: true,
-              fillColor: Colors.transparent, // Fondo transparente
+              fillColor: Colors.transparent,
               contentPadding: const EdgeInsets.symmetric(vertical: 15),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: accentColor,
-                  width: 2,
-                ), // Borde amarillo
+                borderSide: const BorderSide(color: accentColor, width: 2),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                  color: Colors.white,
-                  width: 2,
-                ), // Borde blanco al enfocar
+                borderSide: const BorderSide(color: Colors.white, width: 2),
               ),
             ),
           ),

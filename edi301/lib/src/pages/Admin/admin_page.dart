@@ -14,7 +14,6 @@ class AdminPage extends StatefulWidget {
 class _AdminPageState extends State<AdminPage> {
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
   }
 
@@ -83,16 +82,13 @@ class _AdminPageState extends State<AdminPage> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: CustomButton(
-                label: 'Reportes PDF', // <-- Nuevo texto
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  'reportes',
-                ), // <-- Nueva acción
+                label: 'Reportes PDF',
+                onPressed: () => Navigator.pushNamed(context, 'reportes'),
                 icon: const Icon(
                   Icons.picture_as_pdf,
                   color: Colors.white,
                   size: 30,
-                ), // <-- Icono fijo
+                ),
               ),
             ),
             const SizedBox(height: 15),
@@ -120,13 +116,8 @@ class CustomButton extends StatelessWidget {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(30), // Borde redondeado
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 20,
-          vertical: 10,
-        ), // Tamaño del botón
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       ),
       onPressed: onPressed,
       child: Row(
@@ -140,7 +131,7 @@ class CustomButton extends StatelessWidget {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(width: 10), // Espacio entre el texto y el icono
+          const SizedBox(width: 10),
           icon,
         ],
       ),

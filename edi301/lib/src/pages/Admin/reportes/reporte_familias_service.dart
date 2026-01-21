@@ -7,10 +7,9 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:edi301/core/api_client_http.dart';
 import 'package:open_file/open_file.dart';
-import 'package:edi301/services/familia_api.dart'; // Para llamar a getById
-import 'package:edi301/models/family_model.dart'; // Para el modelo Family
+import 'package:edi301/services/familia_api.dart';
+import 'package:edi301/models/family_model.dart';
 
-// Modelo de datos para el reporte GENERAL
 class FamiliaReporteGeneral {
   final String nombreFamilia;
   final String? papaNombre;
@@ -33,7 +32,7 @@ class FamiliaReporteGeneral {
 class ReporteFamiliasService {
   final ApiHttp _http = ApiHttp();
   final FamiliaApi _familiaApi = FamiliaApi();
-  pw.Font? _font; // Caché para la fuente
+  pw.Font? _font;
 
   Future<pw.Font> _getFont() async {
     if (_font == null) {
@@ -92,10 +91,8 @@ class ReporteFamiliasService {
     final font = await _getFont();
     final theme = pw.ThemeData.withFont(base: font);
 
-    // --- CORRECCIÓN AQUÍ: Usar las listas correctas ---
     final hijosCasa = familia.householdChildren;
     final alumnosAsignados = familia.assignedStudents;
-    // ----------------------------------------------
 
     pdf.addPage(
       pw.MultiPage(
@@ -107,7 +104,6 @@ class ReporteFamiliasService {
           pw.SizedBox(height: 20),
           _buildTableMiembros('Hijos en casa', hijosCasa),
           pw.SizedBox(height: 20),
-          // --- CORRECCIÓN AQUÍ: Pasar la lista correcta ---
           _buildTableMiembros(
             'Hijos EDI (Alumnos Asignados)',
             alumnosAsignados,
@@ -212,14 +208,12 @@ class ReporteFamiliasService {
             ),
           ],
         ),
-        // --- CORRECCIÓN AQUÍ: Usar los campos de num_empleado ---
         _buildPadreRow('Padre', familia.fatherName, familia.papaNumEmpleado),
         _buildPadreRow('Madre', familia.motherName, familia.mamaNumEmpleado),
       ],
     );
   }
 
-  // --- CORRECCIÓN AQUÍ: Aceptar String? para el ID ---
   pw.TableRow _buildPadreRow(String rol, String? nombre, String? idStr) {
     return pw.TableRow(
       children: [
@@ -235,7 +229,6 @@ class ReporteFamiliasService {
       ],
     );
   }
-  // --------------------------------------------------
 
   pw.Widget _buildTableMiembros(String title, List<FamilyMember> miembros) {
     final headers = [

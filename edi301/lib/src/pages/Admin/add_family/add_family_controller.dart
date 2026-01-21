@@ -8,11 +8,9 @@ import 'package:edi301/services/members_api.dart';
 import 'package:flutter/foundation.dart';
 
 class AddFamilyController {
-  // ========= Estado compartido =========
   static final ValueNotifier<List<Family>> familyList =
       ValueNotifier<List<Family>>([]);
 
-  // Campos del form "Agregar familia"
   final ValueNotifier<String> _familyName = ValueNotifier<String>('');
   String get familyName => _familyName.value;
   set familyName(String v) => _familyName.value = v;
@@ -24,8 +22,6 @@ class AddFamilyController {
   ValueListenable<bool> get internalResidenceListenable => _internalResidence;
 
   final TextEditingController addressCtrl = TextEditingController();
-
-  // Búsqueda papá/mamá (empleados)
   final TextEditingController fatherCtrl = TextEditingController();
   final TextEditingController motherCtrl = TextEditingController();
   final ValueNotifier<List<UserMini>> fatherResults =
@@ -34,8 +30,6 @@ class AddFamilyController {
       ValueNotifier<List<UserMini>>([]);
   UserMini? _pickedFather;
   UserMini? _pickedMother;
-
-  // Hijos sanguíneos (alumnos)
   final TextEditingController searchChildCtrl = TextEditingController();
   final ValueNotifier<List<UserMini>> childResults =
       ValueNotifier<List<UserMini>>([]);
@@ -64,7 +58,6 @@ class AddFamilyController {
     _loading.dispose();
   }
 
-  // Genera nombre automático: "Familia <apPatPadre> <apPatMadre>"
   void recomputeFamilyName() {
     final f = _pickedFather?.apellido.trim().split(' ').first ?? '';
     final m = _pickedMother?.apellido.trim().split(' ').first ?? '';
@@ -72,7 +65,6 @@ class AddFamilyController {
     _familyName.value = base.isEmpty ? '' : 'Familia $base';
   }
 
-  // ========= Búsqueda empleados (empleados + externos) =========
   Future<void> searchEmployee(String q, {required bool isFather}) async {
     q = q.trim();
     final target = isFather ? fatherResults : motherResults;
@@ -83,8 +75,6 @@ class AddFamilyController {
     }
 
     final res = await _searchApi.searchAll(q);
-
-    // Combina empleados + externos
     final merged = <int, UserMini>{};
     for (final u in res.empleados) merged[u.id] = u;
     for (final u in res.externos) merged[u.id] = u; // 👈 suma externos
@@ -107,7 +97,6 @@ class AddFamilyController {
     recomputeFamilyName();
   }
 
-  // ========= Búsqueda alumnos =========
   Future<void> searchChildByText(String q) async {
     q = q.trim();
     if (q.isEmpty) {
@@ -134,14 +123,12 @@ class AddFamilyController {
     }
   }
 
-  // ========= Guardar familia =========
   Future<void> save(BuildContext context) async {
     _loading.value = true;
     try {
       final isInternal = _internalResidence.value;
       final direccion = isInternal ? null : addressCtrl.text.trim();
 
-      // Validaciones (se mantienen)
       if (!isInternal && (direccion == null || direccion.isEmpty)) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -162,11 +149,7 @@ class AddFamilyController {
         }
         return;
       }
-
-      // 1. Recolectar todos los IDs
       final hijosIds = children.value.map((kid) => kid.id).toList();
-
-      // 2. Llamar al nuevo endpoint del backend que hace todo
       final created = await _familiaApi.createFamily(
         nombreFamilia: _familyName.value.trim().isEmpty
             ? 'Familia'
@@ -175,10 +158,9 @@ class AddFamilyController {
         direccion: direccion,
         papaId: _pickedFather?.id,
         mamaId: _pickedMother?.id,
-        hijos: hijosIds, // <-- ENVIAMOS LOS HIJOS AQUÍ
+        hijos: hijosIds,
       );
 
-      // Agregamos los nombres localmente para mostrar en la UI, ya que el backend no los devuelve en este punto
       final withNames = created.copyWith(
         fatherName: _pickedFather == null
             ? null
@@ -188,7 +170,6 @@ class AddFamilyController {
             : '${_pickedMother!.nombre} ${_pickedMother!.apellido}'.trim(),
       );
 
-      // 3. Actualiza lista local + feedback
       final list = [...AddFamilyController.familyList.value]..add(withNames);
       AddFamilyController.familyList.value = list;
 
@@ -199,7 +180,6 @@ class AddFamilyController {
         Navigator.of(context).pop(true);
       }
 
-      // Limpieza de campos (se mantiene)
       _pickedFather = null;
       _pickedMother = null;
       fatherCtrl.clear();
@@ -225,7 +205,4 @@ class AddFamilyController {
       _loading.value = false;
     }
   }
-
-  // ========= Funciones eliminadas =========
-  // ... (Las funciones addStudentsToFamily, removeHouseholdChild y removeAssignedStudent han sido eliminadas) ...
 }

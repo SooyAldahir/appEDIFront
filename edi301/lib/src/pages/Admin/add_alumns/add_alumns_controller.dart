@@ -12,7 +12,6 @@ class AddAlumnsController {
 
   final loading = ValueNotifier<bool>(false);
 
-  // --- Estado que la UI observará ---
   final ValueNotifier<Family?> selectedFamily = ValueNotifier(null);
   final ValueNotifier<List<UserMini>> selectedAlumns = ValueNotifier([]);
 
@@ -29,14 +28,10 @@ class AddAlumnsController {
     alumnSearchResults.dispose();
   }
 
-  // --- Lógica de Búsqueda ---
-
-  /// Busca familias por nombre para el autocompletado.
   Future<List<Family>> searchFamilies(String query) async {
     if (query.trim().isEmpty) return [];
     try {
       final result = await _searchApi.searchAll(query);
-      // Convertimos FamilyMini a Family para mantener consistencia
       return result.familias
           .map((f) => Family(id: f.id, familyName: f.nombre))
           .toList();
@@ -46,7 +41,6 @@ class AddAlumnsController {
     }
   }
 
-  /// Busca alumnos por matrícula o nombre para el autocompletado.
   Future<void> searchAlumns(String query) async {
     if (query.trim().isEmpty) {
       alumnSearchResults.value = [];
@@ -63,8 +57,6 @@ class AddAlumnsController {
       alumnSearchResults.value = [];
     }
   }
-
-  // --- Lógica de Selección ---
 
   void selectFamily(Family family) {
     selectedFamily.value = family;
@@ -88,10 +80,7 @@ class AddAlumnsController {
     selectedAlumns.value = [...currentList];
   }
 
-  // --- Lógica de Guardado ---
-
   Future<void> saveAssignments() async {
-    // 1. Validaciones
     if (selectedFamily.value == null) {
       _snack('Por favor, selecciona una familia.');
       return;
@@ -104,19 +93,14 @@ class AddAlumnsController {
     loading.value = true;
 
     try {
-      // 2. Preparar los datos
       final familyId = selectedFamily.value!.id!;
       final alumnIds = selectedAlumns.value.map((alumn) => alumn.id).toList();
-
-      // 3. Llamar a la API "bulk" UNA SOLA VEZ
       await _membersApi.addMembersBulk(
         idFamilia: familyId,
         idUsuarios: alumnIds,
       );
 
       loading.value = false;
-
-      // 4. Éxito
       if (context!.mounted) {
         _snack(
           '${alumnIds.length} alumno(s) asignado(s) con éxito.',
@@ -125,9 +109,7 @@ class AddAlumnsController {
         Navigator.pop(context!, true);
       }
     } catch (e) {
-      // 5. Manejar el error de la API
       loading.value = false;
-      // Esto te mostrará el error exacto del backend (si lo hay)
       _snack(e.toString().replaceFirst("Exception: ", ""));
     }
   }

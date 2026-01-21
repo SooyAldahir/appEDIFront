@@ -1,5 +1,3 @@
-// lib/src/pages/Admin/add_family/add_family_page.dart
-
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/services/search_api.dart';
@@ -41,7 +39,6 @@ class _AddFamilyPageState extends State<AddFamilyPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Nombre automático (escucha al ValueNotifier)
             ValueListenableBuilder<String>(
               valueListenable: c.familyNameListenable,
               builder: (_, name, __) => ListTile(
@@ -72,7 +69,6 @@ class _AddFamilyPageState extends State<AddFamilyPage> {
             ),
 
             const SizedBox(height: 12),
-            // Switch vinculado al ValueNotifier<bool>
             ValueListenableBuilder<bool>(
               valueListenable: c.internalResidenceListenable,
               builder: (_, internal, __) => Column(
@@ -108,7 +104,6 @@ class _AddFamilyPageState extends State<AddFamilyPage> {
               ),
               onChanged: c.searchChildByText,
             ),
-            // Resultados de alumnos para agregar
             ValueListenableBuilder<List<UserMini>>(
               valueListenable: c.childResults,
               builder: (_, list, __) => Column(
@@ -133,7 +128,6 @@ class _AddFamilyPageState extends State<AddFamilyPage> {
                     .toList(),
               ),
             ),
-            // Chips con niños agregados
             ValueListenableBuilder<List<UserMini>>(
               valueListenable: c.children,
               builder: (_, kids, __) => Wrap(
@@ -170,7 +164,6 @@ class _AddFamilyPageState extends State<AddFamilyPage> {
     );
   }
 
-  /// Widget reutilizable para buscar empleados (papá/mamá)
   Widget _employeeSearch({
     required String label,
     required TextEditingController ctrl,

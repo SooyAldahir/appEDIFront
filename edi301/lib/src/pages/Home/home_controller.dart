@@ -8,8 +8,4 @@ class HomeController {
     this.context = context;
     return null;
   }
-
-  // void goToEditPage() {
-  //   Navigator.pushNamed(context!, 'edit');
-  // }
 }

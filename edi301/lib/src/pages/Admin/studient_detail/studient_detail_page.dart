@@ -19,8 +19,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
   String? _error;
   int? _studentId;
 
-  // Ya no necesitamos _familyName ni _residence aquí
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -31,7 +29,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
         _studentId = args;
         _fetchStudentDetails(args);
       } else {
-        // Fallback por si acaso
         setState(() {
           _isLoading = false;
           _error = 'Error: No se recibió un ID de estudiante válido.';
@@ -40,10 +37,8 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     }
   }
 
-  /// Llama a la API /api/usuarios/:id para obtener los datos
   Future<void> _fetchStudentDetails(int id) async {
     try {
-      // Corregido a /api/usuarios/
       final res = await _http.getJson('/api/usuarios/$id');
       if (!mounted) return;
 
@@ -65,8 +60,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
       }
     }
   }
-
-  // --- Funciones para botones de Llamar/Mensaje ---
 
   Future<void> _makeAction(
     String scheme,
@@ -93,8 +86,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
       await launchUrl(uri);
     }
   }
-
-  // --- Helpers ---
 
   String s(String key, [String d = '—']) {
     final v = _data[key];
@@ -140,7 +131,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
   }
 
   Widget _buildContent(BuildContext context, ThemeData theme, Color primary) {
-    // --- Llenar datos desde la API ---
     final name = ('${s('nombre')} ${s('apellido')}').trim();
     final phone = s('telefono');
     final matricula = s('matricula');
@@ -151,25 +141,14 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     final rawAddr = s('direccion');
     final docLabel = 'Matrícula';
     final docValue = matricula;
-
-    // --- CAMBIOS AQUÍ ---
-    final familyName = s(
-      'nombre_familia',
-    ); // <--- 1. Leer nombre_familia de la API
-    final residence = s(
-      'residencia',
-      'Externa',
-    ); // <--- 2. Leer residencia de la API
+    final familyName = s('nombre_familia');
+    final residence = s('residencia', 'Externa');
     final bool isInternal = residence.toLowerCase().startsWith('intern');
-    // --- FIN DE CAMBIOS ---
-
     final bool showAddress = !isInternal && rawAddr != '—';
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // PERFIL
           Card(
             elevation: 2,
             shape: RoundedRectangleBorder(
@@ -216,16 +195,12 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                               visualDensity: VisualDensity.compact,
                             ),
                             Chip(
-                              label: Text(
-                                'Residencia: $residence',
-                              ), // <--- 3. Mostrar residencia
+                              label: Text('Residencia: $residence'),
                               visualDensity: VisualDensity.compact,
                             ),
                             if (familyName != '—')
                               Chip(
-                                label: Text(
-                                  'Familia: $familyName',
-                                ), // <--- 4. Mostrar familia
+                                label: Text('Familia: $familyName'),
                                 visualDensity: VisualDensity.compact,
                               ),
                           ],
@@ -238,8 +213,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
             ),
           ),
           const SizedBox(height: 12),
-
-          // CONTACTO
           _SectionCard(
             title: 'Contacto',
             primary: primary,
@@ -260,25 +233,18 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
           ),
 
           const SizedBox(height: 12),
-
-          // ACADÉMICO
           _SectionCard(
             title: 'Académico',
             primary: primary,
             children: [
               _InfoTile(Icons.cake_outlined, 'Cumpleaños', birthday),
               _InfoTile(Icons.school_outlined, 'Programa', grade),
-              _InfoTile(
-                Icons.family_restroom,
-                'Familia',
-                familyName,
-              ), // <--- 5. Mostrar familia
+              _InfoTile(Icons.family_restroom, 'Familia', familyName),
             ],
           ),
 
           const SizedBox(height: 12),
 
-          // ACCIONES
           Card(
             elevation: 1,
             shape: RoundedRectangleBorder(
@@ -326,8 +292,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
           ),
 
           const SizedBox(height: 8),
-
-          // Este botón te llevará de vuelta a la página de detalles de la familia
           if (_studentId != null)
             Align(
               alignment: Alignment.centerLeft,
@@ -335,7 +299,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                 icon: const Icon(Icons.home_outlined),
                 label: const Text('Ver familia'),
                 onPressed: () {
-                  // Como no tenemos el ID de la familia, solo podemos regresar
                   if (Navigator.canPop(context)) {
                     Navigator.pop(context);
                   }
@@ -347,8 +310,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     );
   }
 }
-
-// --- WIDGETS AUXILIARES (Sin cambios) ---
 
 class _SectionCard extends StatelessWidget {
   final String title;

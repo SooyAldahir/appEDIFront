@@ -47,8 +47,6 @@ class _AgendaPageState extends State<AgendaPage> {
             if (eventos.isEmpty) {
               return const Center(child: Text('No hay eventos programados.'));
             }
-
-            // Lista de eventos
             return ListView.builder(
               itemCount: eventos.length,
               itemBuilder: (context, index) {
@@ -63,17 +61,12 @@ class _AgendaPageState extends State<AgendaPage> {
                   ),
                   isThreeLine: evento.descripcion != null,
                   trailing: const Icon(Icons.chevron_right),
-
-                  // --- AQUÍ ESTÁ EL CAMBIO IMPORTANTE ---
                   onTap: () async {
-                    // Navegamos al detalle y esperamos respuesta
                     final result = await Navigator.pushNamed(
                       context,
                       'agenda_detail',
                       arguments: evento,
                     );
-
-                    // Si devuelve true (se editó o eliminó), recargamos
                     if (result == true) {
                       _loadEventos();
                     }
@@ -86,10 +79,8 @@ class _AgendaPageState extends State<AgendaPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // Navegar a la página de creación
           final result =
               await Navigator.pushNamed(context, 'crear_evento') as bool?;
-          // Si la página de creación devuelve 'true', recargamos la lista
           if (result == true) {
             _loadEventos();
           }

@@ -7,18 +7,18 @@ class ScrollHideAppBarScaffold extends StatelessWidget {
     required this.body,
     this.actions,
     this.backgroundColor = const Color.fromRGBO(19, 67, 107, 1),
-    this.pinned = false, // true = no se oculta
-    this.floating = true, // aparece con flick hacia arriba
-    this.snap = true, // efecto imán
+    this.pinned = false,
+    this.floating = true,
+    this.snap = true,
     this.leading,
-    this.bottom, // TabBar u otro PreferredSizeWidget
-    this.expandedHeight = 0, // >0 si usas flexibleSpace
+    this.bottom,
+    this.expandedHeight = 0,
     this.flexible,
     this.automaticallyImplyLeading = true,
   });
 
   final String title;
-  final Widget body; // debe ser scrollable: ListView/CustomScrollView/…
+  final Widget body;
   final List<Widget>? actions;
   final Color backgroundColor;
   final bool pinned;

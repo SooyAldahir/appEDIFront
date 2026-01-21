@@ -2,7 +2,6 @@ import 'package:edi301/core/api_client_http.dart';
 import 'package:flutter/material.dart';
 
 class CreateEventPage extends StatefulWidget {
-  // Datos opcionales que vienen del constructor (NewsPage)
   final Map<String, dynamic>? eventoExistente;
 
   const CreateEventPage({super.key, this.eventoExistente});
@@ -18,15 +17,13 @@ class _CreateEventPageState extends State<CreateEventPage> {
 
   DateTime? _selectedDate;
   bool _loading = false;
-  int? _idEdicion; // Si es null = Crear, Si tiene valor = Editar
+  int? _idEdicion;
 
   final ApiHttp _http = ApiHttp();
 
   @override
   void initState() {
     super.initState();
-    // 1. CARGA DESDE CONSTRUCTOR (NewsPage)
-    // Importante: Aquí NO usamos setState porque la pantalla aún no se ha dibujado
     if (widget.eventoExistente != null) {
       _cargarDatosInterno(widget.eventoExistente!);
     }
@@ -35,31 +32,20 @@ class _CreateEventPageState extends State<CreateEventPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 2. CARGA DESDE RUTA (AgendaPage)
-    // Solo si no tenemos datos del constructor y aún no hemos cargado nada
     if (widget.eventoExistente == null && _idEdicion == null) {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args != null && args is Map) {
-        // Convertimos a mapa seguro y cargamos
         _cargarDatosInterno(Map<String, dynamic>.from(args));
       }
     }
   }
 
-  // Función auxiliar para llenar variables (SIN setState)
   void _cargarDatosInterno(Map<String, dynamic> datos) {
-    print("🔧 Cargando datos de evento: $datos");
-
-    // Mapeo inteligente de ID (Soporta id_evento o id_actividad)
+    print("Cargando datos de evento: $datos");
     _idEdicion = datos['id_evento'] ?? datos['id_actividad'];
-
     _titleCtrl.text = datos['titulo'] ?? '';
-
-    // Mapeo inteligente de Descripción (Soporta mensaje o descripcion)
     _descCtrl.text = datos['mensaje'] ?? datos['descripcion'] ?? '';
-
     _daysCtrl.text = (datos['dias_anticipacion'] ?? 3).toString();
-
     if (datos['fecha_evento'] != null) {
       _selectedDate = DateTime.tryParse(datos['fecha_evento'].toString());
     }
@@ -95,13 +81,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
       };
 
       if (_idEdicion == null) {
-        // --- CREAR ---
         await _http.postJson('/api/agenda', data: data);
       } else {
-        // --- EDITAR ---
         await _http.putJson('/api/agenda/$_idEdicion', data: data);
       }
-
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
@@ -117,7 +100,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
   @override
   Widget build(BuildContext context) {
     final esEdicion = _idEdicion != null;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(esEdicion ? "Editar Evento" : "Nuevo Evento"),

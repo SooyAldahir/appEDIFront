@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:edi301/core/api_client_http.dart'; // Ajusta import
-import 'package:edi301/services/fotos_api.dart'; // Ajusta import
+import 'package:edi301/core/api_client_http.dart';
+import 'package:edi301/services/fotos_api.dart';
 
 class FamilyGallery extends StatefulWidget {
   final int idFamilia;
@@ -32,7 +32,6 @@ class _FamilyGalleryState extends State<FamilyGallery> {
     }
   }
 
-  // Función para construir la URL completa
   String _getFullUrl(String rawUrl) {
     if (rawUrl.startsWith('http')) return rawUrl;
     return '${ApiHttp.baseUrl}$rawUrl';
@@ -57,7 +56,7 @@ class _FamilyGalleryState extends State<FamilyGallery> {
 
     if (_fotos.isEmpty) {
       return Container(
-        height: 0, // Altura suficiente para que se vea bien
+        height: 0,
         width: double.infinity,
         alignment: Alignment.center,
         child: Column(
@@ -79,15 +78,14 @@ class _FamilyGalleryState extends State<FamilyGallery> {
     }
 
     return GridView.builder(
-      physics:
-          const NeverScrollableScrollPhysics(), // <--- AGREGA ESTO (Usa el scroll de la página)
+      physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
       padding: const EdgeInsets.all(4),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3, // 3 columnas como Instagram/Facebook
+        crossAxisCount: 3,
         crossAxisSpacing: 2,
         mainAxisSpacing: 2,
-        childAspectRatio: 1.0, // Cuadradas
+        childAspectRatio: 1.0,
       ),
       itemCount: _fotos.length,
       itemBuilder: (context, index) {
@@ -110,7 +108,6 @@ class _FamilyGalleryState extends State<FamilyGallery> {
   }
 }
 
-// --- VISOR PANTALLA COMPLETA (SWIPE) ---
 class _FullScreenViewer extends StatefulWidget {
   final List<dynamic> fotos;
   final int initialIndex;
@@ -160,7 +157,6 @@ class _FullScreenViewerState extends State<_FullScreenViewer> {
 
           return Center(
             child: InteractiveViewer(
-              // Permite hacer Zoom con los dedos
               child: Image.network(url, fit: BoxFit.contain),
             ),
           );

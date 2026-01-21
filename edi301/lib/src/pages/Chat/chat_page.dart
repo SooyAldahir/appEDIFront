@@ -4,7 +4,7 @@ import 'package:edi301/services/chat_api.dart';
 
 class ChatPage extends StatefulWidget {
   final int idSala;
-  final String nombreChat; // El nombre de la persona o grupo
+  final String nombreChat;
 
   const ChatPage({super.key, required this.idSala, required this.nombreChat});
 
@@ -25,7 +25,6 @@ class _ChatPageState extends State<ChatPage> {
   void initState() {
     super.initState();
     _loadMessages();
-    // Refresco automático cada 5 segundos (Polling simple)
     _timer = Timer.periodic(
       const Duration(seconds: 5),
       (_) => _loadMessages(silent: true),
@@ -47,14 +46,12 @@ class _ChatPageState extends State<ChatPage> {
         _mensajes = msgs;
         _loading = false;
       });
-      // Bajar el scroll al final si es la primera carga
       if (!silent) _scrollToBottom();
     }
   }
 
   void _scrollToBottom() {
     if (_scrollCtrl.hasClients) {
-      // Esperamos un poco para que renderice y bajamos
       Future.delayed(const Duration(milliseconds: 100), () {
         _scrollCtrl.animateTo(
           _scrollCtrl.position.maxScrollExtent,
@@ -69,11 +66,11 @@ class _ChatPageState extends State<ChatPage> {
     final text = _msgCtrl.text.trim();
     if (text.isEmpty) return;
 
-    _msgCtrl.clear(); // Limpiamos input rápido para UX
+    _msgCtrl.clear();
     final success = await _api.sendMessage(widget.idSala, text);
 
     if (success) {
-      _loadMessages(silent: true); // Recargamos para ver mi mensaje
+      _loadMessages(silent: true);
       _scrollToBottom();
     } else {
       ScaffoldMessenger.of(
@@ -91,7 +88,6 @@ class _ChatPageState extends State<ChatPage> {
       ),
       body: Column(
         children: [
-          // ÁREA DE MENSAJES
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -117,13 +113,8 @@ class _ChatPageState extends State<ChatPage> {
                           ),
                           decoration: BoxDecoration(
                             color: esMio
-                                ? const Color.fromRGBO(
-                                    245,
-                                    188,
-                                    6,
-                                    1,
-                                  ) // Dorado (Mío)
-                                : Colors.grey[300], // Gris (Otro)
+                                ? const Color.fromRGBO(245, 188, 6, 1)
+                                : Colors.grey[300],
                             borderRadius: BorderRadius.only(
                               topLeft: const Radius.circular(15),
                               topRight: const Radius.circular(15),
@@ -138,7 +129,7 @@ class _ChatPageState extends State<ChatPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (!esMio) // Mostrar nombre en grupos
+                              if (!esMio)
                                 Text(
                                   msg['nombre_remitente'] ?? '',
                                   style: const TextStyle(
@@ -159,7 +150,6 @@ class _ChatPageState extends State<ChatPage> {
                   ),
           ),
 
-          // INPUT DE TEXTO
           Container(
             padding: const EdgeInsets.all(10),
             color: Colors.white,

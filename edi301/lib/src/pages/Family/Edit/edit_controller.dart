@@ -14,7 +14,6 @@ class EditController {
   final FamiliaApi _familiaApi = FamiliaApi();
   final TokenStorage _tokenStorage = TokenStorage();
 
-  // Notificadores para actualizar la UI cuando se selecciona una imagen
   ValueNotifier<XFile?> profileImage = ValueNotifier(null);
   ValueNotifier<XFile?> coverImage = ValueNotifier(null);
   ValueNotifier<bool> isLoading = ValueNotifier(false);
@@ -22,9 +21,7 @@ class EditController {
   final TextEditingController descripcionCtrl = TextEditingController();
   ValueNotifier<bool> descripcionModificada = ValueNotifier(false);
 
-  // --- CAMBIO 1: Variable para guardar el callback ---
   late void Function(Family? family) _onDataLoadedCallback;
-  // --- FIN CAMBIO 1 ---
 
   Future<void> init(
     BuildContext context,
@@ -34,19 +31,16 @@ class EditController {
     this.context = context;
     this.familyId = familyId;
 
-    // --- CAMBIO 2: Guardar el callback ---
     this._onDataLoadedCallback = loadData;
-    // --- FIN CAMBIO 2 ---
 
-    print('✅ EditController inicializado con familia ID: $familyId');
+    print('EditController inicializado con familia ID: $familyId');
 
     if (familyId <= 0) {
-      print('⚠️ ADVERTENCIA: familyId inválido: $familyId');
+      print('ADVERTENCIA: familyId inválido: $familyId');
     }
-    await _loadFamilyData(); // --- CAMBIO 3: Renombrado para claridad ---
+    await _loadFamilyData();
   }
 
-  // --- CAMBIO 4: Renombrada y modificada para cargar TODO ---
   Future<void> _loadFamilyData() async {
     try {
       if (familyId == null) return;
@@ -57,27 +51,20 @@ class EditController {
       final data = await _familiaApi.getById(familyId!, authToken: token);
 
       if (data != null) {
-        // --- CAMBIO 5: Convertir a objeto Family y notificar ---
         final family = Family.fromJson(data);
-
         descripcionCtrl.text = family.descripcion ?? '';
-
-        // ¡Esta es la parte clave! Llama a la función de la página
-        // para que se actualice con todos los datos (incluyendo URLs)
         _onDataLoadedCallback(family);
 
-        print('📝 Datos de familia cargados: ${family.familyName}');
-        // --- FIN CAMBIO 5 ---
+        print('Datos de familia cargados: ${family.familyName}');
       } else {
-        _onDataLoadedCallback(null); // Notifica que no se encontraron datos
+        _onDataLoadedCallback(null);
         print('⚠️ No se encontraron datos para la familia $familyId');
       }
     } catch (e) {
-      _onDataLoadedCallback(null); // Notifica el error
-      print('⚠️ Error al cargar datos de familia: $e');
+      _onDataLoadedCallback(null);
+      print('Error al cargar datos de familia: $e');
     }
   }
-  // --- FIN CAMBIO 4 ---
 
   void dispose() {
     profileImage.dispose();
@@ -87,7 +74,6 @@ class EditController {
     descripcionModificada.dispose();
   }
 
-  // Método para seleccionar la foto de perfil
   Future<void> selectProfileImage() async {
     try {
       final XFile? pickedFile = await _picker.pickImage(
@@ -105,7 +91,6 @@ class EditController {
     }
   }
 
-  // Método para seleccionar la foto de portada
   Future<void> selectCoverImage() async {
     try {
       final XFile? pickedFile = await _picker.pickImage(
@@ -124,19 +109,18 @@ class EditController {
   }
 
   Future<void> saveChanges() async {
-    print('🔍 Intentando guardar cambios...');
+    print('Intentando guardar cambios...');
     print('   - familyId: $familyId');
     print('   - profileImage: ${profileImage.value?.path}');
     print('   - coverImage: ${coverImage.value?.path}');
 
     if (isLoading.value) {
-      print('⏸️ Ya hay una operación en curso');
+      print('Ya hay una operación en curso');
       return;
     }
 
     if (familyId == null || familyId! <= 0) {
-      // 👈 VALIDACIÓN MEJORADA
-      print('❌ Error: familyId es null o inválido: $familyId');
+      print(' Error: familyId es null o inválido: $familyId');
       if (context != null && context!.mounted) {
         ScaffoldMessenger.of(context!).showSnackBar(
           const SnackBar(content: Text('Error: ID de familia no encontrado')),
@@ -163,7 +147,7 @@ class EditController {
       String? token = await _tokenStorage.read();
 
       if (token == null) {
-        print('❌ Token no encontrado');
+        print('Token no encontrado');
         if (context != null && context!.mounted) {
           ScaffoldMessenger.of(context!).showSnackBar(
             const SnackBar(
@@ -174,19 +158,16 @@ class EditController {
         isLoading.value = false;
         return;
       }
-
-      // 👇 AÑADE ESTO - Guardar descripción si cambió
       if (hayDescripcion) {
-        print('💬 Guardando descripción...');
+        print('Guardando descripción...');
         await _familiaApi.updateDescripcion(
           familyId: familyId!,
           descripcion: descripcionCtrl.text.trim(),
           authToken: token,
         );
-        print('✅ Descripción guardada');
+        print('Descripción guardada');
       }
 
-      // Guardar imágenes si hay
       if (hayImagenes) {
         File? profileFile = profileImage.value != null
             ? File(profileImage.value!.path)
@@ -195,7 +176,7 @@ class EditController {
             ? File(coverImage.value!.path)
             : null;
 
-        print('📤 Guardando imágenes...');
+        print('Guardando imágenes...');
 
         await _familiaApi.updateFamilyFotos(
           familyId: familyId!,
@@ -204,21 +185,20 @@ class EditController {
           authToken: token,
         );
 
-        print('✅ Imágenes guardadas');
+        print('Imágenes guardadas');
       }
 
-      print('✅ Todos los cambios guardados exitosamente');
+      print('Todos los cambios guardados exitosamente');
 
       if (context != null && context!.mounted) {
         ScaffoldMessenger.of(context!).showSnackBar(
           const SnackBar(content: Text('¡Cambios guardados con éxito!')),
         );
 
-        // Opcional: Regresar a la página anterior
         Navigator.pop(context!);
       }
     } catch (e) {
-      print('❌ Error al guardar: $e');
+      print('Error al guardar: $e');
       if (context != null && context!.mounted) {
         ScaffoldMessenger.of(
           context!,

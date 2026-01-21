@@ -1,11 +1,8 @@
-// lib/models/family_model.dart
-
-// 1. Clase auxiliar para los miembros
 class FamilyMember {
-  final int idMiembro; // ID de la relación (Miembros_Familia.id_miembro)
-  final int idUsuario; // ID del usuario (Usuarios.id_usuario)
+  final int idMiembro;
+  final int idUsuario;
   final String fullName;
-  final String tipoMiembro; // 'HIJO' o 'ALUMNO_ASIGNADO'
+  final String tipoMiembro;
 
   final int? matricula;
   final String? telefono;
@@ -50,35 +47,24 @@ class FamilyMember {
   }
 }
 
-// 2. Clase principal de la Familia
 class Family {
-  // PK unificada
-  final int? id; // mapea id_familia / FamiliaID / id
+  final int? id;
 
-  // Campos principales
   final String familyName;
   final String? fatherName;
   final String? motherName;
-  final String? residencia; // 'INTERNA' | 'EXTERNA'
+  final String? residencia;
   final String? direccion;
   final String? descripcion;
   final String? fotoPortadaUrl;
   final String? fotoPerfilUrl;
-
-  // --- Listas actualizadas ---
-  final List<FamilyMember> assignedStudents; // "Alumnos asignados"
-  final List<FamilyMember> householdChildren; // "Hijos en casa"
-
-  // IDs de empleados (si algún día los quieres poblar)
+  final List<FamilyMember> assignedStudents;
+  final List<FamilyMember> householdChildren;
   final int? fatherEmployeeId;
   final int? motherEmployeeId;
-
   final String? papaNumEmpleado;
   final String? mamaNumEmpleado;
-  // Getter legacy para no romper referencias: f.residence -> f.residencia
   String get residence => residencia ?? '';
-
-  // --- Constructor actualizado ---
   const Family({
     required this.id,
     required this.familyName,
@@ -97,9 +83,7 @@ class Family {
     this.mamaNumEmpleado,
   });
 
-  // --- Factory FromJson actualizado ---
   factory Family.fromJson(Map<String, dynamic> j) {
-    // normaliza residencia a 'Interna' / 'Externa' si es posible
     String? _normalizeRes(dynamic v) {
       if (v == null) return null;
       final s = v.toString().trim();
@@ -110,17 +94,13 @@ class Family {
       return s;
     }
 
-    // --- LÓGICA NUEVA PARA PROCESAR MIEMBROS ---
     final List<FamilyMember> householdChildren = [];
     final List<FamilyMember> assignedStudents = [];
 
     if (j['miembros'] is List) {
       for (final miembro in (j['miembros'] as List)) {
         if (miembro is Map<String, dynamic>) {
-          // Usar el factory de la helper class
           final familyMember = FamilyMember.fromJson(miembro);
-
-          // LÓGICA DE SEPARACIÓN
           if (familyMember.tipoMiembro == 'HIJO') {
             householdChildren.add(familyMember);
           } else if (familyMember.tipoMiembro == 'ALUMNO_ASIGNADO') {
@@ -129,7 +109,6 @@ class Family {
         }
       }
     }
-    // --- FIN DE LÓGICA NUEVA ---
 
     return Family(
       id: (j['id_familia'] ?? j['FamiliaID'] ?? j['id']) as int?,
@@ -153,14 +132,10 @@ class Family {
       residencia: _normalizeRes(j['residencia'] ?? j['Residencia']),
       direccion: (j['direccion'] ?? j['Direccion'])?.toString(),
       descripcion: (j['descripcion'] ?? j['Descripcion'])?.toString(),
-
       fotoPortadaUrl: j['foto_portada_url']?.toString(),
       fotoPerfilUrl: j['foto_perfil_url']?.toString(),
-
-      // Usa las nuevas listas que acabamos de crear
       householdChildren: householdChildren,
       assignedStudents: assignedStudents,
-
       fatherEmployeeId:
           (j['papa_id'] ??
                   j['Papa_id'] ??
@@ -190,7 +165,6 @@ class Family {
     'mama_id': motherEmployeeId,
   };
 
-  // --- copyWith actualizado ---
   Family copyWith({
     int? id,
     String? familyName,
@@ -205,7 +179,7 @@ class Family {
     List<FamilyMember>? householdChildren,
     int? fatherEmployeeId,
     int? motherEmployeeId,
-    String? papaNumEmpleado, // <-- Añadir
+    String? papaNumEmpleado,
     String? mamaNumEmpleado,
   }) {
     return Family(

@@ -1,10 +1,8 @@
-// lib/src/pages/Admin/family_detail/Family_detail_page.dart
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/models/family_model.dart';
 import 'package:edi301/services/familia_api.dart';
 import 'package:edi301/services/members_api.dart';
-// --- 1. Imports necesarios ---
 import 'package:edi301/src/pages/Admin/add_alumns/add_alumns_controller.dart';
 import 'package:edi301/services/search_api.dart';
 
@@ -65,7 +63,6 @@ class _FamilyDetailPageState extends State<FamilyDetailPage> {
     }
   }
 
-  // Muestra un diálogo de confirmación
   Future<bool> _showDeleteDialog(String memberName) async {
     final result = await showDialog<bool>(
       context: context,
@@ -90,7 +87,6 @@ class _FamilyDetailPageState extends State<FamilyDetailPage> {
     return result ?? false;
   }
 
-  // Llama a la API y actualiza el estado
   Future<void> _handleDeleteMember(FamilyMember member) async {
     final confirmed = await _showDeleteDialog(member.fullName);
     if (!confirmed || !mounted) return;
@@ -199,7 +195,6 @@ class _FamilyDetailPageState extends State<FamilyDetailPage> {
             ),
             const SizedBox(height: 24),
 
-            // --- 2. LÓGICA DEL BOTÓN ACTUALIZADA ---
             ElevatedButton.icon(
               icon: const Icon(Icons.person_add),
               label: const Text('Agregar alumnos a esta familia'),
@@ -211,28 +206,20 @@ class _FamilyDetailPageState extends State<FamilyDetailPage> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
               onPressed: () async {
-                // --- INICIO DE NUEVA LÓGICA ---
                 final bool? didAdd = await showModalBottomSheet<bool>(
                   context: context,
-                  isScrollControlled: true, // Permite que el panel sea alto
+                  isScrollControlled: true,
                   shape: const RoundedRectangleBorder(
                     borderRadius: BorderRadius.vertical(
                       top: Radius.circular(20),
                     ),
                   ),
-                  builder: (ctx) =>
-                      _AddAlumnsSheet(family: fam), // Pasa la familia actual
+                  builder: (ctx) => _AddAlumnsSheet(family: fam),
                 );
-
-                // Si el panel inferior nos dice que se guardó (true),
-                // recargamos los detalles de la familia.
                 if (didAdd == true && mounted) {
-                  setState(() => _isLoading = true); // Mostrar spinner
-                  await _fetchFamilyDetails(
-                    fam.id!,
-                  ); // Volver a llamar a la API
+                  setState(() => _isLoading = true);
+                  await _fetchFamilyDetails(fam.id!);
                 }
-                // --- FIN DE NUEVA LÓGICA ---
               },
             ),
           ],
@@ -242,7 +229,6 @@ class _FamilyDetailPageState extends State<FamilyDetailPage> {
   }
 }
 
-// WIDGETS AUXILIARES (sin cambios)
 class _Header extends StatelessWidget {
   const _Header({required this.f});
   final Family f;
@@ -333,9 +319,6 @@ class _Section extends StatelessWidget {
   }
 }
 
-// --- 3. WIDGET NUEVO PARA EL PANEL INFERIOR ---
-// (Basado en AddAlumnsPage)
-
 class _AddAlumnsSheet extends StatefulWidget {
   final Family family;
   const _AddAlumnsSheet({required this.family});
@@ -351,9 +334,7 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
   @override
   void initState() {
     super.initState();
-    // Inicializa el controlador en el contexto del panel
     _controller.init(context);
-    // ¡Paso clave! Pre-seleccionar la familia que recibimos
     _controller.selectFamily(widget.family);
   }
 
@@ -366,7 +347,6 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // El padding se ajusta al teclado
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -390,19 +370,16 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
             ),
           ),
           const SizedBox(height: 20),
-          // Re-utilizamos los widgets de la página de "Asignar Alumnos"
           _buildAlumnSelector(),
           const SizedBox(height: 20),
           _buildSelectedAlumnsList(),
           const SizedBox(height: 30),
           _buildSaveButton(),
-          const SizedBox(height: 20), // Espacio para que no quede pegado
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
-
-  // --- Widgets copiados de add_alumns_page.dart ---
 
   Widget _buildAlumnSelector() {
     return Column(
@@ -449,7 +426,7 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
                         onPressed: () {
                           _controller.addAlumn(alumn);
                           _alumnSearchCtrl.clear();
-                          _controller.searchAlumns(''); // Limpia resultados
+                          _controller.searchAlumns('');
                           FocusScope.of(context).unfocus();
                         },
                       ),
@@ -476,9 +453,9 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
             ),
           );
         }
-        // Usamos un SizedBod para que no crezca infinitamente
+
         return SizedBox(
-          height: 100, // Altura máxima para los chips
+          height: 100,
           child: SingleChildScrollView(
             child: Wrap(
               spacing: 8,
@@ -517,8 +494,6 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
                   )
                 : const Icon(Icons.save),
             label: Text(isLoading ? 'GUARDANDO...' : 'GUARDAR ASIGNACIONES'),
-            // El controlador (saveAssignments) se encarga de hacer
-            // Navigator.pop(context, true) si tiene éxito.
             onPressed: isLoading ? null : _controller.saveAssignments,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color.fromRGBO(19, 67, 107, 1),

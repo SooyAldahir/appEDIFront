@@ -19,11 +19,11 @@ class FamiliaApi {
 
   Future<Family> createFamily({
     required String nombreFamilia,
-    required String residencia, // 'INTERNA' | 'EXTERNA'
+    required String residencia,
     String? direccion,
     int? papaId,
     int? mamaId,
-    List<int>? hijos, // <-- NUEVO PARÁMETRO
+    List<int>? hijos,
   }) async {
     final payload = <String, dynamic>{
       'nombre_familia': nombreFamilia,
@@ -32,13 +32,12 @@ class FamiliaApi {
         'direccion': direccion.trim(),
       if (papaId != null) 'papa_id': papaId,
       if (mamaId != null) 'mama_id': mamaId,
-      if (hijos != null && hijos.isNotEmpty) 'hijos': hijos, // <-- NUEVO CAMPO
+      if (hijos != null && hijos.isNotEmpty) 'hijos': hijos,
     };
 
     final res = await _http.postJson('/api/familias', data: payload);
     debugPrint('POST /api/familias -> ${res.statusCode} :: ${res.body}');
     if (res.statusCode >= 400) {
-      // Intenta decodificar el error del backend para un mensaje más claro
       try {
         final decoded = jsonDecode(res.body);
         if (decoded is Map && decoded.containsKey('error')) {
@@ -79,11 +78,8 @@ class FamiliaApi {
     return <Map<String, dynamic>>[];
   }
 
-  // En: lib/services/familia_api.dart
-
   Future<Map<String, dynamic>?> getById(int id, {String? authToken}) async {
     try {
-      // Si no hay token, usa el método simple (comportamiento original)
       if (authToken == null) {
         final res = await _http.getJson('/api/familias/$id');
         if (res.statusCode >= 400) {
@@ -94,7 +90,6 @@ class FamiliaApi {
         return null;
       }
 
-      // Si SÍ hay token, construye una petición autenticada
       final Uri url = Uri.parse('$_baseUrl/api/familias/$id');
       final request = http.Request('GET', url);
 
@@ -112,7 +107,7 @@ class FamiliaApi {
       if (data is Map) return Map<String, dynamic>.from(data);
       return null;
     } catch (e) {
-      print('❌ Error en getById: $e');
+      print('Error en getById: $e');
       rethrow;
     }
   }
@@ -132,47 +127,34 @@ class FamiliaApi {
     required int familyId,
     File? profileImage,
     File? coverImage,
-    String? authToken, // Necesitarás el token de autenticación
+    String? authToken,
   }) async {
     if (profileImage == null && coverImage == null) {
-      return false; // No hay nada que subir
+      return false;
     }
 
     final Uri url = Uri.parse('$_baseUrl/api/familias/$familyId/fotos');
     final request = http.MultipartRequest('PATCH', url);
-
-    // Añadir token de autenticación (¡IMPORTANTE!)
-    // El authGuard del backend lo requiere
     if (authToken != null) {
       request.headers['Authorization'] = 'Bearer $authToken';
     }
-
-    // Añadir foto de perfil si existe
     if (profileImage != null) {
       request.files.add(
-        await http.MultipartFile.fromPath(
-          'foto_perfil', // Este es el nombre que el backend espera
-          profileImage.path,
-        ),
+        await http.MultipartFile.fromPath('foto_perfil', profileImage.path),
       );
     }
 
-    // Añadir foto de portada si existe
     if (coverImage != null) {
       request.files.add(
-        await http.MultipartFile.fromPath(
-          'foto_portada', // Este es el nombre que el backend espera
-          coverImage.path,
-        ),
+        await http.MultipartFile.fromPath('foto_portada', coverImage.path),
       );
     }
 
     final response = await request.send();
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return true; // ¡Éxito!
+      return true;
     } else {
-      // Error
       final responseBody = await response.stream.bytesToString();
       throw Exception('Error ${response.statusCode}: $responseBody');
     }
@@ -186,14 +168,10 @@ class FamiliaApi {
     try {
       final Uri url = Uri.parse('$_baseUrl/api/familias/$familyId/descripcion');
       final request = http.Request('PATCH', url);
-
-      // Añadir token de autenticación
       if (authToken != null) {
         request.headers['Authorization'] = 'Bearer $authToken';
       }
       request.headers['Content-Type'] = 'application/json';
-
-      // Enviar la descripción en el body
       request.body = jsonEncode({'descripcion': descripcion});
 
       final response = await request.send();
@@ -205,7 +183,7 @@ class FamiliaApi {
         throw Exception('Error ${response.statusCode}: $responseBody');
       }
     } catch (e) {
-      print('❌ Error al actualizar descripción: $e');
+      print('Error al actualizar descripción: $e');
       rethrow;
     }
   }

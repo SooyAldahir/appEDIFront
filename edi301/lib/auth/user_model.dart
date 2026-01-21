@@ -3,9 +3,9 @@ class UserModel {
   final String nombre;
   final String apellido;
   final String correo;
-  final String tipoUsuario; // ALUMNO | EMPLEADO | EXTERNO
+  final String tipoUsuario;
   final int idRol;
-  final String nombreRol; // Admin | PapaEDI | MamaEDI | HijoEDI | HijoSanguineo
+  final String nombreRol;
   final String sessionToken;
 
   UserModel({

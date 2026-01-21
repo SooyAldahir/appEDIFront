@@ -35,7 +35,6 @@ class GetFamilyController {
       return;
     }
 
-    // Si teclean "familia pérez", quita el prefijo
     q = q
         .replaceFirst(RegExp(r'^\s*familia\s+', caseSensitive: false), '')
         .trim();

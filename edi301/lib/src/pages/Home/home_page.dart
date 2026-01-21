@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:edi301/src/pages/Home/home_controller.dart';
 import 'package:edi301/src/pages/News/news_page.dart';
 import 'package:edi301/src/pages/Family/familiy_page.dart';
@@ -10,7 +9,7 @@ import 'package:edi301/src/pages/Search/search_page.dart';
 import 'package:edi301/src/pages/Perfil/perfil_page.dart';
 import 'package:edi301/src/pages/Admin/admin_page.dart';
 import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
-import 'package:edi301/src/pages/Chat/my_chats_page.dart'; // <--- 1. IMPORTAR EL CHAT
+import 'package:edi301/src/pages/Chat/my_chats_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -51,12 +50,11 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // --- 2. AGREGAR EL CASO 'CHAT' AL ROUTER ---
   Widget _getPageFromRoute(String route) {
     switch (route) {
       case 'news':
         return const NewsPage();
-      case 'chat': // <--- NUEVO: Si la ruta es 'chat', abre MyChatsPage
+      case 'chat':
         return const MyChatsPage();
       case 'family':
         return const FamiliyPage();
@@ -73,16 +71,10 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // --- 3. AGREGAR LA OPCIÓN AL MENÚ ---
   List<Map<String, dynamic>> _getMenuOptions(String rol) {
     final allOptions = [
       {'ruta': 'news', 'icon': Icons.newspaper, 'label': 'Noticias'},
-      // Lo pongo aquí para que aparezca después de noticias (muy accesible)
-      {
-        'ruta': 'chat',
-        'icon': Icons.chat_bubble,
-        'label': 'Mensajes',
-      }, // <--- NUEVO
+      {'ruta': 'chat', 'icon': Icons.chat_bubble, 'label': 'Mensajes'},
       {'ruta': 'family', 'icon': Icons.family_restroom, 'label': 'Familia'},
       {'ruta': 'search', 'icon': Icons.person_search, 'label': 'Buscar'},
       {'ruta': 'agenda', 'icon': Icons.calendar_month, 'label': 'Agenda'},
@@ -90,13 +82,9 @@ class _HomePageState extends State<HomePage> {
       {'ruta': 'perfil', 'icon': Icons.person, 'label': 'Perfil'},
     ];
 
-    // Lógica de roles
     if (rol == 'Admin') {
-      // El Admin ve TODO (Incluido el chat)
       return allOptions;
-    }
-    // Padres e Hijos
-    else if ([
+    } else if ([
       'Padre',
       'Madre',
       'Tutor',
@@ -107,7 +95,6 @@ class _HomePageState extends State<HomePage> {
       'Alumno',
       'Estudiante',
     ].contains(rol)) {
-      // <--- AGREGAMOS 'chat' A LA LISTA DE PERMITIDOS
       return allOptions
           .where(
             (op) => ['news', 'chat', 'family', 'perfil'].contains(op['ruta']),

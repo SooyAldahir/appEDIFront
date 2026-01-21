@@ -2,19 +2,16 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart'; // Importante para el mimeType
+import 'package:http_parser/http_parser.dart';
 import 'package:edi301/auth/token_storage.dart';
 
 class FotosApi {
   final ApiHttp _http = ApiHttp();
-  // NOTA: Asegúrate de que esta URL sea la correcta.
-  // La estoy tomando de tu archivo 'api_client_http.dart'
   final String _baseUrl = 'http://192.168.1.149:3000/api';
   final TokenStorage _tokenStorage = TokenStorage();
 
   Future<List<dynamic>> getFotosFamilia(int idFamilia) async {
     try {
-      // Llamamos al endpoint que acabamos de arreglar
       final res = await _http.getJson('/api/fotos/familia/$idFamilia');
 
       if (res.statusCode == 200) {
@@ -36,29 +33,23 @@ class FotosApi {
     var uri = Uri.parse('$_baseUrl/$endpoint');
     var request = http.MultipartRequest('POST', uri);
 
-    // Añadir cabecera de autenticación
     request.headers['Authorization'] = 'Bearer $token';
 
-    // Añadir el archivo
     String fileName = imageFile.path.split('/').last;
     request.files.add(
       await http.MultipartFile.fromPath(
-        'foto', // Este es el nombre del campo que espera el backend (req.files.foto)
+        'foto',
         imageFile.path,
         filename: fileName,
-        contentType: MediaType(
-          'image',
-          'jpeg',
-        ), // Ajusta si es necesario (png, etc.)
+        contentType: MediaType('image', 'jpeg'),
       ),
     );
 
-    // Enviar la petición
     var streamedResponse = await request.send();
     var response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return response.body; // O parsea el JSON si el backend devuelve algo
+      return response.body;
     } else {
       throw Exception(
         'Error al subir imagen. Código: ${response.statusCode} - ${response.body}',
@@ -66,7 +57,6 @@ class FotosApi {
     }
   }
 
-  // Método específico para la foto de perfil
   Future<void> uploadProfileImage(File imageFile) async {
     try {
       await _uploadImage('fotos/perfil', imageFile);
@@ -77,7 +67,6 @@ class FotosApi {
     }
   }
 
-  // Método específico para la foto de portada
   Future<void> uploadCoverImage(File imageFile) async {
     try {
       await _uploadImage('fotos/portada', imageFile);

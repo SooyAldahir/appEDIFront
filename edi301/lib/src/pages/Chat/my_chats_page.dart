@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:edi301/services/chat_api.dart';
 import 'package:edi301/src/pages/Chat/chat_page.dart';
-import 'package:intl/intl.dart'; // Asegúrate de tener intl en pubspec.yaml para fechas, si no, usa un string simple
+import 'package:intl/intl.dart';
 
 class MyChatsPage extends StatefulWidget {
   const MyChatsPage({super.key});
@@ -21,7 +21,6 @@ class _MyChatsPageState extends State<MyChatsPage> {
     _loadChats();
   }
 
-  // Volvemos a cargar cada vez que entramos a la pantalla por si hubo mensajes nuevos
   Future<void> _loadChats() async {
     setState(() => _loading = true);
     try {
@@ -37,7 +36,6 @@ class _MyChatsPageState extends State<MyChatsPage> {
     }
   }
 
-  // Función para formatear fecha (Ej: 14:30 o Ayer)
   String _formatDate(String? fechaIso) {
     if (fechaIso == null) return "";
     final date = DateTime.parse(fechaIso).toLocal();
@@ -46,16 +44,13 @@ class _MyChatsPageState extends State<MyChatsPage> {
     if (date.day == now.day &&
         date.month == now.month &&
         date.year == now.year) {
-      // Es hoy, mostramos hora
       return "${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
     } else {
-      // Es otro día, mostramos fecha
       return "${date.day}/${date.month}";
     }
   }
 
   void _goToChat(Map<String, dynamic> chat) async {
-    // Navegamos y esperamos. Al volver, recargamos la lista.
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -100,7 +95,7 @@ class _MyChatsPageState extends State<MyChatsPage> {
               itemCount: _chats.length,
               itemBuilder: (ctx, i) {
                 final chat = _chats[i];
-                final tipo = chat['tipo']; // 'PRIVADO' o 'GRUPAL'
+                final tipo = chat['tipo'];
 
                 return ListTile(
                   leading: CircleAvatar(
@@ -135,13 +130,10 @@ class _MyChatsPageState extends State<MyChatsPage> {
                 );
               },
             ),
-      // Botón flotante para iniciar nuevo chat (opcional, lleva a lista de usuarios)
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
         child: const Icon(Icons.info, color: Colors.black),
         onPressed: () {
-          // Aquí podrías abrir un modal o navegar a tu lista de contactos/usuarios
-          // para seleccionar a alguien y llamar a initPrivateChat
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
