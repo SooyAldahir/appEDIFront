@@ -1,7 +1,6 @@
-// lib/src/pages/Admin/agenda/agenda_controller.dart
+import 'dart:io'; // 👈 1. IMPORTANTE para manejar el File
 import 'package:flutter/material.dart';
 import 'package:edi301/services/eventos_api.dart';
-// Importa el tool de recordatorios
 import 'package:edi301/tools/generic_reminders.dart' as reminders_tool;
 
 class AgendaController {
@@ -12,14 +11,19 @@ class AgendaController {
   // Controladores del formulario
   final tituloCtrl = TextEditingController();
   final descCtrl = TextEditingController();
-  final imagenCtrl = TextEditingController();
+
+  // ❌ ELIMINADO: final imagenCtrl = TextEditingController();
+  // ✅ NUEVO: Variable para el archivo de imagen
+  File? imagenSeleccionada;
+
   DateTime? fechaEvento;
   TimeOfDay? horaEvento;
 
   final crearRecordatorio = ValueNotifier<bool>(false);
-
   final recordatorioHoraCtrl = TextEditingController(text: '13:00');
-  final recordatorioDiasAntesCtrl = TextEditingController(text: '7');
+  final recordatorioDiasAntesCtrl = TextEditingController(
+    text: '3',
+  ); // Cambiado a 3 por defecto
   String recordatorioTipo = 'DAY';
 
   void init(BuildContext context) {
@@ -30,13 +34,14 @@ class AgendaController {
   void dispose() {
     tituloCtrl.dispose();
     descCtrl.dispose();
-    imagenCtrl.dispose();
+    // imagenCtrl.dispose(); // Ya no existe
     crearRecordatorio.dispose();
     recordatorioHoraCtrl.dispose();
     recordatorioDiasAntesCtrl.dispose();
     loading.dispose();
   }
 
+  // 👇 FUNCIÓN ACTUALIZADA
   Future<void> guardarEvento() async {
     loading.value = true;
 
@@ -47,20 +52,27 @@ class AgendaController {
     }
 
     try {
-      await _api.crearEvento(
+      // ✅ Usamos guardarEvento en lugar de crearEvento
+      final success = await _api.guardarEvento(
         titulo: tituloCtrl.text,
         fecha: fechaEvento!,
         hora: horaEvento?.to24HourString(),
         descripcion: descCtrl.text,
-        imagenUrl: imagenCtrl.text,
+        imagenFile: imagenSeleccionada, // 👈 Enviamos el archivo aquí
+        diasAnticipacion: int.tryParse(recordatorioDiasAntesCtrl.text) ?? 3,
       );
-      if (crearRecordatorio.value) {
-        await _crearRecordatorioRecurrente();
-      }
 
-      if (context.mounted) {
-        _snack('Evento creado con éxito', isError: false);
-        Navigator.pop(context, true);
+      if (success) {
+        if (crearRecordatorio.value) {
+          await _crearRecordatorioRecurrente();
+        }
+
+        if (context.mounted) {
+          _snack('Evento creado con éxito', isError: false);
+          Navigator.pop(context, true);
+        }
+      } else {
+        _snack('Error al guardar el evento en el servidor');
       }
     } catch (e) {
       _snack(e.toString().replaceFirst('Exception: ', ''));
@@ -71,16 +83,18 @@ class AgendaController {
 
   Future<void> _crearRecordatorioRecurrente() async {
     try {
-      final diasAntes = int.parse(recordatorioDiasAntesCtrl.text);
+      final diasAntes = int.tryParse(recordatorioDiasAntesCtrl.text) ?? 1;
       final hora = recordatorioHoraCtrl.text.trim();
       final fechaFin = fechaEvento!;
       final fechaInicio = fechaFin.subtract(Duration(days: diasAntes));
+
       final String startDateStr = fechaInicio
           .toIso8601String()
           .split('T')
           .first;
       final String endDateStr = fechaFin.toIso8601String().split('T').first;
       final String timeStr = (hora.length == 5) ? '$hora:00' : '13:00:00';
+
       await reminders_tool.createReminder(
         title: tituloCtrl.text,
         description: descCtrl.text,
@@ -93,7 +107,8 @@ class AgendaController {
         repeat_every_n: 1,
       );
     } catch (e) {
-      _snack('Evento guardado, pero falló al crear el recordatorio: $e');
+      print('Fallo recordatorio: $e');
+      // No mostramos snack aquí para no confundir si el evento sí se guardó en BD
     }
   }
 

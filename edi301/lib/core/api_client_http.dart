@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io'; // 👈 Importante para detectar Android
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,7 +10,6 @@ class ApiHttp extends http.BaseClient {
   static final ApiHttp _i = ApiHttp._internal();
   factory ApiHttp() => _i;
 
-  // 1. IP Dinámica para que funcione en Android y iOS/Web
   static String get baseUrl {
     if (Platform.isAndroid) {
       return 'http://10.0.2.2:3000';
@@ -21,7 +20,6 @@ class ApiHttp extends http.BaseClient {
   final http.Client _inner = http.Client();
   final Duration _timeout = const Duration(seconds: 20);
 
-  // Headers base solo para JSON
   Map<String, String> get _jsonHeaders => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -48,17 +46,12 @@ class ApiHttp extends http.BaseClient {
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final token = await _readToken();
 
-    // 2. Autenticación siempre
     if (token != null) {
       request.headers['Authorization'] = 'Bearer $token';
     }
 
-    // Siempre aceptamos JSON como respuesta
     request.headers['Accept'] = 'application/json';
 
-    // 3. PROTECCIÓN CRÍTICA:
-    // Si NO es multipart (fotos) y no tiene Content-Type, le ponemos JSON.
-    // Si ES multipart, NO tocamos el Content-Type (lo maneja la librería con el boundary).
     if (request is! http.MultipartRequest) {
       if (!request.headers.containsKey('Content-Type')) {
         request.headers['Content-Type'] = 'application/json';
@@ -67,8 +60,6 @@ class ApiHttp extends http.BaseClient {
 
     return _inner.send(request).timeout(_timeout);
   }
-
-  // --- MÉTODOS JSON ---
 
   Future<http.Response> getJson(String url, {Map<String, dynamic>? query}) {
     final uri = _resolve(url).replace(
@@ -81,7 +72,7 @@ class ApiHttp extends http.BaseClient {
     final uri = _resolve(url);
     return post(
       uri,
-      headers: _jsonHeaders, // 👈 4. FORZAMOS HEADER AQUÍ PARA EL LOGIN
+      headers: _jsonHeaders,
       body: data == null ? null : jsonEncode(data),
     ).timeout(_timeout);
   }
@@ -90,7 +81,7 @@ class ApiHttp extends http.BaseClient {
     final uri = _resolve(url);
     return put(
       uri,
-      headers: _jsonHeaders, // 👈 Forzamos header también en PUT
+      headers: _jsonHeaders,
       body: data == null ? null : jsonEncode(data),
     ).timeout(_timeout);
   }
@@ -100,16 +91,13 @@ class ApiHttp extends http.BaseClient {
     final hasBody = data != null;
     if (hasBody) {
       final req = http.Request('DELETE', uri);
-      req.headers.addAll(_jsonHeaders); // 👈 Forzamos header en DELETE con body
+      req.headers.addAll(_jsonHeaders);
       req.body = jsonEncode(data);
       return send(req).then(http.Response.fromStream);
     }
     return delete(uri).timeout(_timeout);
   }
 
-  // --- SUBIDA DE ARCHIVOS ---
-
-  // 5. Agregamos el parámetro 'method' para soportar PUT (fotos de perfil)
   Future<http.StreamedResponse> multipart(
     String url, {
     String method = 'POST',
@@ -117,14 +105,12 @@ class ApiHttp extends http.BaseClient {
     List<http.MultipartFile>? files,
   }) {
     final uri = _resolve(url);
-    // Usamos el método dinámico (POST o PUT)
+
     final req = http.MultipartRequest(method, uri);
 
     if (fields != null) req.fields.addAll(fields);
     if (files != null) req.files.addAll(files);
 
-    // Al llamar a send(req), la lógica de arriba NO pondrá application/json
-    // y dejará que MultipartRequest ponga el 'multipart/form-data; boundary=...' correcto.
     return send(req);
   }
 
