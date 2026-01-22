@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client_http.dart';
 import '../models/user.dart';
@@ -7,6 +6,23 @@ import 'package:edi301/models/family_model.dart' as fm;
 
 class UsersApi {
   final ApiHttp _http = ApiHttp();
+
+  // --- MÓDULO CUMPLEAÑOS (NUEVO) ---
+  Future<List<User>> getCumpleanerosHoy() async {
+    try {
+      final res = await _http.getJson('/api/usuarios/cumpleanos');
+
+      if (res.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(res.body);
+        // Gracias al User.fromJson "todoterreno", esto mapeará bien los datos
+        return data.map((x) => User.fromJson(x)).toList();
+      }
+    } catch (e) {
+      print('Error obteniendo cumpleaños: $e');
+    }
+    return [];
+  }
+  // ---------------------------------
 
   Future<bool> updateFcmToken(int idUsuario, String token) async {
     try {

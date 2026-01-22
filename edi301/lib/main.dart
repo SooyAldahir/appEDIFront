@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:edi301/src/pages/Admin/birthdays/birthday_page.dart';
 import 'package:edi301/src/pages/Notifications/notifications_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -115,6 +116,7 @@ class MyApp extends StatelessWidget {
         'agenda_detail': (context) => const AgendaDetailPage(),
         'reportes': (context) => const ReportesPage(),
         'notifications': (_) => const NotificationsPage(),
+        'cumpleaños': (context) => const BirthdaysPage(),
       },
     );
   }

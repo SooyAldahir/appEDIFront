@@ -453,29 +453,29 @@ class _PerfilPageState extends State<PerfilPage> {
             ),
             const SizedBox(height: 12),
 
-            SettingsCard(
-              primary: p,
-              notif: notif,
-              darkMode: darkMode,
-              bgRefresh: bgRefresh,
-              birthdayReminder: birthdayReminder,
-              onChanged: (k, v) => setState(() {
-                switch (k) {
-                  case 'notif':
-                    notif = v;
-                    break;
-                  case 'dark':
-                    darkMode = v;
-                    break;
-                  case 'bg':
-                    bgRefresh = v;
-                    break;
-                  case 'bd':
-                    birthdayReminder = v;
-                    break;
-                }
-              }),
-            ),
+            //SettingsCard(
+            //primary: p,
+            //notif: notif,
+            //darkMode: darkMode,
+            //bgRefresh: bgRefresh,
+            //birthdayReminder: birthdayReminder,
+            //onChanged: (k, v) => setState(() {
+            //switch (k) {
+            // case 'notif':
+            // notif = v;
+            //break;
+            //case 'dark':
+            //darkMode = v;
+            //break;
+            //case 'bg':
+            // bgRefresh = v;
+            //break;
+            //case 'bd':
+            //birthdayReminder = v;
+            //break;
+            //}
+            //}),
+            //),
           ],
         ),
       ),

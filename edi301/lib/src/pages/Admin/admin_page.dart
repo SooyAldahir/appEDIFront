@@ -92,6 +92,14 @@ class _AdminPageState extends State<AdminPage> {
               ),
             ),
             const SizedBox(height: 15),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: CustomButton(
+                label: 'Cumpleaños',
+                onPressed: () => Navigator.pushNamed(context, 'cumpleaños'),
+                icon: const Icon(Icons.cake, color: Colors.white, size: 30),
+              ),
+            ),
           ],
         ),
       ),

@@ -9,6 +9,8 @@ class User {
   final bool activo;
   final bool admin;
   final String? token;
+  // 👇 NUEVO: Campo para la foto
+  final String? photoUrl;
 
   User({
     required this.id,
@@ -21,18 +23,34 @@ class User {
     required this.activo,
     required this.admin,
     this.token,
+    this.photoUrl,
   });
 
+  // 👇 GETTER para compatibilidad con el código de birthdays_page
+  String? get urlFotoPerfil => photoUrl;
+  // Getter para el ID si lo necesitas en otros lados
+  int get idUsuario => id;
+
   factory User.fromJson(Map<String, dynamic> j) => User(
-    id: j['id'] ?? j['IdUsuario'],
-    email: j['email'] ?? j['E_mail'],
-    name: j['name'] ?? j['Nombre'],
-    lastName: j['lastName'] ?? j['Apellido'],
-    tipo: j['tipo'] ?? j['TipoUsuario'],
+    // Aceptamos variantes (snake_case y PascalCase)
+    id: j['id'] ?? j['IdUsuario'] ?? j['id_usuario'] ?? 0,
+    email: j['email'] ?? j['E_mail'] ?? j['e_mail'] ?? '',
+    name: j['name'] ?? j['Nombre'] ?? j['nombre'] ?? '',
+    lastName: j['lastName'] ?? j['Apellido'] ?? j['apellido'] ?? '',
+    tipo: j['tipo'] ?? j['TipoUsuario'] ?? j['tipo_usuario'] ?? '',
+
     matricula: j['matricula'] ?? j['Matricula'],
-    numEmpleado: j['numEmpleado'] ?? j['NumEmpleado'],
-    activo: (j['activo'] ?? j['es_Activo']) == true,
+    numEmpleado: j['numEmpleado'] ?? j['NumEmpleado'] ?? j['num_empleado'],
+
+    activo:
+        (j['activo'] ?? j['es_Activo'] ?? j['activo']) == true ||
+        (j['activo'] == 1) ||
+        (j['es_Activo'] == 1),
+
     admin: (j['admin'] ?? j['es_Admin']) == true,
     token: j['session_token'],
+
+    // 👇 Mapeo de la foto (acepta varios nombres por seguridad)
+    photoUrl: j['url_foto_perfil'] ?? j['url_imagen'] ?? j['FotoPerfil'],
   );
 }
