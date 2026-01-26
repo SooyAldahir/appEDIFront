@@ -70,7 +70,7 @@ class _FamilyPageState extends State<FamiliyPage> {
       }
       return null;
     } catch (e) {
-      print('Error silencioso al cargar familia: $e');
+      print('Error al cargar familia: $e');
       return null;
     }
   }

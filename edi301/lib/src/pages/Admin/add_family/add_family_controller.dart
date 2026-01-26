@@ -77,7 +77,7 @@ class AddFamilyController {
     final res = await _searchApi.searchAll(q);
     final merged = <int, UserMini>{};
     for (final u in res.empleados) merged[u.id] = u;
-    for (final u in res.externos) merged[u.id] = u; // 👈 suma externos
+    for (final u in res.externos) merged[u.id] = u;
     target.value = merged.values.toList();
   }
 

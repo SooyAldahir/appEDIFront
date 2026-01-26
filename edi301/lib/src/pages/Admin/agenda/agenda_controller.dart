@@ -12,8 +12,6 @@ class AgendaController {
   final tituloCtrl = TextEditingController();
   final descCtrl = TextEditingController();
 
-  // ❌ ELIMINADO: final imagenCtrl = TextEditingController();
-  // ✅ NUEVO: Variable para el archivo de imagen
   File? imagenSeleccionada;
 
   DateTime? fechaEvento;
@@ -21,9 +19,7 @@ class AgendaController {
 
   final crearRecordatorio = ValueNotifier<bool>(false);
   final recordatorioHoraCtrl = TextEditingController(text: '13:00');
-  final recordatorioDiasAntesCtrl = TextEditingController(
-    text: '3',
-  ); // Cambiado a 3 por defecto
+  final recordatorioDiasAntesCtrl = TextEditingController(text: '3');
   String recordatorioTipo = 'DAY';
 
   void init(BuildContext context) {
@@ -34,7 +30,7 @@ class AgendaController {
   void dispose() {
     tituloCtrl.dispose();
     descCtrl.dispose();
-    // imagenCtrl.dispose(); // Ya no existe
+
     crearRecordatorio.dispose();
     recordatorioHoraCtrl.dispose();
     recordatorioDiasAntesCtrl.dispose();
@@ -52,13 +48,12 @@ class AgendaController {
     }
 
     try {
-      // ✅ Usamos guardarEvento en lugar de crearEvento
       final success = await _api.guardarEvento(
         titulo: tituloCtrl.text,
         fecha: fechaEvento!,
         hora: horaEvento?.to24HourString(),
         descripcion: descCtrl.text,
-        imagenFile: imagenSeleccionada, // 👈 Enviamos el archivo aquí
+        imagenFile: imagenSeleccionada,
         diasAnticipacion: int.tryParse(recordatorioDiasAntesCtrl.text) ?? 3,
       );
 
@@ -108,7 +103,6 @@ class AgendaController {
       );
     } catch (e) {
       print('Fallo recordatorio: $e');
-      // No mostramos snack aquí para no confundir si el evento sí se guardó en BD
     }
   }
 

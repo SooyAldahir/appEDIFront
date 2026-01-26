@@ -58,7 +58,7 @@ class EditController {
         print('Datos de familia cargados: ${family.familyName}');
       } else {
         _onDataLoadedCallback(null);
-        print('⚠️ No se encontraron datos para la familia $familyId');
+        print(' No se encontraron datos para la familia $familyId');
       }
     } catch (e) {
       _onDataLoadedCallback(null);

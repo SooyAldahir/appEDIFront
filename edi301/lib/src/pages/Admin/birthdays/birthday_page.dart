@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:edi301/services/users_api.dart';
-import 'package:edi301/models/user.dart'; // Ajusta la ruta de tu modelo User
+import 'package:edi301/models/user.dart';
 import 'package:edi301/core/api_client_http.dart';
 
 class BirthdaysPage extends StatefulWidget {
@@ -32,8 +32,6 @@ class _BirthdaysPageState extends State<BirthdaysPage> {
   }
 
   void _irAlChat(User usuario) {
-    // Navegamos al chat pasando los argumentos necesarios
-    // Ajusta 'chat' y los argumentos según cómo tengas configurada tu ruta de chat
     Navigator.pushNamed(
       context,
       'chat',
@@ -91,7 +89,7 @@ class _BirthdaysPageState extends State<BirthdaysPage> {
         borderRadius: BorderRadius.circular(20),
         side: const BorderSide(color: Colors.pinkAccent, width: 2),
       ),
-      color: Colors.pink[50], // Fondo festivo
+      color: Colors.pink[50],
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(

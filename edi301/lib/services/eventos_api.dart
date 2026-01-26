@@ -9,7 +9,7 @@ class Evento {
   final String? descripcion;
   final DateTime fechaEvento;
   final String? horaEvento;
-  final String? imagen; // URL relativa que viene del backend
+  final String? imagen;
   final String estadoPublicacion;
   final int? diasAnticipacion;
 
@@ -41,25 +41,21 @@ class Evento {
 }
 
 class EventosApi {
-  // Usamos tu cliente Singleton que ya maneja tokens y base URL
   final ApiHttp _http = ApiHttp();
 
-  /// Crea o actualiza un evento enviando imagen (si existe)
   Future<bool> guardarEvento({
-    int? id, // Si es null => CREAR, Si tiene valor => ACTUALIZAR
+    int? id,
     required String titulo,
     required DateTime fecha,
     String? hora,
     String? descripcion,
-    File? imagenFile, // Archivo físico seleccionado del celular
+    File? imagenFile,
     int diasAnticipacion = 3,
   }) async {
     try {
-      // 1. Definir URL y Método
       final String endpoint = id == null ? '/api/agenda' : '/api/agenda/$id';
       final String method = id == null ? 'POST' : 'PUT';
 
-      // 2. Preparar campos de texto (Todo debe ser String)
       final Map<String, String> fields = {
         'titulo': titulo,
         'descripcion': descripcion ?? '',
@@ -69,19 +65,11 @@ class EventosApi {
         'estado_publicacion': 'Publicada',
       };
 
-      // 3. Preparar Archivo (si existe)
       List<http.MultipartFile>? files;
       if (imagenFile != null) {
-        files = [
-          await http.MultipartFile.fromPath(
-            'imagen', // Debe coincidir con backend: req.files.imagen
-            imagenFile.path,
-          ),
-        ];
+        files = [await http.MultipartFile.fromPath('imagen', imagenFile.path)];
       }
 
-      // 4. Usar tu método 'multipart' de ApiHttp
-      //    Este método ya inyecta el Token automáticamente.
       final streamedResponse = await _http.multipart(
         endpoint,
         method: method,
@@ -103,7 +91,6 @@ class EventosApi {
     }
   }
 
-  /// Listar eventos (Se mantiene igual, solo validando tipos)
   Future<List<Evento>> listar() async {
     try {
       final res = await _http.getJson('/api/agenda');

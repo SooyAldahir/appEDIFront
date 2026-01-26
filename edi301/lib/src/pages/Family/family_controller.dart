@@ -16,7 +16,6 @@ class FamilyController {
   Future<int?> resolveFamilyId() => _resolveFamilyId();
 
   Future<void> goToEditPage(BuildContext context, {int? familyId}) async {
-    // Si se pasa un ID explícito, úsalo
     if (familyId != null && familyId > 0) {
       Navigator.pushNamed(context, 'edit', arguments: familyId);
       return;
@@ -45,7 +44,6 @@ class FamilyController {
   Future<int?> _readFamilyIdFromSession() async {
     final prefs = await SharedPreferences.getInstance();
     final rawUser = prefs.getString('user');
-    print('--- DEBUG SESSION ---: $rawUser');
     if (rawUser == null) return null;
 
     try {
@@ -67,8 +65,7 @@ class FamilyController {
         if (key.contains('familia') && key.contains('id')) {
           final parsed = _asInt(entry.value);
           if (parsed != null) {
-            print('Extractor: Encontrada clave "$key" con valor $parsed');
-            return parsed; // Devuelve 42
+            return parsed;
           }
         }
       }

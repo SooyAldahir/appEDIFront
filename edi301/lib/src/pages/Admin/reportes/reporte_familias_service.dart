@@ -42,9 +42,7 @@ class ReporteFamiliasService {
         );
         _font = pw.Font.ttf(fontData);
       } catch (e) {
-        throw Exception(
-          'Error al cargar la fuente: $e. ¿Añadiste "assets/fonts/OpenSans-Regular.ttf" a tu pubspec.yaml?',
-        );
+        throw Exception('Error al cargar la fuente: $e. ');
       }
     }
     return _font!;

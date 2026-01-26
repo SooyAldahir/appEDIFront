@@ -7,14 +7,13 @@ import 'package:edi301/models/family_model.dart' as fm;
 class UsersApi {
   final ApiHttp _http = ApiHttp();
 
-  // --- MÓDULO CUMPLEAÑOS (NUEVO) ---
   Future<List<User>> getCumpleanerosHoy() async {
     try {
       final res = await _http.getJson('/api/usuarios/cumpleanos');
 
       if (res.statusCode == 200) {
         final List<dynamic> data = jsonDecode(res.body);
-        // Gracias al User.fromJson "todoterreno", esto mapeará bien los datos
+
         return data.map((x) => User.fromJson(x)).toList();
       }
     } catch (e) {
@@ -22,7 +21,6 @@ class UsersApi {
     }
     return [];
   }
-  // ---------------------------------
 
   Future<bool> updateFcmToken(int idUsuario, String token) async {
     try {

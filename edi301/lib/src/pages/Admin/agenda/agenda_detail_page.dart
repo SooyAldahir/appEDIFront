@@ -82,7 +82,7 @@ class AgendaDetailPage extends StatelessWidget {
       appBar: AppBar(
         title: Text(evento.titulo),
         backgroundColor: primary,
-        iconTheme: const IconThemeData(color: Colors.white), // Iconos blancos
+        iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
         actions: [
           IconButton(

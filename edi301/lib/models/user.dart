@@ -9,7 +9,6 @@ class User {
   final bool activo;
   final bool admin;
   final String? token;
-  // 👇 NUEVO: Campo para la foto
   final String? photoUrl;
 
   User({
@@ -26,13 +25,11 @@ class User {
     this.photoUrl,
   });
 
-  // 👇 GETTER para compatibilidad con el código de birthdays_page
   String? get urlFotoPerfil => photoUrl;
-  // Getter para el ID si lo necesitas en otros lados
+
   int get idUsuario => id;
 
   factory User.fromJson(Map<String, dynamic> j) => User(
-    // Aceptamos variantes (snake_case y PascalCase)
     id: j['id'] ?? j['IdUsuario'] ?? j['id_usuario'] ?? 0,
     email: j['email'] ?? j['E_mail'] ?? j['e_mail'] ?? '',
     name: j['name'] ?? j['Nombre'] ?? j['nombre'] ?? '',
@@ -50,7 +47,6 @@ class User {
     admin: (j['admin'] ?? j['es_Admin']) == true,
     token: j['session_token'],
 
-    // 👇 Mapeo de la foto (acepta varios nombres por seguridad)
     photoUrl: j['url_foto_perfil'] ?? j['url_imagen'] ?? j['FotoPerfil'],
   );
 }

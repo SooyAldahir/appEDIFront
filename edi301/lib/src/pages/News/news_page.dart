@@ -256,7 +256,6 @@ class _NewsPageState extends State<NewsPage> {
     final fecha = DateTime.tryParse(evento['fecha_evento'].toString());
     final fechaStr = fecha != null ? "${fecha.day}/${fecha.month}" : "";
     final esAdmin = ['Admin'].contains(_userRole);
-    // 👇 1. Obtenemos la URL de la imagen (puede venir como 'imagen' o 'url_imagen')
     final imagenUrl = evento['imagen'] ?? evento['url_imagen'];
 
     return Card(
@@ -270,7 +269,6 @@ class _NewsPageState extends State<NewsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- HEADER AMARILLO ---
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 15),
@@ -315,26 +313,21 @@ class _NewsPageState extends State<NewsPage> {
               ],
             ),
           ),
-
-          // 👇 2. AQUÍ MOSTRAMOS LA IMAGEN SI EXISTE
           if (imagenUrl != null && imagenUrl.toString().isNotEmpty)
             GestureDetector(
-              onTap: () {
-                // Opcional: Podrías abrir la imagen en pantalla completa aquí
-              },
+              onTap: () {},
               child: Container(
-                height: 200, // Altura fija para el banner
+                height: 200,
                 width: double.infinity,
                 decoration: BoxDecoration(
                   image: DecorationImage(
-                    image: NetworkImage(_fixUrl(imagenUrl)), // Usamos tu helper
+                    image: NetworkImage(_fixUrl(imagenUrl)),
                     fit: BoxFit.cover,
                   ),
                 ),
               ),
             ),
 
-          // --- CONTENIDO TEXTO ---
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -392,22 +385,16 @@ class _NewsPageState extends State<NewsPage> {
     final likesCount = post['likes_count'] ?? 0;
     final isLiked = post['is_liked'] == 1;
     final comentariosCount = post['comentarios_count'] ?? 0;
-
-    // 👇 DETECTAR SI ES CUMPLEAÑOS
-    // Verifica si la columna 'tipo' viene en tu consulta SQL del feed.
-    // Si no, también busca emojis en el mensaje.
     final esCumple =
         (post['tipo'] == 'CUMPLEAÑOS') ||
         (mensaje.contains('🎂') && mensaje.contains('🎉'));
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      elevation: esCumple ? 6 : 2, // Más sombra si es cumple
-      // 👇 Fondo festivo suave si es cumple
+      elevation: esCumple ? 6 : 2,
       color: esCumple ? const Color(0xFFFFF8E1) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
-        // 👇 Borde dorado/festivo si es cumple
         side: esCumple
             ? const BorderSide(color: Colors.orangeAccent, width: 1.5)
             : BorderSide.none,
@@ -415,7 +402,6 @@ class _NewsPageState extends State<NewsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Si es cumple, ponemos un banner pequeño arriba
           if (esCumple)
             Container(
               width: double.infinity,
@@ -460,16 +446,11 @@ class _NewsPageState extends State<NewsPage> {
                   )
                 : null,
             trailing: esMiPost
-                ? PopupMenuButton<String>(
-                    // ... (tu código de popup menu existente) ...
-                    itemBuilder: (context) => [/*...*/],
-                  )
+                ? PopupMenuButton<String>(itemBuilder: (context) => [/*...*/])
                 : (esCumple
                       ? const Icon(Icons.cake, color: Colors.pink)
                       : null), // Icono pastel
           ),
-
-          // ... (Resto del código de la imagen y botones igual que antes) ...
           if (urlImagen != null &&
               urlImagen.toString().isNotEmpty &&
               urlImagen != 'null')
@@ -477,15 +458,13 @@ class _NewsPageState extends State<NewsPage> {
               onDoubleTap: () => _toggleLike(index),
               child: Image.network(_fixUrl(urlImagen), fit: BoxFit.cover),
             ),
-
-          // ... Botones de Like y Comentar ...
           if (mensaje.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 16.0,
                 vertical: 10,
               ),
-              child: Text(mensaje), // Mensaje simple
+              child: Text(mensaje),
             ),
         ],
       ),

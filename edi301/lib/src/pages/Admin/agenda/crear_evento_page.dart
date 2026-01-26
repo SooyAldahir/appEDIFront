@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // 👈 Necesario
-import '../../../../core/api_client_http.dart'; // Para baseUrl si necesitamos mostrar imagen remota
-import '../../../../services/eventos_api.dart'; // Tu servicio actualizado
+import 'package:image_picker/image_picker.dart';
+import '../../../../core/api_client_http.dart';
+import '../../../../services/eventos_api.dart';
 
 class CreateEventPage extends StatefulWidget {
   final Map<String, dynamic>? eventoExistente;
@@ -14,22 +14,18 @@ class CreateEventPage extends StatefulWidget {
 }
 
 class _CreateEventPageState extends State<CreateEventPage> {
-  // Controladores
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _daysCtrl = TextEditingController(text: '3');
-  // Puedes agregar controlador de hora si gustas, o usar un TimePicker
 
-  // Estado
   DateTime? _selectedDate;
-  File? _imagenSeleccionada; // Imagen nueva (local)
-  String? _imagenUrlRemota; // Imagen existente (del servidor)
+  File? _imagenSeleccionada;
+  String? _imagenUrlRemota;
 
   bool _loading = false;
   int? _idEdicion;
 
-  final EventosApi _api =
-      EventosApi(); // Usamos el servicio, no el cliente HTTP directo
+  final EventosApi _api = EventosApi();
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -40,21 +36,18 @@ class _CreateEventPageState extends State<CreateEventPage> {
     }
   }
 
-  // Carga de datos iniciales
   void _cargarDatos(Map<String, dynamic> datos) {
     _idEdicion = datos['id_evento'] ?? datos['id_actividad'];
     _titleCtrl.text = datos['titulo'] ?? '';
     _descCtrl.text = datos['mensaje'] ?? datos['descripcion'] ?? '';
     _daysCtrl.text = (datos['dias_anticipacion'] ?? 3).toString();
-    _imagenUrlRemota =
-        datos['imagen']; // Guardamos la URL remota para mostrarla
+    _imagenUrlRemota = datos['imagen'];
 
     if (datos['fecha_evento'] != null) {
       _selectedDate = DateTime.tryParse(datos['fecha_evento'].toString());
     }
   }
 
-  // Lógica: Seleccionar imagen de galería
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
@@ -64,7 +57,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
     }
   }
 
-  // Lógica: Seleccionar fecha
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -76,7 +68,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
-  // Lógica: Enviar formulario
   Future<void> _submit() async {
     if (_titleCtrl.text.isEmpty || _selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -93,16 +84,13 @@ class _CreateEventPageState extends State<CreateEventPage> {
       descripcion: _descCtrl.text,
       fecha: _selectedDate!,
       diasAnticipacion: int.tryParse(_daysCtrl.text) ?? 3,
-      imagenFile: _imagenSeleccionada, // Enviamos el archivo (puede ser null)
+      imagenFile: _imagenSeleccionada,
     );
 
     if (mounted) {
       setState(() => _loading = false);
       if (success) {
-        Navigator.pop(
-          context,
-          true,
-        ); // Regresamos 'true' para recargar la lista
+        Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Error al guardar el evento")),
@@ -115,7 +103,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
   Widget build(BuildContext context) {
     final esEdicion = _idEdicion != null;
 
-    // Construimos la URL completa para previsualizar la imagen existente
     ImageProvider? imagenProvider;
     if (_imagenSeleccionada != null) {
       imagenProvider = FileImage(_imagenSeleccionada!);
@@ -135,7 +122,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
         padding: const EdgeInsets.all(20),
         child: ListView(
           children: [
-            // --- 1. WIDGET DE IMAGEN ---
             GestureDetector(
               onTap: _pickImage,
               child: Container(
@@ -178,7 +164,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
 
             const SizedBox(height: 20),
 
-            // --- 2. CAMPOS DE TEXTO ---
             TextField(
               controller: _titleCtrl,
               decoration: const InputDecoration(
@@ -228,7 +213,6 @@ class _CreateEventPageState extends State<CreateEventPage> {
             ),
             const SizedBox(height: 30),
 
-            // --- 3. BOTÓN GUARDAR ---
             ElevatedButton(
               onPressed: _loading ? null : _submit,
               style: ElevatedButton.styleFrom(
