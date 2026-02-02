@@ -380,11 +380,17 @@ class _NewsPageState extends State<NewsPage> {
     final nombreFamilia = post['nombre_familia'];
     final mensaje = post['mensaje'] ?? '';
     final urlImagen = post['url_imagen'];
-    final tiempo = _timeAgo(post['created_at']);
+    // final tiempo = _timeAgo(post['created_at']); // (Opcional si quieres usarlo)
     final esMiPost = post['id_usuario'] == _userId;
-    final likesCount = post['likes_count'] ?? 0;
-    final isLiked = post['is_liked'] == 1;
-    final comentariosCount = post['comentarios_count'] ?? 0;
+
+    // CORRECCIÓN: Asegurar que sean int
+    final likesCount = int.tryParse(post['likes_count'].toString()) ?? 0;
+    final comentariosCount =
+        int.tryParse(post['comentarios_count'].toString()) ?? 0;
+
+    // CORRECCIÓN: Manejo robusto del booleano is_liked
+    final isLiked = post['is_liked'] == 1 || post['is_liked'] == true;
+
     final esCumple =
         (post['tipo'] == 'CUMPLEAÑOS') ||
         (mensaje.contains('🎂') && mensaje.contains('🎉'));
@@ -402,6 +408,7 @@ class _NewsPageState extends State<NewsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header de Cumpleaños
           if (esCumple)
             Container(
               width: double.infinity,
@@ -417,6 +424,7 @@ class _NewsPageState extends State<NewsPage> {
               ),
             ),
 
+          // Header del Post (Avatar y Nombre)
           ListTile(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -429,7 +437,7 @@ class _NewsPageState extends State<NewsPage> {
                   : null,
               child: post['foto_perfil'] == null
                   ? Text(
-                      nombreUsuario[0],
+                      nombreUsuario.isNotEmpty ? nombreUsuario[0] : 'U',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     )
                   : null,
@@ -446,26 +454,119 @@ class _NewsPageState extends State<NewsPage> {
                   )
                 : null,
             trailing: esMiPost
-                ? PopupMenuButton<String>(itemBuilder: (context) => [/*...*/])
+                ? PopupMenuButton<String>(
+                    onSelected: (val) {
+                      if (val == 'delete') _deletePost(post['id_post']);
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text("Eliminar"),
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
                 : (esCumple
                       ? const Icon(Icons.cake, color: Colors.pink)
-                      : null), // Icono pastel
+                      : null),
           ),
+
+          // Imagen del Post (CON CORRECCIÓN DE ERROR 404)
           if (urlImagen != null &&
               urlImagen.toString().isNotEmpty &&
               urlImagen != 'null')
             GestureDetector(
               onDoubleTap: () => _toggleLike(index),
-              child: Image.network(_fixUrl(urlImagen), fit: BoxFit.cover),
+              child: Image.network(
+                _fixUrl(urlImagen),
+                fit: BoxFit.cover,
+                width: double.infinity,
+                // height: 300, // Puedes descomentar esto si quieres altura fija
+                loadingBuilder: (ctx, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    height: 200,
+                    color: Colors.grey[200],
+                    child: const Center(child: CircularProgressIndicator()),
+                  );
+                },
+                // AQUÍ ESTÁ LA MAGIA PARA EVITAR EL CRASH 404
+                errorBuilder: (context, error, stackTrace) {
+                  print("Error cargando imagen: $error"); // Solo log interno
+                  return Container(
+                    height: 150,
+                    width: double.infinity,
+                    color: Colors.grey[200],
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.broken_image, color: Colors.grey, size: 50),
+                        Text(
+                          "Imagen no disponible",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
+
+          // Mensaje
           if (mensaje.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: 16.0,
                 vertical: 10,
               ),
-              child: Text(mensaje),
+              child: Text(mensaje, style: const TextStyle(fontSize: 15)),
             ),
+
+          // NUEVO: Barra de Acciones (Like y Comentar)
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            child: Row(
+              children: [
+                // Botón de LIKE
+                TextButton.icon(
+                  onPressed: () => _toggleLike(index),
+                  icon: Icon(
+                    isLiked ? Icons.favorite : Icons.favorite_border,
+                    color: isLiked ? Colors.red : Colors.grey[600],
+                  ),
+                  label: Text(
+                    likesCount > 0 ? "$likesCount Likes" : "Me gusta",
+                    style: TextStyle(
+                      color: isLiked ? Colors.red : Colors.grey[600],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 15),
+
+                // Botón de COMENTAR
+                TextButton.icon(
+                  onPressed: () => _showCommentsModal(context, post['id_post']),
+                  icon: Icon(
+                    Icons.chat_bubble_outline,
+                    color: Colors.grey[600],
+                  ),
+                  label: Text(
+                    comentariosCount > 0
+                        ? "$comentariosCount Comentarios"
+                        : "Comentar",
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
