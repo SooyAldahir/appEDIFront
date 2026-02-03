@@ -112,7 +112,19 @@ class MyApp extends StatelessWidget {
         'family_detail': (_) => const FamilyDetailPage(),
         'student_detail': (_) => const StudentDetailPage(),
         'agenda': (context) => const AgendaPage(),
-        'crear_evento': (context) => const CreateEventPage(),
+        // En main.dart, dentro de routes:
+        'crear_evento': (context) {
+          // 1. Capturamos los argumentos enviados desde la Agenda
+          final args = ModalRoute.of(context)?.settings.arguments;
+
+          // 2. Verificamos si es un mapa (datos del evento) o null
+          final Map<String, dynamic>? evento = (args is Map<String, dynamic>)
+              ? args
+              : null;
+
+          // 3. Pasamos el evento a la página
+          return CreateEventPage(eventoExistente: evento);
+        },
         'agenda_detail': (context) => const AgendaDetailPage(),
         'reportes': (context) => const ReportesPage(),
         'notifications': (_) => const NotificationsPage(),
