@@ -96,7 +96,7 @@ class AgendaController {
 
     try {
       final success = await _api.guardarEvento(
-        id: _idEvento, // Pasamos el ID (null si es nuevo, int si es edición)
+        id: _idEvento,
         titulo: tituloCtrl.text,
         fecha: fechaEvento!,
         hora: horaEvento?.to24HourString(),
@@ -130,8 +130,6 @@ class AgendaController {
   }
 
   Future<void> _crearRecordatorioRecurrente() async {
-    // ... Tu lógica de recordatorios se mantiene igual ...
-    // Solo asegúrate de importar GenericReminders
     try {
       final diasAntes = int.tryParse(recordatorioDiasAntesCtrl.text) ?? 1;
       final hora = recordatorioHoraCtrl.text.trim();

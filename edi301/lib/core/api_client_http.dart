@@ -11,10 +11,7 @@ class ApiHttp extends http.BaseClient {
   factory ApiHttp() => _i;
 
   static String get baseUrl {
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:3000';
-    }
-    return 'http://localhost:3000';
+    return 'https://edi301.apps.isdapps.uk';
   }
 
   final http.Client _inner = http.Client();
