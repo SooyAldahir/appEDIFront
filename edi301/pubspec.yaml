@@ -56,6 +56,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.13.1
+  change_app_package_name: ^1.5.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -111,17 +112,17 @@ flutter:
 flutter_launcher_icons:
   android: "launcher_icon" # Nombre del icono en Android
   ios: true # Generar para iOS
-  image_path: "assets/img/logo_edi.png"
+  image_path: "assets/img/logo.png"
   min_sdk_android: 21 # Opcional, para soporte de iconos adaptativos
   web:
     generate: true
-    image_path: "assets/img/logo_edi.png"
+    image_path: "assets/img/logo.png"
     background_color: "#hex_code"
     theme_color: "#hex_code"
   windows:
     generate: true
-    image_path: "assets/img/logo_edi.png"
+    image_path: "assets/img/logo.png"
     icon_size: 48
   macos:
     generate: true
-    image_path: "assets/img/logo_edi.png"
+    image_path: "assets/img/logo.png"
