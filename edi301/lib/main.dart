@@ -65,6 +65,7 @@ void main() async {
       : 'login';
 
   HttpOverrides.global = MyHttpOverrides();
+
   runApp(MyApp(initialRoute: rutaInicial));
 }
 

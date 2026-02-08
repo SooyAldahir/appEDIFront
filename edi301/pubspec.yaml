@@ -52,6 +52,8 @@ dependencies:
   image_picker: ^1.1.2
   intl: ^0.20.2
 
+  flutter_native_splash: ^2.4.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -126,3 +128,17 @@ flutter_launcher_icons:
   macos:
     generate: true
     image_path: "assets/img/logo.png"
+
+flutter_native_splash:
+  color: "#13436B"
+  image: assets/img/logo_edi.png
+
+  android_gravity: center
+  ios_content_mode: center
+
+  color_dark: "#13436B"
+  image_dark: assets/img/logo_dark.png
+
+  android_12:
+    color: "#13436B"
+    image: assets/img/logo_edi.png

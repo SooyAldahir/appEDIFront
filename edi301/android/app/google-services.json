@@ -7,6 +7,44 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:726709165348:android:236fe3e9fbaaf1535c27b1",
+        "android_client_info": {
+          "package_name": "com.aldahirballina.EDI301"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCU8ugUQIkmEYJunIbBD9RX-AfcKcDjzGY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:726709165348:android:88948627976ccd655c27b1",
+        "android_client_info": {
+          "package_name": "com.aldahirballina.FamiliasEDI301"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCU8ugUQIkmEYJunIbBD9RX-AfcKcDjzGY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:726709165348:android:0c0c870f928602455c27b1",
         "android_client_info": {
           "package_name": "com.example.edi301"
