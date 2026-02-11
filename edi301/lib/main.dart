@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:edi301/Login/forgot_password/forgot_password_page.dart';
 import 'package:edi301/src/pages/Admin/add_tutor/add_tutor_page.dart';
 import 'package:edi301/src/pages/Admin/birthdays/birthday_page.dart';
 import 'package:edi301/src/pages/Notifications/notifications_page.dart';
@@ -132,6 +133,7 @@ class MyApp extends StatelessWidget {
         'notifications': (_) => const NotificationsPage(),
         'cumpleaños': (context) => const BirthdaysPage(),
         'add_tutor': (BuildContext context) => const AddTutorPage(),
+        'forgot_password': (BuildContext context) => const ForgotPasswordPage(),
       },
     );
   }

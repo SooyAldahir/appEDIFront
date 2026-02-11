@@ -238,4 +238,17 @@ class UsersApi {
         jsonDecode(r.body) as Map<String, dynamic>;
     return User.fromJson(data);
   }
+
+  Future<bool> resetPassword(String email, String newPassword) async {
+    try {
+      final res = await _http.postJson(
+        '/api/auth/reset-password',
+        data: {'correo': email, 'nuevaContrasena': newPassword},
+      );
+      return res.statusCode == 200;
+    } catch (e) {
+      print('Error en resetPassword: $e');
+      return false;
+    }
+  }
 }

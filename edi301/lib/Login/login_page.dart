@@ -50,9 +50,37 @@ class _LoginPageState extends State<LoginPage> {
                 _textFieldUser(),
                 _textFieldPassword(),
                 _buttonLogin(),
+                _textForgotPassword(),
                 _textDontHaveAccount(),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _textForgotPassword() {
+    return Container(
+      alignment: Alignment.center,
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.only(top: 10, bottom: 10),
+      child: GestureDetector(
+        onTap: () {
+          // Navega a la pantalla de recuperación
+          Navigator.pushNamed(context, 'forgot_password');
+        },
+        child: const Text(
+          '¿Olvidaste tu contraseña?',
+          style: TextStyle(
+            color: Color.fromRGBO(
+              245,
+              188,
+              6,
+              1,
+            ), // Tu color amarillo para resaltar
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
           ),
         ),
       ),
