@@ -10,6 +10,7 @@ import 'package:edi301/src/pages/Perfil/perfil_page.dart';
 import 'package:edi301/src/pages/Admin/admin_page.dart';
 import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
 import 'package:edi301/src/pages/Chat/my_chats_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,6 +31,7 @@ class _HomePageState extends State<HomePage> {
     _loadUserRole();
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
       _controller.init(context);
+      _verificarYMostrarEncuesta();
     });
   }
 
@@ -48,6 +50,110 @@ class _HomePageState extends State<HomePage> {
         _menuOptions = _getMenuOptions(rol);
       });
     }
+  }
+
+  Future<void> _verificarYMostrarEncuesta() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Verificamos si ya completó la encuesta para no volver a molestar
+    final yaMostrada = prefs.getBool('encuesta_mostrada') ?? false;
+    if (yaMostrada) return;
+
+    // 2. Leemos cuántas veces ha iniciado sesión/abierto la app
+    int openCount = prefs.getInt('app_open_count') ?? 0;
+    openCount++; // Aumentamos 1 en este inicio
+
+    // Guardamos el nuevo valor del contador
+    await prefs.setInt('app_open_count', openCount);
+
+    // 3. Si ya van 3 veces (o más), mostramos la alerta
+    if (openCount >= 3) {
+      if (mounted) {
+        _mostrarDialogoEncuesta(context);
+      }
+    }
+  }
+
+  // 2. Dibuja el cuadro de diálogo en pantalla
+  void _mostrarDialogoEncuesta(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Obliga a tocar un botón
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.assignment, color: Color.fromRGBO(19, 67, 107, 1)),
+              SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  '¡Tu opinión nos importa!',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: const Text(
+            'Ayúdanos a mejorar respondiendo esta breve encuesta. No te tomará más de 2 minutos.',
+            style: TextStyle(fontSize: 15),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                // Si le da a "Más tarde", reiniciamos el contador a 0
+                // Así le volverá a aparecer después de otros 3 inicios de sesión
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setInt('app_open_count', 0);
+
+                if (context.mounted) Navigator.of(context).pop();
+              },
+              child: const Text(
+                'Más tarde',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              onPressed: () async {
+                // Marcamos como completado para que NUNCA MÁS le vuelva a salir
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool('encuesta_mostrada', true);
+
+                if (context.mounted)
+                  Navigator.of(context).pop(); // Cerramos la alerta
+
+                // Lanzamos la URL directo sin el canLaunchUrl que causa bloqueos
+                final Uri url = Uri.parse(
+                  'https://docs.google.com/forms/d/e/1FAIpQLSfmPuyryfjKzi372NfoNHPHrwyduHVrILEfvNG8g9JLEVxS5w/viewform?usp=header',
+                );
+
+                try {
+                  // Mode.externalApplication forzará a abrir Chrome/Safari
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                } catch (e) {
+                  debugPrint('Error al abrir la encuesta: $e');
+                }
+              },
+              child: const Text(
+                'Responder',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _getPageFromRoute(String route) {

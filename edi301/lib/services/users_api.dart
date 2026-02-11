@@ -118,6 +118,39 @@ class UsersApi {
     return getById(id);
   }
 
+  Future<User> registerExterno({
+    required String nombre,
+    required String apellido,
+    required String email,
+    required String contrasena,
+    required int idRol,
+  }) async {
+    // Usamos las llaves en minúscula tal como las espera el schema de validación Joi en tu backend
+    final payload = {
+      "nombre": nombre,
+      "apellido": apellido,
+      "correo": email,
+      "contrasena": contrasena,
+      "tipo_usuario": "EXTERNO",
+      "id_rol": idRol,
+      "matricula": null,
+      "num_empleado": null,
+    };
+
+    // Ajusta la ruta '/api/usuarios' si tu endpoint de creación es distinto
+    final res = await _http.postJson('/api/usuarios', data: payload);
+
+    if (res.statusCode >= 400) {
+      throw Exception('Error ${res.statusCode}: ${res.body}');
+    }
+
+    // Asumiendo que el backend devuelve el objeto creado con 'id_usuario'
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final id = data['id_usuario'] ?? data['IdUsuario'] as int;
+
+    return getById(id);
+  }
+
   Future<User> login(String email, String password) async {
     final r = await _http.postJson(
       '/api/users/login',

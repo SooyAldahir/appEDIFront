@@ -56,6 +56,22 @@ class _AdminPageState extends State<AdminPage> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: CustomButton(
+                label: 'Agregar Tutor Externo',
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  'add_tutor',
+                ), // Nueva ruta a crear
+                icon: const Icon(
+                  Icons.person_add_alt_1,
+                  color: Colors.white,
+                  size: 30,
+                ),
+              ),
+            ),
+            const SizedBox(height: 15),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: CustomButton(
                 label: 'Consultar Familias',
                 onPressed: () => Navigator.pushNamed(context, 'get_family'),
                 icon: const Icon(
