@@ -10,7 +10,7 @@ class ForgotPasswordPage extends StatefulWidget {
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final ForgotPasswordController c = ForgotPasswordController();
-
+  bool _obscure = true;
   @override
   void dispose() {
     c.dispose();
@@ -81,13 +81,22 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     'Ingresa tu nueva contraseña.',
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   TextField(
                     controller: c.passCtrl,
-                    obscureText: true,
-                    decoration: const InputDecoration(
+                    obscureText: _obscure,
+                    decoration: InputDecoration(
                       labelText: 'Nueva Contraseña',
-                      prefixIcon: Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                        tooltip: _obscure
+                            ? 'Mostrar contraseña'
+                            : 'Ocultar contraseña',
+                        icon: Icon(
+                          _obscure ? Icons.visibility : Icons.visibility_off,
+                          color: Colors.black,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
