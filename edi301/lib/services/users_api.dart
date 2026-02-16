@@ -185,6 +185,15 @@ class UsersApi {
     return User.fromJson(data);
   }
 
+  Future<List<fm.Family>> getAvailableFamilies() async {
+    final res = await _http.getJson('/api/familias/available');
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((f) => fm.Family.fromJson(f)).toList();
+    }
+    return [];
+  }
+
   Future<List<User>> search({String? q, String? tipo}) async {
     final r = await _http.getJson(
       '/api/usuarios',

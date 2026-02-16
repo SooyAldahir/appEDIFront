@@ -187,4 +187,15 @@ class FamiliaApi {
       rethrow;
     }
   }
+
+  Future<List<dynamic>?> getAvailable() async {
+    final res = await _http.getJson('/api/familias/available');
+    print('DEBUG BODY: ${res.body}'); // Revisa esto en la consola de VS Code
+    if (res.statusCode == 200) {
+      final decoded = jsonDecode(res.body);
+      if (decoded is List) return decoded;
+      if (decoded is Map && decoded.containsKey('data')) return decoded['data'];
+    }
+    return [];
+  }
 }

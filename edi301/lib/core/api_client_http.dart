@@ -12,7 +12,7 @@ class ApiHttp extends http.BaseClient {
 
   static String get baseUrl {
     if (Platform.isAndroid) {
-      return 'http://192.168.177.191:3000';
+      return 'http://192.168.130.191:3000';
     }
     return 'http://localhost:3000';
   }

@@ -24,12 +24,24 @@ class _FamilyPageState extends State<FamiliyPage> {
   final FamiliaApi _familiaApi = FamiliaApi();
   late Future<Family?> _familyFuture;
   String _userRole = '';
+  late Future<List<dynamic>> _availableFamiliesFuture;
 
   @override
   void initState() {
     super.initState();
     _loadUserRole();
     _familyFuture = _fetchFamilyData();
+    _availableFamiliesFuture = _fetchAvailableFamilies();
+  }
+
+  Future<List<dynamic>> _fetchAvailableFamilies() async {
+    try {
+      final res = await _familiaApi
+          .getAvailable(); // Asegúrate de tener este método en FamiliaApi
+      return res ?? [];
+    } catch (e) {
+      return [];
+    }
   }
 
   void _startChat(int idUsuario, String nombre) async {
@@ -202,30 +214,145 @@ class _FamilyPageState extends State<FamiliyPage> {
   }
 
   Widget _buildNoFamilyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(30.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.family_restroom, size: 80, color: Colors.grey[400]),
-            const SizedBox(height: 20),
-            Text(
-              "Sin Asignación Familiar",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Aún no has sido asignado a ninguna familia en el sistema. Por favor contacta a la administración.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.grey[500]),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 20, 16, 10),
+          child: Text(
+            "Familias Disponibles",
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
         ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            "Selecciona una familia para conocer a tus posibles padres y hermanos.",
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: FutureBuilder<List<dynamic>>(
+            future: _availableFamiliesFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final familias = snapshot.data ?? [];
+              if (familias.isEmpty) {
+                return const Center(
+                  child: Text("No hay familias registradas."),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: familias.length,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemBuilder: (context, index) {
+                  final f = familias[index];
+                  final int numAlumnos = f['num_alumnos'] ?? 0;
+                  final bool estaLleno = numAlumnos >= 10;
+                  final String baseUrl = ApiHttp.baseUrl;
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        // Portada con funcionalidad FullScreen
+                        GestureDetector(
+                          onTap: () {
+                            if (f['portada'] != null) {
+                              _openFullScreen(
+                                context,
+                                NetworkImage('$baseUrl${f['portada']}'),
+                                'portada_${f['id_familia']}',
+                              );
+                            }
+                          },
+                          child: Stack(
+                            children: [
+                              Hero(
+                                tag: 'portada_${f['id_familia']}',
+                                child: Image.network(
+                                  '$baseUrl${f['portada']}',
+                                  height: 150,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => Container(
+                                    height: 150,
+                                    color: Colors.grey[300],
+                                    child: const Icon(
+                                      Icons.image_not_supported,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (estaLleno)
+                                Container(
+                                  height: 150,
+                                  color: Colors.black45,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.lock,
+                                      color: Colors.white,
+                                      size: 50,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        ListTile(
+                          title: Text(
+                            f['nombre_familia'],
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Padres: ${f['padres']}"),
+                              Text("Integrantes: $numAlumnos / 10"),
+                            ],
+                          ),
+                          trailing: estaLleno
+                              ? const Text(
+                                  "LLENO",
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                )
+                              : const Icon(Icons.chevron_right),
+                          onTap: estaLleno
+                              ? null
+                              : () {
+                                  // Aquí puedes navegar a un detalle de familia para que el alumno pida unirse
+                                  // o simplemente mostrar información extra
+                                },
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Método auxiliar para abrir imagen (puedes usar el que ya tienes definido en tu clase)
+  void _openFullScreen(BuildContext context, ImageProvider image, String tag) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FullScreenImagePage(imageProvider: image, heroTag: tag),
       ),
     );
   }
