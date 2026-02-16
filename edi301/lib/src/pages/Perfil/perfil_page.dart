@@ -8,6 +8,7 @@ import 'package:edi301/src/pages/Perfil/perfil_widgets.dart';
 import 'package:edi301/auth/token_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -51,6 +52,18 @@ class _PerfilPageState extends State<PerfilPage> {
   void initState() {
     super.initState();
     _loadProfile();
+  }
+
+  // --- MÉTODO DE FORMATEO AÑADIDO ---
+  String _formatFecha(String? fechaRaw) {
+    if (fechaRaw == null || fechaRaw.isEmpty || fechaRaw == '—') return '—';
+    try {
+      DateTime fecha = DateTime.parse(fechaRaw);
+      return DateFormat('dd/MM/yyyy').format(fecha);
+    } catch (e) {
+      // Si falla el parseo, intentamos limpiar el string manualmente
+      return fechaRaw.split('T')[0];
+    }
   }
 
   Future<void> _pickAndUploadProfile() async {
@@ -128,8 +141,10 @@ class _PerfilPageState extends State<PerfilPage> {
           'phone': (u['telefono'] ?? u['Telefono'] ?? '—').toString(),
           'residence': (u['residencia'] ?? u['Residencia'] ?? '—').toString(),
           'address': (u['direccion'] ?? u['Direccion'] ?? '—').toString(),
-          'birthday': (u['fecha_nacimiento'] ?? u['Fecha_Nacimiento'] ?? '—')
-              .toString(),
+          // APLICACIÓN DE FORMATO AQUÍ
+          'birthday': _formatFecha(
+            u['fecha_nacimiento'] ?? u['Fecha_Nacimiento'],
+          ),
           'avatarUrl':
               (u['foto_perfil'] ?? u['FotoPerfil'] ?? data['avatarUrl'])
                   .toString(),
@@ -185,11 +200,10 @@ class _PerfilPageState extends State<PerfilPage> {
               .toString(),
           'address': (x['direccion'] ?? x['Direccion'] ?? data['address'])
               .toString(),
-          'birthday':
-              (x['fecha_nacimiento'] ??
-                      x['Fecha_Nacimiento'] ??
-                      data['birthday'])
-                  .toString(),
+          // APLICACIÓN DE FORMATO AQUÍ
+          'birthday': _formatFecha(
+            x['fecha_nacimiento'] ?? x['Fecha_Nacimiento'] ?? data['birthday'],
+          ),
           'avatarUrl': avatar,
           'status': (x['estado'] ?? x['Estado'] ?? data['status']).toString(),
           'statusColorHex': colorHex,

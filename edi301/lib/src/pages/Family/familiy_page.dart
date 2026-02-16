@@ -3,6 +3,7 @@ import 'package:edi301/services/chat_api.dart';
 import 'package:edi301/src/pages/Chat/chat_page.dart';
 import 'package:edi301/src/pages/Family/chat_family_page.dart';
 import 'package:flutter/material.dart';
+import 'package:html_unescape/html_unescape.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/models/family_model.dart';
@@ -19,6 +20,7 @@ class FamiliyPage extends StatefulWidget {
 }
 
 class _FamilyPageState extends State<FamiliyPage> {
+  final unescape = HtmlUnescape();
   bool mostrarHijos = true;
   final FamilyController _controller = FamilyController();
   final FamiliaApi _familiaApi = FamiliaApi();
@@ -42,6 +44,71 @@ class _FamilyPageState extends State<FamiliyPage> {
     } catch (e) {
       return [];
     }
+  }
+
+  void _mostrarDetallesRapidos(BuildContext context, dynamic familia) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                familia['nombre_familia'],
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Divider(),
+              const SizedBox(height: 10),
+              Text(
+                "Descripción:",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              Text(
+                familia['descripcion'] ??
+                    "Esta familia aún no tiene una descripción pública.",
+              ),
+              const SizedBox(height: 15),
+              Row(
+                children: [
+                  const Icon(Icons.people, size: 20, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Capacidad actual: ${familia['num_alumnos']} de 10 alumnos",
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Botón opcional para cerrar o realizar otra acción
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+                  ),
+                  child: const Text(
+                    "Cerrar",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _startChat(int idUsuario, String nombre) async {
@@ -315,10 +382,14 @@ class _FamilyPageState extends State<FamiliyPage> {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("Padres: ${f['padres']}"),
+                              // USAMOS unescape.convert para limpiar el "&amp;"
+                              Text(
+                                "Padres: ${unescape.convert(f['padres'] ?? '')}",
+                              ),
                               Text("Integrantes: $numAlumnos / 10"),
                             ],
                           ),
+                          // Cambiamos el Icon por un IconButton para que sea interactivo
                           trailing: estaLleno
                               ? const Text(
                                   "LLENO",
@@ -327,12 +398,19 @@ class _FamilyPageState extends State<FamiliyPage> {
                                     fontWeight: FontWeight.bold,
                                   ),
                                 )
-                              : const Icon(Icons.chevron_right),
+                              : IconButton(
+                                  icon: const Icon(
+                                    Icons.info_outline,
+                                    color: Color.fromRGBO(19, 67, 107, 1),
+                                  ),
+                                  onPressed: () {
+                                    _mostrarDetallesRapidos(context, f);
+                                  },
+                                ),
                           onTap: estaLleno
                               ? null
                               : () {
-                                  // Aquí puedes navegar a un detalle de familia para que el alumno pida unirse
-                                  // o simplemente mostrar información extra
+                                  // Acción principal al tocar la tarjeta (ej. solicitar unirse)
                                 },
                         ),
                       ],

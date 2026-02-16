@@ -1,9 +1,9 @@
-// lib/src/pages/Admin/studient_detail/studient_detail_page.dart
 import 'dart:convert';
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart'; // Librería para formatear fechas
 
 class StudentDetailPage extends StatefulWidget {
   const StudentDetailPage({super.key});
@@ -61,29 +61,16 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     }
   }
 
-  Future<void> _makeAction(
-    String scheme,
-    String path,
-    String actionName,
-  ) async {
-    final String value = path.trim();
-    if (value.isEmpty || value == '—') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No hay un número de $actionName disponible.')),
-      );
-      return;
-    }
-
-    final Uri uri = Uri(scheme: scheme, path: value);
-
-    if (!await canLaunchUrl(uri)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo realizar la acción: $actionName a $value'),
-        ),
-      );
-    } else {
-      await launchUrl(uri);
+  // Método para formatear la fecha de nacimiento
+  String _formatFecha(String? fechaRaw) {
+    if (fechaRaw == null || fechaRaw.isEmpty || fechaRaw == '—') return '—';
+    try {
+      DateTime fecha = DateTime.parse(fechaRaw);
+      return DateFormat('dd/MM/yyyy').format(fecha);
+    } catch (e) {
+      return fechaRaw.split(
+        'T',
+      )[0]; // Fallback: quita la parte de la hora manualmente
     }
   }
 
@@ -134,7 +121,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     final name = ('${s('nombre')} ${s('apellido')}').trim();
     final phone = s('telefono');
     final matricula = s('matricula');
-    final birthday = s('fecha_nacimiento');
+    final birthday = _formatFecha(s('fecha_nacimiento')); // Fecha formateada
     final status = s('estado', 'Activo');
     final grade = s('carrera');
     final email = s('correo');
@@ -145,6 +132,7 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     final residence = s('residencia', 'Externa');
     final bool isInternal = residence.toLowerCase().startsWith('intern');
     final bool showAddress = !isInternal && rawAddr != '—';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -218,20 +206,12 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
             primary: primary,
             children: [
               _InfoTile(Icons.badge_outlined, docLabel, docValue),
-              _InfoTile(
-                Icons.call_outlined,
-                'Teléfono',
-                phone,
-                onTap: phone == '—'
-                    ? null
-                    : () => _makeAction('tel', phone, 'llamar'),
-              ),
+              _InfoTile(Icons.call_outlined, 'Teléfono', phone),
               _InfoTile(Icons.mail_outline, 'Correo', email),
               if (showAddress)
                 _InfoTile(Icons.home_outlined, 'Dirección', rawAddr),
             ],
           ),
-
           const SizedBox(height: 12),
           _SectionCard(
             title: 'Académico',
@@ -242,55 +222,9 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
               _InfoTile(Icons.family_restroom, 'Familia', familyName),
             ],
           ),
-
           const SizedBox(height: 12),
 
-          Card(
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.call),
-                      label: const Text('Llamar'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: phone == '—'
-                          ? null
-                          : () => _makeAction('tel', phone, 'llamar'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.message_outlined),
-                      label: const Text('Mensaje'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: primary,
-                        side: BorderSide(color: primary, width: 1.5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: phone == '—'
-                          ? null
-                          : () => _makeAction('sms', phone, 'enviar mensaje'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
+          // Se eliminó la sección de botones de llamada y mensaje
           const SizedBox(height: 8),
           if (_studentId != null)
             Align(
