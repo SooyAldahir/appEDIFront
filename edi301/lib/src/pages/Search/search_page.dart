@@ -18,6 +18,7 @@ class _SearchPageState extends State<SearchPage> {
   final ValueNotifier<List<UserMini>> _alumnos = ValueNotifier([]);
   final ValueNotifier<List<UserMini>> _empleados = ValueNotifier([]);
   final ValueNotifier<List<FamilyMini>> _familias = ValueNotifier([]);
+  final ValueNotifier<List<UserMini>> _externos = ValueNotifier([]);
   bool _searched = false;
 
   final _api = SearchApi();
@@ -30,6 +31,7 @@ class _SearchPageState extends State<SearchPage> {
     _alumnos.dispose();
     _empleados.dispose();
     _familias.dispose();
+    _externos.dispose();
     super.dispose();
   }
 
@@ -39,6 +41,7 @@ class _SearchPageState extends State<SearchPage> {
       _alumnos.value = [];
       _empleados.value = [];
       _familias.value = [];
+      _externos.value = [];
       setState(() => _searched = false);
       return;
     }
@@ -48,10 +51,12 @@ class _SearchPageState extends State<SearchPage> {
       _alumnos.value = r.alumnos;
       _empleados.value = r.empleados;
       _familias.value = r.familias;
+      _externos.value = r.externos;
     } catch (_) {
       _alumnos.value = [];
       _empleados.value = [];
       _familias.value = [];
+      _externos.value = [];
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('No se pudo completar la búsqueda')),
@@ -179,6 +184,17 @@ class _SearchPageState extends State<SearchPage> {
             children: list.map(_familyTile).toList(),
           ),
         ),
+        const SizedBox(height: 8),
+        ValueListenableBuilder<List<UserMini>>(
+          valueListenable: _externos,
+          builder: (_, list, __) => _section(
+            title: 'Tutores Externos (${list.length})',
+            emptyText: 'Sin tutores externos',
+            children: list.map(_userTile).toList(),
+          ),
+        ),
+
+        const SizedBox(height: 8),
       ],
     );
   }

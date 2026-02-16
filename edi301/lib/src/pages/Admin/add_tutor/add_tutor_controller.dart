@@ -36,7 +36,8 @@ class AddTutorController {
     loading.value = true;
 
     try {
-      await _usersApi.registerExterno(
+      // Es probable que registerExterno devuelva un Dynamic o un Response
+      final result = await _usersApi.registerExterno(
         nombre: nombre,
         apellido: apellido,
         email: correo,
@@ -44,19 +45,25 @@ class AddTutorController {
         idRol: idRolSeleccionado.value,
       );
 
-      loading.value = false;
+      // Si llegó aquí sin lanzar excepción, el registro en el backend fue exitoso
       if (context.mounted) {
+        loading.value = false;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Tutor externo registrado con éxito'),
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context); // Regresa al panel admin
+        Navigator.pop(context);
       }
     } catch (e) {
       loading.value = false;
-      _snack(context, e.toString().replaceAll("Exception: ", ""));
+      // Si el backend responde 201 y UsersApi lanza error, hay que atraparlo aquí
+      print("Error detectado en Flutter: $e");
+      _snack(
+        context,
+        "Error al registrar: ${e.toString().replaceAll("Exception: ", "")}",
+      );
     }
   }
 

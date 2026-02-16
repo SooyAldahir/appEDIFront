@@ -36,7 +36,7 @@ class UsersApi {
   }
 
   Future<void> deleteSoft(int id) async {
-    final res = await _http.deleteJson('/api/users/$id');
+    final res = await _http.deleteJson('/api/usuarios/$id');
     if (res.statusCode >= 400) {
       throw Exception('No se pudo eliminar: ${res.statusCode} ${res.body}');
     }
@@ -47,7 +47,7 @@ class UsersApi {
     int? numEmpleado,
   }) async {
     final res = await _http.getJson(
-      '/api/users/familias/by-doc/search',
+      '/api/usuarios/familias/by-doc/search',
       query: {
         if (matricula != null) 'matricula': matricula,
         if (numEmpleado != null) 'numEmpleado': numEmpleado,
@@ -85,7 +85,7 @@ class UsersApi {
       "Contrasena": contrasena,
       "Estado": estado,
     };
-    final res = await _http.postJson('/api/users/register', data: payload);
+    final res = await _http.postJson('/api/usuarios/register', data: payload);
     if (res.statusCode >= 400) {
       throw Exception('Error ${res.statusCode}: ${res.body}');
     }
@@ -110,7 +110,7 @@ class UsersApi {
       "Contrasena": contrasena,
       "Estado": estado,
     };
-    final r = await _http.postJson('/api/users/register', data: payload);
+    final r = await _http.postJson('/api/usuarios/register', data: payload);
     if (r.statusCode >= 400) {
       throw Exception('Error ${r.statusCode}: ${r.body}');
     }
@@ -153,7 +153,7 @@ class UsersApi {
 
   Future<User> login(String email, String password) async {
     final r = await _http.postJson(
-      '/api/users/login',
+      '/api/usuarios/login',
       data: {"E_mail": email, "Contrasena": password},
     );
     if (r.statusCode >= 400) {
@@ -174,7 +174,7 @@ class UsersApi {
   }
 
   Future<User> getById(int id) async {
-    final r = await _http.getJson('/api/users/$id');
+    final r = await _http.getJson('/api/usuarios/$id');
     if (r.statusCode >= 400) {
       throw Exception('Error ${r.statusCode}: ${r.body}');
     }
@@ -187,7 +187,7 @@ class UsersApi {
 
   Future<List<User>> search({String? q, String? tipo}) async {
     final r = await _http.getJson(
-      '/api/users',
+      '/api/usuarios',
       query: {
         if (q != null && q.isNotEmpty) 'q': q,
         if (tipo != null && tipo.isNotEmpty) 'tipo': tipo,
@@ -229,7 +229,7 @@ class UsersApi {
       if (esAdmin != null) "es_Admin": esAdmin,
     };
 
-    final r = await _http.patchJson('/api/users/$id', data: payload);
+    final r = await _http.patchJson('/api/usuarios/$id', data: payload);
     if (r.statusCode >= 400) {
       throw Exception('Error ${r.statusCode}: ${r.body}');
     }

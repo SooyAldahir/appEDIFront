@@ -10,15 +10,15 @@ class ApiHttp extends http.BaseClient {
   static final ApiHttp _i = ApiHttp._internal();
   factory ApiHttp() => _i;
 
-  //static String get baseUrl {
-  //if (Platform.isAndroid) {
-  //return 'http://10.0.2.2:3000';
-  //}
-  //return 'http://localhost:3000';
-  //}
   static String get baseUrl {
-    return 'https://edi301.apps.isdapps.uk';
+    if (Platform.isAndroid) {
+      return 'http://192.168.177.191:3000';
+    }
+    return 'http://localhost:3000';
   }
+  //static String get baseUrl {
+  //return 'https://edi301.apps.isdapps.uk';
+  //}
 
   final http.Client _inner = http.Client();
   final Duration _timeout = const Duration(seconds: 20);
