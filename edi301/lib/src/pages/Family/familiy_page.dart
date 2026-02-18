@@ -24,9 +24,11 @@ class _FamilyPageState extends State<FamiliyPage> {
   bool mostrarHijos = true;
   final FamilyController _controller = FamilyController();
   final FamiliaApi _familiaApi = FamiliaApi();
+
   late Future<Family?> _familyFuture;
-  String _userRole = '';
   late Future<List<dynamic>> _availableFamiliesFuture;
+
+  String _userRole = '';
 
   @override
   void initState() {
@@ -36,79 +38,70 @@ class _FamilyPageState extends State<FamiliyPage> {
     _availableFamiliesFuture = _fetchAvailableFamilies();
   }
 
-  Future<List<dynamic>> _fetchAvailableFamilies() async {
-    try {
-      final res = await _familiaApi
-          .getAvailable(); // Asegúrate de tener este método en FamiliaApi
-      return res ?? [];
-    } catch (e) {
-      return [];
+  // ========= FIX 1: URL robusta para imágenes =========
+  // Soporta:
+  //  - "/uploads/xx.webp"
+  //  - "uploads/xx.webp"
+  //  - "public/uploads/xx.webp"
+  //  - "C:\...\uploads\xx.webp"
+  String _absUrl(String raw) {
+    if (raw.isEmpty) return '';
+    var s = raw.trim();
+
+    // si ya es URL completa
+    if (s.startsWith('http://') || s.startsWith('https://')) return s;
+
+    // normaliza backslashes
+    s = s.replaceAll('\\', '/');
+
+    // si viene con "public/uploads/..." lo recortamos
+    final idxPublic = s.indexOf('public/uploads/');
+    if (idxPublic != -1) {
+      s = s.substring(idxPublic + 'public'.length); // deja "/uploads/..."
     }
+
+    // si contiene "/uploads/" en medio, recortamos desde ahí
+    final idxUploads = s.indexOf('/uploads/');
+    if (idxUploads != -1) {
+      s = s.substring(idxUploads);
+    } else if (s.startsWith('uploads/')) {
+      s = '/$s';
+    } else if (!s.startsWith('/')) {
+      s = '/$s';
+    }
+
+    return '${ApiHttp.baseUrl}$s';
   }
 
-  void _mostrarDetallesRapidos(BuildContext context, dynamic familia) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                familia['nombre_familia'],
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Divider(),
-              const SizedBox(height: 10),
-              Text(
-                "Descripción:",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[700],
-                ),
-              ),
-              Text(
-                familia['descripcion'] ??
-                    "Esta familia aún no tiene una descripción pública.",
-              ),
-              const SizedBox(height: 15),
-              Row(
-                children: [
-                  const Icon(Icons.people, size: 20, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Capacidad actual: ${familia['num_alumnos']} de 10 alumnos",
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // Botón opcional para cerrar o realizar otra acción
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-                  ),
-                  child: const Text(
-                    "Cerrar",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  // ========= FIX 2: lee keys snake/camel =========
+  String _pickField(dynamic obj, List<String> keys) {
+    if (obj == null) return '';
+    for (final k in keys) {
+      final v = obj[k];
+      if (v != null) {
+        final s = v.toString().trim();
+        if (s.isNotEmpty && s != 'null') return s;
+      }
+    }
+    return '';
+  }
+
+  Future<List<dynamic>> _fetchAvailableFamilies() async {
+    try {
+      final res = await _familiaApi.getAvailable();
+      final list = (res ?? []).toList();
+
+      // Orden menor -> mayor por num_alumnos
+      list.sort((a, b) {
+        final na = (a['num_alumnos'] ?? 0) as int;
+        final nb = (b['num_alumnos'] ?? 0) as int;
+        return na.compareTo(nb);
+      });
+
+      return list;
+    } catch (_) {
+      return [];
+    }
   }
 
   void _startChat(int idUsuario, String nombre) async {
@@ -137,21 +130,93 @@ class _FamilyPageState extends State<FamiliyPage> {
   Future<Family?> _fetchFamilyData() async {
     try {
       final int? familyId = await _controller.resolveFamilyId();
-
       if (familyId == null) return null;
 
       final prefs = await SharedPreferences.getInstance();
       final String? authToken = prefs.getString('token');
 
       final data = await _familiaApi.getById(familyId, authToken: authToken);
-      if (data != null) {
-        return Family.fromJson(data);
-      }
+      if (data != null) return Family.fromJson(data);
       return null;
     } catch (e) {
+      // ignore: avoid_print
       print('Error al cargar familia: $e');
       return null;
     }
+  }
+
+  void _mostrarDetallesRapidos(BuildContext context, dynamic familia) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final int numAlumnos = familia['num_alumnos'] ?? 0;
+
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                (familia['nombre_familia'] ?? '').toString(),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Divider(),
+              const SizedBox(height: 10),
+              Text(
+                "Descripción:",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
+              ),
+              Text(
+                (familia['descripcion'] ??
+                        "Esta familia aún no tiene una descripción pública.")
+                    .toString(),
+              ),
+              const SizedBox(height: 15),
+              Row(
+                children: [
+                  const Icon(Icons.people, size: 20, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text("Capacidad actual: $numAlumnos de 10 alumnos"),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+                  ),
+                  child: const Text(
+                    "Cerrar",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _openFullScreen(BuildContext context, ImageProvider image, String tag) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FullScreenImagePage(imageProvider: image, heroTag: tag),
+      ),
+    );
   }
 
   @override
@@ -195,31 +260,36 @@ class _FamilyPageState extends State<FamiliyPage> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
+
+            // si no tiene familia -> mostrar lista disponible
             if (snapshot.hasError ||
                 !snapshot.hasData ||
                 snapshot.data == null) {
               return _buildNoFamilyState();
             }
+
             final family = snapshot.data!;
-            final String baseUrl = ApiHttp.baseUrl;
-            final ImageProvider coverImage;
-            final String? coverUrl = family.fotoPortadaUrl;
-            if (coverUrl != null && coverUrl.isNotEmpty) {
-              coverImage = NetworkImage('$baseUrl$coverUrl');
-            } else {
-              coverImage = const AssetImage(
-                'assets/img/familia-extensa-e1591818033557.jpg',
-              );
-            }
-            final ImageProvider profileImage;
-            final String? profileUrl = family.fotoPerfilUrl;
-            if (profileUrl != null && profileUrl.isNotEmpty) {
-              profileImage = NetworkImage('$baseUrl$profileUrl');
-            } else {
-              profileImage = const AssetImage(
-                'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-              );
-            }
+
+            final coverUrlRaw = (family.fotoPortadaUrl ?? '').toString();
+            final profileUrlRaw = (family.fotoPerfilUrl ?? '').toString();
+
+            final coverAbs = _absUrl(coverUrlRaw);
+            final profileAbs = _absUrl(profileUrlRaw);
+            debugPrint('foto_portada_url = ${family.fotoPortadaUrl}');
+            debugPrint('foto_perfil_url  = ${family.fotoPerfilUrl}');
+            debugPrint('baseUrl          = ${ApiHttp.baseUrl}');
+
+            final ImageProvider coverImage = coverAbs.isNotEmpty
+                ? NetworkImage(coverAbs)
+                : const AssetImage(
+                    'assets/img/familia-extensa-e1591818033557.jpg',
+                  );
+
+            final ImageProvider profileImage = profileAbs.isNotEmpty
+                ? NetworkImage(profileAbs)
+                : const AssetImage(
+                    'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
+                  );
 
             return SingleChildScrollView(
               child: Column(
@@ -230,7 +300,9 @@ class _FamilyPageState extends State<FamiliyPage> {
                     child: FamilyWidget(
                       backgroundImage: coverImage,
                       circleImage: profileImage,
-                      onTap: () {},
+                      // ✅ evita “freeze”: solo abrir si hay URL real
+                      canOpenCover: coverAbs.isNotEmpty,
+                      canOpenProfile: profileAbs.isNotEmpty,
                     ),
                   ),
                   const SizedBox(height: 5),
@@ -249,7 +321,6 @@ class _FamilyPageState extends State<FamiliyPage> {
                     ),
                   ),
                   const SizedBox(height: 10),
-
                   if (![
                     'Hijo',
                     'HijoEDI',
@@ -257,11 +328,9 @@ class _FamilyPageState extends State<FamiliyPage> {
                     'Estudiante',
                   ].contains(_userRole))
                     _bottomEditProfile(),
-
                   const SizedBox(height: 10),
                   _buildToggleButtons(),
                   const SizedBox(height: 10),
-
                   mostrarHijos
                       ? Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -320,7 +389,15 @@ class _FamilyPageState extends State<FamiliyPage> {
                   final f = familias[index];
                   final int numAlumnos = f['num_alumnos'] ?? 0;
                   final bool estaLleno = numAlumnos >= 10;
-                  final String baseUrl = ApiHttp.baseUrl;
+
+                  final portadaRaw = _pickField(f, [
+                    'foto_portada_url',
+                    'fotoPortadaUrl',
+                    'portada',
+                    'foto_portada',
+                  ]);
+
+                  final portadaAbs = _absUrl(portadaRaw);
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 16),
@@ -330,34 +407,43 @@ class _FamilyPageState extends State<FamiliyPage> {
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       children: [
-                        // Portada con funcionalidad FullScreen
                         GestureDetector(
-                          onTap: () {
-                            if (f['portada'] != null) {
-                              _openFullScreen(
-                                context,
-                                NetworkImage('$baseUrl${f['portada']}'),
-                                'portada_${f['id_familia']}',
-                              );
-                            }
-                          },
+                          onTap: portadaAbs.isNotEmpty
+                              ? () => _openFullScreen(
+                                  context,
+                                  NetworkImage(portadaAbs),
+                                  'portada_${f['id_familia']}',
+                                )
+                              : null,
                           child: Stack(
                             children: [
                               Hero(
                                 tag: 'portada_${f['id_familia']}',
-                                child: Image.network(
-                                  '$baseUrl${f['portada']}',
-                                  height: 150,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (c, e, s) => Container(
-                                    height: 150,
-                                    color: Colors.grey[300],
-                                    child: const Icon(
-                                      Icons.image_not_supported,
-                                    ),
-                                  ),
-                                ),
+                                child: portadaAbs.isNotEmpty
+                                    ? Image.network(
+                                        portadaAbs,
+                                        height: 150,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (c, e, s) => Container(
+                                          width: double.infinity,
+                                          height: 150,
+                                          color: Colors.grey[300],
+                                          alignment: Alignment.center,
+                                          child: const Icon(
+                                            Icons.image_not_supported,
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
+                                        width: double.infinity,
+                                        height: 150,
+                                        color: Colors.grey[300],
+                                        alignment: Alignment.center,
+                                        child: const Icon(
+                                          Icons.image_not_supported,
+                                        ),
+                                      ),
                               ),
                               if (estaLleno)
                                 Container(
@@ -376,20 +462,18 @@ class _FamilyPageState extends State<FamiliyPage> {
                         ),
                         ListTile(
                           title: Text(
-                            f['nombre_familia'],
+                            (f['nombre_familia'] ?? '').toString(),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // USAMOS unescape.convert para limpiar el "&amp;"
                               Text(
-                                "Padres: ${unescape.convert(f['padres'] ?? '')}",
+                                "Padres: ${unescape.convert((f['padres'] ?? '').toString())}",
                               ),
                               Text("Integrantes: $numAlumnos / 10"),
                             ],
                           ),
-                          // Cambiamos el Icon por un IconButton para que sea interactivo
                           trailing: estaLleno
                               ? const Text(
                                   "LLENO",
@@ -403,15 +487,10 @@ class _FamilyPageState extends State<FamiliyPage> {
                                     Icons.info_outline,
                                     color: Color.fromRGBO(19, 67, 107, 1),
                                   ),
-                                  onPressed: () {
-                                    _mostrarDetallesRapidos(context, f);
-                                  },
+                                  onPressed: () =>
+                                      _mostrarDetallesRapidos(context, f),
                                 ),
-                          onTap: estaLleno
-                              ? null
-                              : () {
-                                  // Acción principal al tocar la tarjeta (ej. solicitar unirse)
-                                },
+                          onTap: estaLleno ? null : () {},
                         ),
                       ],
                     ),
@@ -422,16 +501,6 @@ class _FamilyPageState extends State<FamiliyPage> {
           ),
         ),
       ],
-    );
-  }
-
-  // Método auxiliar para abrir imagen (puedes usar el que ya tienes definido en tu clase)
-  void _openFullScreen(BuildContext context, ImageProvider image, String tag) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FullScreenImagePage(imageProvider: image, heroTag: tag),
-      ),
     );
   }
 
@@ -505,15 +574,11 @@ class _FamilyPageState extends State<FamiliyPage> {
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
         _buildToggleButton('Mis hijos EDI', mostrarHijos, () {
-          setState(() {
-            mostrarHijos = true;
-          });
+          setState(() => mostrarHijos = true);
         }),
         const SizedBox(width: 10),
         _buildToggleButton('Fotos', !mostrarHijos, () {
-          setState(() {
-            mostrarHijos = false;
-          });
+          setState(() => mostrarHijos = false);
         }),
       ],
     );
@@ -532,10 +597,7 @@ class _FamilyPageState extends State<FamiliyPage> {
             : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       ),
-      child: Text(
-        text,
-        style: TextStyle(color: isSelected ? Colors.black : Colors.black),
-      ),
+      child: Text(text, style: const TextStyle(color: Colors.black)),
     );
   }
 
@@ -579,13 +641,15 @@ class _FamilyPageState extends State<FamiliyPage> {
 class FamilyWidget extends StatelessWidget {
   final ImageProvider backgroundImage;
   final ImageProvider circleImage;
-  final VoidCallback onTap;
+  final bool canOpenCover;
+  final bool canOpenProfile;
 
   const FamilyWidget({
     super.key,
     required this.backgroundImage,
     required this.circleImage,
-    required this.onTap,
+    required this.canOpenCover,
+    required this.canOpenProfile,
   });
 
   void _openFullScreen(BuildContext context, ImageProvider image, String tag) {
@@ -602,7 +666,9 @@ class FamilyWidget extends StatelessWidget {
     return Stack(
       children: [
         GestureDetector(
-          onTap: () => _openFullScreen(context, backgroundImage, 'coverTag'),
+          onTap: canOpenCover
+              ? () => _openFullScreen(context, backgroundImage, 'coverTag')
+              : null,
           child: Hero(
             tag: 'coverTag',
             child: ClipRRect(
@@ -611,11 +677,18 @@ class FamilyWidget extends StatelessWidget {
                 fit: BoxFit.cover,
                 width: double.infinity,
                 height: 200,
+                // ✅ FIX: si falla, el placeholder NO se colapsa (evita la franja)
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
+                    width: double.infinity,
                     height: 200,
                     color: Colors.grey[300],
-                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.broken_image,
+                      color: Colors.grey,
+                      size: 42,
+                    ),
                   );
                 },
               ),
@@ -626,7 +699,9 @@ class FamilyWidget extends StatelessWidget {
           bottom: 10,
           left: 10,
           child: GestureDetector(
-            onTap: () => _openFullScreen(context, circleImage, 'profileTag'),
+            onTap: canOpenProfile
+                ? () => _openFullScreen(context, circleImage, 'profileTag')
+                : null,
             child: CircleAvatar(
               radius: 50,
               backgroundColor: Colors.white,
@@ -755,7 +830,6 @@ class ProfileCard extends StatelessWidget {
                 ],
               ),
             ),
-
             if (onChat != null)
               IconButton(
                 icon: const Icon(

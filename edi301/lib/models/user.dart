@@ -46,7 +46,10 @@ class User {
 
     admin: (j['admin'] ?? j['es_Admin']) == true,
     token: j['session_token'],
-
-    photoUrl: j['url_foto_perfil'] ?? j['url_imagen'] ?? j['FotoPerfil'],
+    photoUrl:
+        j['foto_perfil'] ??
+        j['url_foto_perfil'] ??
+        j['url_imagen'] ??
+        j['FotoPerfil'],
   );
 }

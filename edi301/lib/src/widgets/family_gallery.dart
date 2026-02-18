@@ -33,8 +33,10 @@ class _FamilyGalleryState extends State<FamilyGallery> {
   }
 
   String _getFullUrl(String rawUrl) {
+    if (rawUrl.isEmpty) return '';
     if (rawUrl.startsWith('http')) return rawUrl;
-    return '${ApiHttp.baseUrl}$rawUrl';
+    final normalized = rawUrl.startsWith('/') ? rawUrl : '/$rawUrl';
+    return '${ApiHttp.baseUrl}$normalized';
   }
 
   void _abrirVisor(int indexInicial) {

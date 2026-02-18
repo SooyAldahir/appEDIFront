@@ -25,7 +25,6 @@ class _PerfilPageState extends State<PerfilPage> {
   final ApiHttp _http = ApiHttp();
   final TokenStorage _storage = TokenStorage();
 
-  // Datos base
   Map<String, dynamic> data = {
     'name': '—',
     'matricula': '—',
@@ -54,22 +53,29 @@ class _PerfilPageState extends State<PerfilPage> {
     _loadProfile();
   }
 
-  // --- MÉTODO DE FORMATEO AÑADIDO ---
   String _formatFecha(String? fechaRaw) {
     if (fechaRaw == null || fechaRaw.isEmpty || fechaRaw == '—') return '—';
     try {
       DateTime fecha = DateTime.parse(fechaRaw);
       return DateFormat('dd/MM/yyyy').format(fecha);
     } catch (e) {
-      // Si falla el parseo, intentamos limpiar el string manualmente
       return fechaRaw.split('T')[0];
     }
   }
 
   Future<void> _pickAndUploadProfile() async {
+    // ✅ FIX: evita subir si no hay id válido
+    if (_userId == null || _userId == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("No se pudo identificar el usuario (id inválido)"),
+        ),
+      );
+      return;
+    }
+
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
     if (image == null) return;
 
     setState(() => _loading = true);
@@ -92,12 +98,16 @@ class _PerfilPageState extends State<PerfilPage> {
         );
         await _fetchFromServer();
       } else {
-        print("Error subida: ${stream.statusCode}");
+        // ✅ FIX: imprime body real del error
+        final body = await stream.stream.bytesToString();
+        // ignore: avoid_print
+        print("Error subida: ${stream.statusCode} body=$body");
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Error al subir la imagen")),
         );
       }
     } catch (e) {
+      // ignore: avoid_print
       print("Error upload: $e");
       ScaffoldMessenger.of(
         context,
@@ -117,15 +127,22 @@ class _PerfilPageState extends State<PerfilPage> {
       String tipo = (u['tipo_usuario'] ?? u['TipoUsuario'] ?? '').toString();
 
       int id = 0;
-      if (u['id_usuario'] != null)
+      if (u['id_usuario'] != null) {
         id = int.tryParse(u['id_usuario'].toString()) ?? 0;
-      else if (u['IdUsuario'] != null)
+      } else if (u['IdUsuario'] != null) {
         id = int.tryParse(u['IdUsuario'].toString()) ?? 0;
-      else if (u['id'] != null)
+      } else if (u['id'] != null) {
         id = int.tryParse(u['id'].toString()) ?? 0;
+      }
 
       String nombre = (u['nombre'] ?? u['Nombre'] ?? '').toString();
       String apellido = (u['apellido'] ?? u['Apellido'] ?? '').toString();
+
+      // ✅ FIX: normaliza avatar también en local (antes quedaba "/uploads/..")
+      String avatar = (u['foto_perfil'] ?? u['FotoPerfil'] ?? '').toString();
+      if (avatar.isNotEmpty && !avatar.startsWith('http')) {
+        avatar = '${ApiHttp.baseUrl}$avatar';
+      }
 
       setState(() {
         _isAlumno = tipo.toUpperCase() == 'ALUMNO';
@@ -141,19 +158,19 @@ class _PerfilPageState extends State<PerfilPage> {
           'phone': (u['telefono'] ?? u['Telefono'] ?? '—').toString(),
           'residence': (u['residencia'] ?? u['Residencia'] ?? '—').toString(),
           'address': (u['direccion'] ?? u['Direccion'] ?? '—').toString(),
-          // APLICACIÓN DE FORMATO AQUÍ
           'birthday': _formatFecha(
             u['fecha_nacimiento'] ?? u['Fecha_Nacimiento'],
           ),
-          'avatarUrl':
-              (u['foto_perfil'] ?? u['FotoPerfil'] ?? data['avatarUrl'])
-                  .toString(),
+          'avatarUrl': avatar.isNotEmpty
+              ? avatar
+              : data['avatarUrl'].toString(),
           'status': (u['estado'] ?? u['Estado'] ?? 'Activo').toString(),
           'grade': (u['carrera'] ?? '—').toString(),
           'family': (u['nombre_familia'] ?? '—').toString(),
         };
       });
     } catch (e) {
+      // ignore: avoid_print
       print("Error cargando perfil local: $e");
     }
   }
@@ -163,9 +180,9 @@ class _PerfilPageState extends State<PerfilPage> {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('user');
       if (raw == null) return;
+
       final uLocal = jsonDecode(raw) as Map<String, dynamic>;
       final id = uLocal['IdUsuario'] ?? uLocal['id_usuario'] ?? _userId;
-
       if (id == null) return;
 
       final res = await _http.getJson('/api/usuarios/$id');
@@ -180,8 +197,7 @@ class _PerfilPageState extends State<PerfilPage> {
               .toString();
       String colorHex = (x['color_estado'] ?? '#13436B').toString();
 
-      String avatar = (x['foto_perfil'] ?? x['FotoPerfil'] ?? data['avatarUrl'])
-          .toString();
+      String avatar = (x['foto_perfil'] ?? x['FotoPerfil'] ?? '').toString();
       if (avatar.isNotEmpty && !avatar.startsWith('http')) {
         avatar = '${ApiHttp.baseUrl}$avatar';
       }
@@ -189,9 +205,9 @@ class _PerfilPageState extends State<PerfilPage> {
       setState(() {
         data = {
           ...data,
-          'name': (('$nombre $apellido').trim().isEmpty)
-              ? data['name']
-              : ('$nombre $apellido').trim(),
+          'name': (('$nombre $apellido').trim().isNotEmpty)
+              ? ('$nombre $apellido').trim()
+              : data['name'],
           'email': (x['correo'] ?? x['E_mail'] ?? data['email']).toString(),
           'matricula': (x['matricula'] ?? x['Matricula'] ?? data['matricula'])
               .toString(),
@@ -200,7 +216,6 @@ class _PerfilPageState extends State<PerfilPage> {
               .toString(),
           'address': (x['direccion'] ?? x['Direccion'] ?? data['address'])
               .toString(),
-          // APLICACIÓN DE FORMATO AQUÍ
           'birthday': _formatFecha(
             x['fecha_nacimiento'] ?? x['Fecha_Nacimiento'] ?? data['birthday'],
           ),
@@ -253,12 +268,14 @@ class _PerfilPageState extends State<PerfilPage> {
     try {
       await _http.postJson('/api/auth/logout');
     } catch (_) {}
+
     await _storage.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user');
 
-    if (mounted)
+    if (mounted) {
       Navigator.of(context).pushNamedAndRemoveUntil('login', (_) => false);
+    }
   }
 
   String s(String k, [String d = '—']) {
@@ -269,6 +286,7 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   bool get isInternal => s('residence').toLowerCase().startsWith('intern');
+
   Color _statusColor(String st) {
     final low = st.toLowerCase();
     if (low.contains('inac') || low.contains('baja') || low.contains('suspend'))
@@ -279,20 +297,25 @@ class _PerfilPageState extends State<PerfilPage> {
 
   void _showEstadoSelector() async {
     if (!_isAlumno || _userId == null) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
+
     final catalogo = await _estadosApi.getCatalogo();
+
     if (!mounted) return;
     Navigator.pop(context);
+
     if (catalogo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se pudieron cargar los estados')),
       );
       return;
     }
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -340,15 +363,17 @@ class _PerfilPageState extends State<PerfilPage> {
     final success = await _estadosApi.updateEstado(_userId!, idCatEstado);
     if (success) {
       await _fetchFromServer();
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Estado actualizado correctamente')),
         );
+      }
     } else {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error al actualizar estado')),
         );
+      }
     }
     setState(() => _loading = false);
   }
@@ -413,13 +438,10 @@ class _PerfilPageState extends State<PerfilPage> {
               statusColor: data['statusColorHex'] != null
                   ? hexToColor(data['statusColorHex'])
                   : _statusColor(s('status', 'Activo')),
-
               onEditAvatar: _pickAndUploadProfile,
-
               onTapStatus: _isAlumno ? _showEstadoSelector : null,
             ),
             const SizedBox(height: 12),
-
             SectionCard(
               title: 'Datos',
               primary: p,
@@ -442,7 +464,6 @@ class _PerfilPageState extends State<PerfilPage> {
               ],
             ),
             const SizedBox(height: 12),
-
             SectionCard(
               title: 'Contacto',
               primary: p,
