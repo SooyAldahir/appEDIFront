@@ -1,4 +1,4 @@
-import 'dart:io'; // Necesario para File()
+import 'dart:io';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/models/family_model.dart';
 import 'package:edi301/src/pages/Family/Edit/edit_controller.dart';
@@ -18,7 +18,8 @@ class EditPage extends StatefulWidget {
 class _EditPageState extends State<EditPage> {
   String? _currentProfileUrl;
   String? _currentCoverUrl;
-  final String _baseUrl = ApiHttp.baseUrl;
+  final String _baseUrl =
+      ApiHttp.baseUrl; // Asegúrate que esta URL no termine en '/'
 
   final EditController _controller = EditController();
 
@@ -26,7 +27,6 @@ class _EditPageState extends State<EditPage> {
   void initState() {
     super.initState();
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
-      print('ID recibido en EditPage: ${widget.familyId}');
       _controller.init(context, widget.familyId, _loadData);
     });
   }
@@ -38,6 +38,14 @@ class _EditPageState extends State<EditPage> {
         _currentCoverUrl = family.fotoPortadaUrl;
       });
     }
+  }
+
+  // Función auxiliar para construir URLs válidas
+  String _buildUrl(String? path) {
+    if (path == null || path.isEmpty) return '';
+    if (path.startsWith('http')) return path;
+    // Corrige slashes dobles si existen
+    return '$_baseUrl${path.startsWith('/') ? '' : '/'}$path';
   }
 
   @override
@@ -52,6 +60,7 @@ class _EditPageState extends State<EditPage> {
         child: SingleChildScrollView(
           child: Column(
             children: [
+              // ================= SECCIÓN FOTO DE PERFIL =================
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -68,9 +77,7 @@ class _EditPageState extends State<EditPage> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () {
-                        _controller.selectProfileImage();
-                      },
+                      onTap: () => _controller.selectProfileImage(),
                       child: const Text(
                         'Editar',
                         style: TextStyle(fontSize: 16, color: Colors.blue),
@@ -84,27 +91,21 @@ class _EditPageState extends State<EditPage> {
               ValueListenableBuilder<XFile?>(
                 valueListenable: _controller.profileImage,
                 builder: (context, newImage, child) {
-                  ImageProvider profileProvider;
-                  if (newImage != null) {
-                    profileProvider = FileImage(File(newImage.path));
-                  } else if (_currentProfileUrl != null &&
-                      _currentProfileUrl!.isNotEmpty) {
-                    profileProvider = NetworkImage(
-                      '$_baseUrl$_currentProfileUrl',
-                    );
-                  } else {
-                    profileProvider = const AssetImage(
-                      'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-                    );
-                  }
-
                   return CircleAvatar(
                     radius: 60,
-                    backgroundImage: profileProvider,
+                    backgroundColor: Colors.grey[200],
+                    child: ClipOval(
+                      child: SizedBox(
+                        width: 120,
+                        height: 120,
+                        child: _buildProfileImage(newImage),
+                      ),
+                    ),
                   );
                 },
               ),
 
+              // ================= SECCIÓN FOTO DE PORTADA =================
               const SizedBox(height: 15),
               Padding(
                 padding: const EdgeInsets.symmetric(
@@ -122,9 +123,7 @@ class _EditPageState extends State<EditPage> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: () {
-                        _controller.selectCoverImage();
-                      },
+                      onTap: () => _controller.selectCoverImage(),
                       child: const Text(
                         'Editar',
                         style: TextStyle(fontSize: 16, color: Colors.blue),
@@ -148,34 +147,14 @@ class _EditPageState extends State<EditPage> {
                     child: ValueListenableBuilder<XFile?>(
                       valueListenable: _controller.coverImage,
                       builder: (context, newImage, child) {
-                        if (newImage != null) {
-                          return Image.file(
-                            File(newImage.path),
-                            width: double.infinity,
-                            height: 200,
-                            fit: BoxFit.cover,
-                          );
-                        } else if (_currentCoverUrl != null &&
-                            _currentCoverUrl!.isNotEmpty) {
-                          return Image.network(
-                            '$_baseUrl$_currentCoverUrl',
-                            width: double.infinity,
-                            height: 200,
-                            fit: BoxFit.cover,
-                          );
-                        } else {
-                          return Image.asset(
-                            'assets/img/familia-extensa-e1591818033557.jpg',
-                            width: double.infinity,
-                            height: 200,
-                            fit: BoxFit.cover,
-                          );
-                        }
+                        return _buildCoverImage(newImage);
                       },
                     ),
                   ),
                 ),
               ),
+
+              // ================= SECCIÓN DESCRIPCIÓN =================
               const SizedBox(height: 30),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -194,9 +173,8 @@ class _EditPageState extends State<EditPage> {
                       controller: _controller.descripcionCtrl,
                       maxLines: 5,
                       maxLength: 500,
-                      onChanged: (value) {
-                        _controller.descripcionModificada.value = true;
-                      },
+                      onChanged: (value) =>
+                          _controller.descripcionModificada.value = true,
                       decoration: InputDecoration(
                         hintText: 'Escribe una descripción para tu familia...',
                         hintStyle: const TextStyle(color: Colors.grey),
@@ -218,6 +196,8 @@ class _EditPageState extends State<EditPage> {
                 ),
               ),
               const SizedBox(height: 30),
+
+              // ================= BOTÓN GUARDAR =================
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: ValueListenableBuilder<bool>(
@@ -234,9 +214,7 @@ class _EditPageState extends State<EditPage> {
                       ),
                       onPressed: loading
                           ? null
-                          : () {
-                              _controller.saveChanges();
-                            },
+                          : () => _controller.saveChanges(),
                       child: loading
                           ? const CircularProgressIndicator(
                               valueColor: AlwaysStoppedAnimation<Color>(
@@ -256,6 +234,71 @@ class _EditPageState extends State<EditPage> {
           ),
         ),
       ),
+    );
+  }
+
+  // Lógica segura para imagen de perfil
+  Widget _buildProfileImage(XFile? newImage) {
+    if (newImage != null) {
+      return Image.file(File(newImage.path), fit: BoxFit.cover);
+    }
+
+    final url = _buildUrl(_currentProfileUrl);
+    if (url.isNotEmpty) {
+      return Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          // SI FALLA LA URL, MUESTRA LA IMAGEN POR DEFECTO
+          return Image.asset(
+            'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
+            fit: BoxFit.cover,
+          );
+        },
+      );
+    }
+
+    return Image.asset(
+      'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
+      fit: BoxFit.cover,
+    );
+  }
+
+  // Lógica segura para imagen de portada
+  Widget _buildCoverImage(XFile? newImage) {
+    if (newImage != null) {
+      return Image.file(
+        File(newImage.path),
+        width: double.infinity,
+        height: 200,
+        fit: BoxFit.cover,
+      );
+    }
+
+    final url = _buildUrl(_currentCoverUrl);
+    if (url.isNotEmpty) {
+      return Image.network(
+        url,
+        width: double.infinity,
+        height: 200,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          // SI FALLA LA URL, MUESTRA LA IMAGEN POR DEFECTO
+          return Image.asset(
+            'assets/img/familia-extensa-e1591818033557.jpg',
+            width: double.infinity,
+            height: 200,
+            fit: BoxFit.cover,
+          );
+        },
+      );
+    }
+
+    return Image.asset(
+      'assets/img/familia-extensa-e1591818033557.jpg',
+      width: double.infinity,
+      height: 200,
+      fit: BoxFit.cover,
     );
   }
 }

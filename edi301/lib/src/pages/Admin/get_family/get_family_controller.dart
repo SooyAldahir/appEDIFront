@@ -1,62 +1,62 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:edi301/models/family_model.dart' as fm;
 import 'package:edi301/services/familia_api.dart';
-import 'package:edi301/src/pages/Admin/add_family/add_family_controller.dart'
-    show AddFamilyController;
+import 'dart:async';
 
 class GetFamilyController {
-  final searchCtrl = TextEditingController();
-  final ValueNotifier<List<fm.Family>> results = ValueNotifier<List<fm.Family>>(
-    [],
-  );
+  late BuildContext context;
+  final FamiliaApi _familiaApi = FamiliaApi();
 
-  final _api = FamiliaApi();
-  Timer? _debounce;
-  late BuildContext _ctx;
+  // Lista completa de familias (la fuente de la verdad)
+  List<dynamic> _allFamilies = [];
+
+  // Lista filtrada que se muestra en pantalla
+  ValueNotifier<List<dynamic>> families = ValueNotifier([]);
+  ValueNotifier<bool> isLoading = ValueNotifier(false);
 
   Future<void> init(BuildContext context) async {
-    _ctx = context;
-    searchCtrl.addListener(_onChanged);
+    this.context = context;
+    await loadFamilies();
   }
 
-  void _onChanged() {
-    final q = searchCtrl.text.trim();
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 350), () => search(q));
+  Future<void> loadFamilies() async {
+    isLoading.value = true;
+    try {
+      // Usamos el endpoint que ya ordena por num_alumnos
+      final data = await _familiaApi.getAvailable();
+      if (data != null) {
+        _allFamilies = List<dynamic>.from(data);
+        // Inicialmente mostramos todas
+        families.value = _allFamilies;
+      }
+    } catch (e) {
+      print('Error cargando familias: $e');
+    } finally {
+      isLoading.value = false;
+    }
   }
 
-  Future<void> searchNow() => search(searchCtrl.text);
-
-  Future<void> search(String raw) async {
-    var q = raw.trim();
-    if (q.isEmpty) {
-      results.value = [];
+  void onSearchChanged(String query) {
+    if (query.isEmpty) {
+      families.value = _allFamilies;
       return;
     }
 
-    q = q
-        .replaceFirst(RegExp(r'^\s*familia\s+', caseSensitive: false), '')
-        .trim();
+    final lowerQuery = query.toLowerCase();
 
-    try {
-      final data = await _api.buscarFamiliasPorNombre(q);
-      results.value = data.map((m) => fm.Family.fromJson(m)).toList();
-    } catch (e) {
-      if (_ctx.mounted) {
-        ScaffoldMessenger.of(
-          _ctx,
-        ).showSnackBar(SnackBar(content: Text('Error al buscar familias: $e')));
-      }
-      final data = await _api.buscarFamiliasPorNombre(q);
-      results.value = data.map((m) => fm.Family.fromJson(m)).toList();
-      AddFamilyController.familyList.value = results.value;
-    }
+    families.value = _allFamilies.where((f) {
+      final nombre = (f['nombre_familia'] ?? '').toString().toLowerCase();
+      final padres = (f['padres'] ?? '').toString().toLowerCase();
+
+      return nombre.contains(lowerQuery) || padres.contains(lowerQuery);
+    }).toList();
   }
 
-  void dispose() {
-    _debounce?.cancel();
-    searchCtrl.dispose();
-    results.dispose();
+  void goToDetail(dynamic familia) {
+    // Asumiendo que 'family_detail' es la ruta de admin para ver detalles
+    Navigator.pushNamed(
+      context,
+      'family_detail',
+      arguments: familia['id_familia'],
+    );
   }
 }

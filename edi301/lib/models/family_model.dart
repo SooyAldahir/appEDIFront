@@ -8,6 +8,7 @@ class FamilyMember {
   final String? telefono;
   final String? carrera;
   final String? fechaNacimiento;
+  final String? fotoPerfil;
 
   FamilyMember({
     required this.idMiembro,
@@ -18,6 +19,7 @@ class FamilyMember {
     this.telefono,
     this.carrera,
     this.fechaNacimiento,
+    this.fotoPerfil,
   });
 
   factory FamilyMember.fromJson(Map<String, dynamic> j) {
@@ -43,6 +45,7 @@ class FamilyMember {
       telefono: j['telefono']?.toString(),
       carrera: j['carrera']?.toString(),
       fechaNacimiento: parseDate(j['fecha_nacimiento']),
+      fotoPerfil: j['foto_perfil_url']?.toString(),
     );
   }
 }

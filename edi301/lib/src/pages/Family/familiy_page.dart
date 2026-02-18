@@ -39,28 +39,19 @@ class _FamilyPageState extends State<FamiliyPage> {
   }
 
   // ========= FIX 1: URL robusta para imágenes =========
-  // Soporta:
-  //  - "/uploads/xx.webp"
-  //  - "uploads/xx.webp"
-  //  - "public/uploads/xx.webp"
-  //  - "C:\...\uploads\xx.webp"
   String _absUrl(String raw) {
-    if (raw.isEmpty) return '';
+    if (raw.isEmpty || raw == 'null') return '';
     var s = raw.trim();
 
-    // si ya es URL completa
     if (s.startsWith('http://') || s.startsWith('https://')) return s;
 
-    // normaliza backslashes
     s = s.replaceAll('\\', '/');
 
-    // si viene con "public/uploads/..." lo recortamos
     final idxPublic = s.indexOf('public/uploads/');
     if (idxPublic != -1) {
-      s = s.substring(idxPublic + 'public'.length); // deja "/uploads/..."
+      s = s.substring(idxPublic + 'public'.length);
     }
 
-    // si contiene "/uploads/" en medio, recortamos desde ahí
     final idxUploads = s.indexOf('/uploads/');
     if (idxUploads != -1) {
       s = s.substring(idxUploads);
@@ -91,7 +82,6 @@ class _FamilyPageState extends State<FamiliyPage> {
       final res = await _familiaApi.getAvailable();
       final list = (res ?? []).toList();
 
-      // Orden menor -> mayor por num_alumnos
       list.sort((a, b) {
         final na = (a['num_alumnos'] ?? 0) as int;
         final nb = (b['num_alumnos'] ?? 0) as int;
@@ -139,7 +129,6 @@ class _FamilyPageState extends State<FamiliyPage> {
       if (data != null) return Family.fromJson(data);
       return null;
     } catch (e) {
-      // ignore: avoid_print
       print('Error al cargar familia: $e');
       return null;
     }
@@ -261,7 +250,6 @@ class _FamilyPageState extends State<FamiliyPage> {
               return const Center(child: CircularProgressIndicator());
             }
 
-            // si no tiene familia -> mostrar lista disponible
             if (snapshot.hasError ||
                 !snapshot.hasData ||
                 snapshot.data == null) {
@@ -275,9 +263,6 @@ class _FamilyPageState extends State<FamiliyPage> {
 
             final coverAbs = _absUrl(coverUrlRaw);
             final profileAbs = _absUrl(profileUrlRaw);
-            debugPrint('foto_portada_url = ${family.fotoPortadaUrl}');
-            debugPrint('foto_perfil_url  = ${family.fotoPerfilUrl}');
-            debugPrint('baseUrl          = ${ApiHttp.baseUrl}');
 
             final ImageProvider coverImage = coverAbs.isNotEmpty
                 ? NetworkImage(coverAbs)
@@ -300,7 +285,6 @@ class _FamilyPageState extends State<FamiliyPage> {
                     child: FamilyWidget(
                       backgroundImage: coverImage,
                       circleImage: profileImage,
-                      // ✅ evita “freeze”: solo abrir si hay URL real
                       canOpenCover: coverAbs.isNotEmpty,
                       canOpenProfile: profileAbs.isNotEmpty,
                     ),
@@ -470,8 +454,43 @@ class _FamilyPageState extends State<FamiliyPage> {
                             children: [
                               Text(
                                 "Padres: ${unescape.convert((f['padres'] ?? '').toString())}",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[800],
+                                ),
                               ),
-                              Text("Integrantes: $numAlumnos / 10"),
+                              const SizedBox(height: 2),
+                              Text(
+                                "Integrantes: $numAlumnos / 10",
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey[300]!),
+                                ),
+                                child: Text(
+                                  (f['descripcion'] != null &&
+                                          f['descripcion']
+                                              .toString()
+                                              .isNotEmpty)
+                                      ? f['descripcion'].toString()
+                                      : "Sin descripción disponible.",
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                           trailing: estaLleno
@@ -510,27 +529,29 @@ class _FamilyPageState extends State<FamiliyPage> {
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: ElevatedButton(
         onPressed: () async {
-          final prefs = await SharedPreferences.getInstance();
-          final rawUser = prefs.getString('user');
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            final rawUser = prefs.getString('user');
+            if (rawUser == null) {
+              _controller.goToEditPage(context);
+              return;
+            }
 
-          if (rawUser != null) {
             final user = jsonDecode(rawUser);
-            final idFamilia =
-                user['id_familia'] ??
-                user['FamiliaID'] ??
-                user['familia_id'] ??
-                user['idFamilia'];
+            final dynamic idRaw =
+                user['id_familia'] ?? user['idFamilia'] ?? user['FamiliaID'];
 
-            if (idFamilia != null) {
-              final id = int.tryParse(idFamilia.toString());
-
-              if (id != null && id > 0) {
+            if (idRaw != null &&
+                idRaw.toString() != '0' &&
+                idRaw.toString() != 'null') {
+              final int? id = int.tryParse(idRaw.toString());
+              if (id != null) {
                 final result = await Navigator.pushNamed(
                   context,
                   'edit',
                   arguments: id,
                 );
-                if (result == true) {
+                if (result == true && mounted) {
                   setState(() {
                     _familyFuture = _fetchFamilyData();
                   });
@@ -538,8 +559,10 @@ class _FamilyPageState extends State<FamiliyPage> {
                 return;
               }
             }
+            _controller.goToEditPage(context);
+          } catch (e) {
+            debugPrint('Error crítico al navegar a edición: $e');
           }
-          _controller.goToEditPage(context);
         },
         style: ElevatedButton.styleFrom(
           shape: RoundedRectangleBorder(
@@ -618,8 +641,25 @@ class _FamilyPageState extends State<FamiliyPage> {
       separatorBuilder: (context, index) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
         final hijo = hijos[index];
+
+        // LÓGICA DE FOTO CORREGIDA
+        String imageUrl;
+        final rawUrl = hijo.fotoPerfil ?? '';
+
+        if (rawUrl.isNotEmpty) {
+          final absUrl = _absUrl(rawUrl);
+          if (absUrl.isNotEmpty) {
+            imageUrl = absUrl;
+          } else {
+            imageUrl =
+                'https://cdn-icons-png.flaticon.com/512/7141/7141724.png';
+          }
+        } else {
+          imageUrl = 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png';
+        }
+
         return ProfileCard(
-          imageUrl: 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
+          imageUrl: imageUrl, // Se pasa la URL válida (local o remota)
           name: hijo.fullName,
           school: hijo.carrera,
           fechaNacimiento: hijo.fechaNacimiento,
@@ -652,15 +692,6 @@ class FamilyWidget extends StatelessWidget {
     required this.canOpenProfile,
   });
 
-  void _openFullScreen(BuildContext context, ImageProvider image, String tag) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FullScreenImagePage(imageProvider: image, heroTag: tag),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -671,26 +702,20 @@ class FamilyWidget extends StatelessWidget {
               : null,
           child: Hero(
             tag: 'coverTag',
-            child: ClipRRect(
-              child: Image(
-                image: backgroundImage,
-                fit: BoxFit.cover,
+            child: Image(
+              image: backgroundImage,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: 200,
+              errorBuilder: (context, error, stackTrace) => Container(
                 width: double.infinity,
                 height: 200,
-                // ✅ FIX: si falla, el placeholder NO se colapsa (evita la franja)
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: double.infinity,
-                    height: 200,
-                    color: Colors.grey[300],
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.broken_image,
-                      color: Colors.grey,
-                      size: 42,
-                    ),
-                  );
-                },
+                color: Colors.grey[300],
+                child: const Icon(
+                  Icons.broken_image,
+                  color: Colors.grey,
+                  size: 40,
+                ),
               ),
             ),
           ),
@@ -705,24 +730,37 @@ class FamilyWidget extends StatelessWidget {
             child: CircleAvatar(
               radius: 50,
               backgroundColor: Colors.white,
-              child: Hero(
-                tag: 'profileTag',
-                child: CircleAvatar(
-                  radius: 46,
-                  backgroundImage: circleImage,
-                  onBackgroundImageError: (exception, stackTrace) {},
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 0.3),
-                    ),
-                  ),
+              child: ClipOval(
+                child: Image(
+                  image: circleImage,
+                  width: 92,
+                  height: 92,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: Colors.grey[200],
+                      child: const Icon(
+                        Icons.person,
+                        size: 50,
+                        color: Colors.grey,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  void _openFullScreen(BuildContext context, ImageProvider image, String tag) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FullScreenImagePage(imageProvider: image, heroTag: tag),
+      ),
     );
   }
 }
@@ -805,7 +843,23 @@ class ProfileCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            CircleAvatar(backgroundImage: NetworkImage(imageUrl), radius: 30),
+            // Aquí usamos Image.network en vez de backgroundImage para mejor control si la URL es remota
+            ClipOval(
+              child: Image.network(
+                imageUrl,
+                width: 60,
+                height: 60,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Image.network(
+                    'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                  );
+                },
+              ),
+            ),
             const SizedBox(width: 15),
             Expanded(
               child: Column(

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/services/users_api.dart';
@@ -36,8 +35,19 @@ class FamilyController {
   }
 
   Future<int?> _resolveFamilyId() async {
+    // 1. Intentamos leer del caché local (SharedPreferences)
     final cachedId = await _readFamilyIdFromSession();
-    if (cachedId != null) return cachedId;
+    if (cachedId != null && cachedId > 0) {
+      debugPrint(
+        'FamilyController: ID encontrado en sesión local -> $cachedId',
+      );
+      return cachedId;
+    }
+
+    // 2. Si no está en caché, consultamos a la API directamente
+    debugPrint(
+      'FamilyController: ID no encontrado en sesión, consultando API...',
+    );
     return _fetchFamilyIdByDocument();
   }
 
@@ -48,31 +58,58 @@ class FamilyController {
 
     try {
       final dynamic decoded = jsonDecode(rawUser);
+      // Imprimir para depurar qué está guardado en el celular
+      // debugPrint('USER DATA EN CACHÉ: $decoded');
       return _extractFamilyId(decoded);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Error parseando usuario de sesión: $e');
       return null;
     }
-
-    return null;
   }
 
   int? _extractFamilyId(dynamic data) {
     if (data == null) return null;
 
+    // 1. Búsqueda directa (Más rápida y segura)
+    if (data is Map) {
+      // Lista de posibles nombres de la columna en la BD o JSON
+      const keys = [
+        'id_familia',
+        'familia_id',
+        'FamiliaID',
+        'idFamilia',
+        'familiaId',
+      ];
+      for (final key in keys) {
+        if (data.containsKey(key)) {
+          final val = _asInt(data[key]);
+          if (val != null && val > 0) return val;
+        }
+      }
+
+      // A veces viene anidado en un objeto 'familia'
+      if (data['familia'] is Map) {
+        final nestedId = _asInt(
+          data['familia']['id_familia'] ?? data['familia']['id'],
+        );
+        if (nestedId != null && nestedId > 0) return nestedId;
+      }
+    }
+
+    // 2. Búsqueda recursiva (Tu lógica original, como respaldo)
     if (data is Map) {
       for (final entry in data.entries) {
         final key = entry.key.toString().toLowerCase();
+        // Evitamos falsos positivos con claves que contengan "id" pero no sean lo que buscamos
         if (key.contains('familia') && key.contains('id')) {
           final parsed = _asInt(entry.value);
-          if (parsed != null) {
-            return parsed;
-          }
+          if (parsed != null && parsed > 0) return parsed;
         }
       }
-      for (final entry in data.entries) {
-        final value = entry.value;
-        if (value is Map || value is List) {
-          final nested = _extractFamilyId(value);
+      // Búsqueda profunda
+      for (final entry in data.values) {
+        if (entry is Map || entry is List) {
+          final nested = _extractFamilyId(entry);
           if (nested != null) return nested;
         }
       }
@@ -86,9 +123,11 @@ class FamilyController {
   }
 
   int? _asInt(dynamic value) {
+    if (value == null) return null;
     if (value is int) return value;
-    if (value is num) return value.toInt();
+    if (value is double) return value.toInt();
     if (value is String) {
+      if (value.toLowerCase() == "null") return null;
       return int.tryParse(value);
     }
     return null;
@@ -99,21 +138,40 @@ class FamilyController {
       final prefs = await SharedPreferences.getInstance();
       final rawUser = prefs.getString('user');
       if (rawUser == null) return null;
+
       final Map<String, dynamic> user = Map<String, dynamic>.from(
         jsonDecode(rawUser) as Map,
       );
 
       final matricula = _asInt(user['matricula'] ?? user['Matricula']);
-      final numEmpleado = _asInt(user['numEmpleado'] ?? user['NumEmpleado']);
-      if (matricula == null && numEmpleado == null) return null;
+      final numEmpleado = _asInt(
+        user['num_empleado'] ?? user['numEmpleado'] ?? user['NumEmpleado'],
+      );
+
+      // Si no tiene ni matrícula ni número de empleado, quizás es un padre registrado solo por ID
+      if (matricula == null && numEmpleado == null) {
+        debugPrint('FamilyController: Usuario sin matrícula ni num_empleado.');
+        return null;
+      }
 
       final familias = await _usersApi.familiasByDocumento(
         matricula: matricula,
         numEmpleado: numEmpleado,
       );
-      if (familias.isEmpty) return null;
+
+      if (familias.isEmpty) {
+        debugPrint(
+          'FamilyController: La API devolvió 0 familias para este usuario.',
+        );
+        return null;
+      }
+
+      debugPrint(
+        'FamilyController: Familia encontrada vía API -> ${familias.first.id}',
+      );
       return familias.first.id;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Error fetchFamilyIdByDocument: $e');
       return null;
     }
   }

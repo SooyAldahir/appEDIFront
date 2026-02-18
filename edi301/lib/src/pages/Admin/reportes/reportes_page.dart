@@ -1,9 +1,9 @@
-// lib/src/pages/Admin/reportes/reportes_page.dart
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:edi301/src/pages/Admin/get_family/get_family_controller.dart';
-import 'package:edi301/models/family_model.dart' as fm;
 import 'package:edi301/src/pages/Admin/reportes/reporte_familias_service.dart';
+import 'package:html_unescape/html_unescape.dart';
 
 class ReportesPage extends StatefulWidget {
   const ReportesPage({super.key});
@@ -13,27 +13,38 @@ class ReportesPage extends StatefulWidget {
 }
 
 class _ReportesPageState extends State<ReportesPage> {
-  final GetFamilyController _searchController = GetFamilyController();
+  // Usamos el mismo controlador renovado
+  final GetFamilyController _controller = GetFamilyController();
   final ReporteFamiliasService _reportService = ReporteFamiliasService();
+
+  // Controlador de texto local para la búsqueda
+  final TextEditingController _searchCtrl = TextEditingController();
+  final unescape = HtmlUnescape();
+
   bool _isLoadingGeneral = false;
   final Map<int, bool> _loadingIndividual = {};
 
   @override
   void initState() {
     super.initState();
-    _searchController.init(context);
-    _searchController.searchNow();
+    // Inicializamos el controlador después del primer frame
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _controller.init(context);
+    });
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _searchCtrl.dispose();
+    // No necesitamos dispose del controller si no tiene streams abiertos manualmente,
+    // pero si tuviera, aquí iría.
     super.dispose();
   }
 
   Future<void> _generarReporteGeneral() async {
     setState(() => _isLoadingGeneral = true);
     try {
+      // ignore: unused_local_variable
       final path = await _reportService.generarReporteGeneral();
       if (mounted) {
         _snack('Reporte general guardado y abierto.', isError: false);
@@ -52,6 +63,7 @@ class _ReportesPageState extends State<ReportesPage> {
   Future<void> _generarReporteIndividual(int familiaId) async {
     setState(() => _loadingIndividual[familiaId] = true);
     try {
+      // ignore: unused_local_variable
       final path = await _reportService.generarReporteIndividual(familiaId);
       if (mounted) {
         _snack('Reporte individual guardado y abierto.', isError: false);
@@ -78,7 +90,7 @@ class _ReportesPageState extends State<ReportesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final primary = const Color.fromRGBO(19, 67, 107, 1);
+    const primary = Color.fromRGBO(19, 67, 107, 1);
 
     return Scaffold(
       appBar: AppBar(
@@ -88,6 +100,7 @@ class _ReportesPageState extends State<ReportesPage> {
       body: ResponsiveContent(
         child: Column(
           children: [
+            // === BOTÓN REPORTE GENERAL ===
             Padding(
               padding: const EdgeInsets.all(16),
               child: ElevatedButton.icon(
@@ -95,7 +108,10 @@ class _ReportesPageState extends State<ReportesPage> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.white),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Icon(Icons.download_for_offline),
                 label: Text(
@@ -113,17 +129,29 @@ class _ReportesPageState extends State<ReportesPage> {
             ),
 
             const Divider(thickness: 2),
+
+            // === BUSCADOR ===
             _textFieldSearch(),
+
+            // === LISTA DE FAMILIAS ===
             Expanded(
-              child: ValueListenableBuilder<List<fm.Family>>(
-                valueListenable: _searchController.results,
-                builder: (_, families, __) {
-                  if (families.isEmpty) {
-                    return const Center(
-                      child: Text('No se encontraron familias.'),
-                    );
-                  }
-                  return _buildFamilyCards(families);
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _controller.isLoading,
+                builder: (context, loading, _) {
+                  if (loading)
+                    return const Center(child: CircularProgressIndicator());
+
+                  return ValueListenableBuilder<List<dynamic>>(
+                    valueListenable: _controller.families,
+                    builder: (_, families, __) {
+                      if (families.isEmpty) {
+                        return const Center(
+                          child: Text('No se encontraron familias.'),
+                        );
+                      }
+                      return _buildFamilyCards(families);
+                    },
+                  );
                 },
               ),
             ),
@@ -137,11 +165,11 @@ class _ReportesPageState extends State<ReportesPage> {
     return Container(
       margin: const EdgeInsets.fromLTRB(10, 10, 10, 20),
       child: TextField(
-        controller: _searchController.searchCtrl,
-        textInputAction: TextInputAction.search,
-        onSubmitted: (_) => _searchController.searchNow(),
+        controller: _searchCtrl,
+        // Conectamos el cambio de texto al filtro del controlador nuevo
+        onChanged: _controller.onSearchChanged,
         decoration: InputDecoration(
-          hintText: 'Buscar familia por nombre...',
+          hintText: 'Buscar familia por nombre o padres...',
           filled: true,
           fillColor: Colors.white,
           border: OutlineInputBorder(
@@ -155,26 +183,28 @@ class _ReportesPageState extends State<ReportesPage> {
               width: 2,
             ),
           ),
-          contentPadding: const EdgeInsets.all(15),
-          suffixIcon: IconButton(
-            icon: const Icon(
-              Icons.search,
-              color: Color.fromRGBO(19, 67, 107, 1),
-            ),
-            onPressed: _searchController.searchNow,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 15,
+          ),
+          prefixIcon: const Icon(
+            Icons.search,
+            color: Color.fromRGBO(19, 67, 107, 1),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFamilyCards(List<fm.Family> families) {
+  Widget _buildFamilyCards(List<dynamic> families) {
     return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 20),
       shrinkWrap: true,
       itemCount: families.length,
       itemBuilder: (context, index) {
         final f = families[index];
-        final bool isLoading = _loadingIndividual[f.id ?? 0] ?? false;
+        final int id = f['id_familia'] ?? 0;
+        final bool isLoading = _loadingIndividual[id] ?? false;
 
         return Card(
           color: const Color.fromARGB(255, 255, 205, 40),
@@ -186,17 +216,24 @@ class _ReportesPageState extends State<ReportesPage> {
           child: ListTile(
             contentPadding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
             title: Text(
-              f.familyName,
+              (f['nombre_familia'] ?? 'Sin Nombre').toString(),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              'Padre: ${f.fatherName ?? 'N/A'}\nMadre: ${f.motherName ?? 'N/A'}',
+              unescape.convert(
+                (f['padres'] ?? 'Sin padres asignados').toString(),
+              ),
+              style: const TextStyle(color: Colors.black87),
             ),
             isThreeLine: true,
             trailing: isLoading
-                ? const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: CircularProgressIndicator(),
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.black54,
+                    ),
                   )
                 : IconButton(
                     icon: const Icon(
@@ -206,10 +243,10 @@ class _ReportesPageState extends State<ReportesPage> {
                     ),
                     tooltip: 'Generar PDF Individual',
                     onPressed: () {
-                      if (f.id != null) {
-                        _generarReporteIndividual(f.id!);
+                      if (id > 0) {
+                        _generarReporteIndividual(id);
                       } else {
-                        _snack('Error: Esta familia no tiene un ID.');
+                        _snack('Error: Esta familia no tiene un ID válido.');
                       }
                     },
                   ),
