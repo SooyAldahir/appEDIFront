@@ -27,6 +27,9 @@ import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
 import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
 import 'package:edi301/src/pages/Admin/reportes/reportes_page.dart';
 
+// 1. IMPORTA TU NUEVO SERVICIO DE SOCKETS
+import 'package:edi301/services/socket_service.dart';
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -38,6 +41,10 @@ void main() async {
   await Firebase.initializeApp();
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // 2. INICIALIZA EL SOCKET AL ARRANCAR
+  // Esto permite que el socket empiece a conectar mientras carga el resto de la app
+  SocketService().initSocket();
 
   final notiService = NotificationService();
   await notiService.init();
@@ -115,17 +122,11 @@ class MyApp extends StatelessWidget {
         'family_detail': (_) => const FamilyDetailPage(),
         'student_detail': (_) => const StudentDetailPage(),
         'agenda': (context) => const AgendaPage(),
-        // En main.dart, dentro de routes:
         'crear_evento': (context) {
-          // 1. Capturamos los argumentos enviados desde la Agenda
           final args = ModalRoute.of(context)?.settings.arguments;
-
-          // 2. Verificamos si es un mapa (datos del evento) o null
           final Map<String, dynamic>? evento = (args is Map<String, dynamic>)
               ? args
               : null;
-
-          // 3. Pasamos el evento a la página
           return CreateEventPage(eventoExistente: evento);
         },
         'agenda_detail': (context) => const AgendaDetailPage(),

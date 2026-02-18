@@ -1,6 +1,6 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:edi301/services/chat_api.dart';
+import 'package:edi301/services/socket_service.dart'; // Importa el servicio de sockets
 
 class ChatPage extends StatefulWidget {
   final int idSala;
@@ -14,45 +14,64 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final ChatApi _api = ChatApi();
+  final SocketService _socketService =
+      SocketService(); // Instancia del servicio
   final TextEditingController _msgCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
 
   List<dynamic> _mensajes = [];
   bool _loading = true;
-  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _loadMessages();
-    _timer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _loadMessages(silent: true),
-    );
+    _setupSocketListeners(); // Configura la escucha en tiempo real
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    // Es vital limpiar los listeners para evitar fugas de memoria en tu Mac M4
+    _socketService.socket.off('nuevo_mensaje');
     _msgCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _loadMessages({bool silent = false}) async {
-    if (!silent) setState(() => _loading = true);
+  void _setupSocketListeners() {
+    _socketService.socket.emit('join_room', widget.idSala.toString());
+
+    _socketService.socket.on('nuevo_mensaje', (data) {
+      if (mounted) {
+        // OPTIMIZADO: Evitar duplicados comparando IDs (si el back envía id_mensaje)
+        final yaExiste = _mensajes.any(
+          (m) => m['id_mensaje'] == data['id_mensaje'],
+        );
+        if (!yaExiste) {
+          setState(() {
+            _mensajes.add(data);
+          });
+          _scrollToBottom();
+        }
+      }
+    });
+  }
+
+  Future<void> _loadMessages() async {
+    setState(() => _loading = true);
     final msgs = await _api.getMessages(widget.idSala);
     if (mounted) {
       setState(() {
         _mensajes = msgs;
         _loading = false;
       });
-      if (!silent) _scrollToBottom();
+      _scrollToBottom();
     }
   }
 
   void _scrollToBottom() {
     if (_scrollCtrl.hasClients) {
-      Future.delayed(const Duration(milliseconds: 100), () {
+      Future.delayed(const Duration(milliseconds: 200), () {
         _scrollCtrl.animateTo(
           _scrollCtrl.position.maxScrollExtent,
           duration: const Duration(milliseconds: 300),
@@ -67,12 +86,12 @@ class _ChatPageState extends State<ChatPage> {
     if (text.isEmpty) return;
 
     _msgCtrl.clear();
+
+    // Al enviar el mensaje, el servidor lo guardará y lo emitirá por Socket
+    // a todos los conectados, incluyéndote a ti.
     final success = await _api.sendMessage(widget.idSala, text);
 
-    if (success) {
-      _loadMessages(silent: true);
-      _scrollToBottom();
-    } else {
+    if (!success) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Error al enviar mensaje")));
@@ -99,6 +118,7 @@ class _ChatPageState extends State<ChatPage> {
                     itemCount: _mensajes.length,
                     itemBuilder: (ctx, i) {
                       final msg = _mensajes[i];
+                      // Verificamos si el mensaje es del usuario actual
                       final esMio = msg['es_mio'] == 1 || msg['es_mio'] == true;
 
                       return Align(
@@ -131,7 +151,7 @@ class _ChatPageState extends State<ChatPage> {
                             children: [
                               if (!esMio)
                                 Text(
-                                  msg['nombre_remitente'] ?? '',
+                                  msg['nombre_remitente'] ?? 'Usuario',
                                   style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
@@ -139,7 +159,7 @@ class _ChatPageState extends State<ChatPage> {
                                   ),
                                 ),
                               Text(
-                                msg['mensaje'],
+                                msg['mensaje'] ?? '',
                                 style: const TextStyle(fontSize: 16),
                               ),
                             ],
@@ -149,15 +169,21 @@ class _ChatPageState extends State<ChatPage> {
                     },
                   ),
           ),
-
           Container(
             padding: const EdgeInsets.all(10),
-            color: Colors.white,
+            decoration: BoxDecoration(
+              // OPTIMIZADO: Sombra sutil para separar del chat
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+            ),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _msgCtrl,
+                    textInputAction: TextInputAction
+                        .send, // OPTIMIZADO: Cambia icono del teclado
+                    onSubmitted: (_) => _sendMessage(),
                     decoration: InputDecoration(
                       hintText: "Escribe un mensaje...",
                       contentPadding: const EdgeInsets.symmetric(

@@ -55,6 +55,7 @@ dependencies:
   flutter_native_splash: ^2.4.2
 
   html_unescape: ^2.0.0
+  socket_io_client: ^3.1.4
 
 
 dev_dependencies:
