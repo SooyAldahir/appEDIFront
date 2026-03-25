@@ -44,8 +44,9 @@ class FullScreenImageViewer extends StatelessWidget {
           tag: heroTag,
           child: InteractiveViewer(
             panEnabled: true,
-            minScale: 0.5,
-            maxScale: 4.0,
+            minScale: 1.0,
+            maxScale: 5.0,
+            clipBehavior: Clip.none,
             child: Image(image: imageProvider, fit: BoxFit.contain),
           ),
         ),

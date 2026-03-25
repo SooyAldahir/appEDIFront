@@ -153,20 +153,22 @@ class _NotificationsPageState extends State<NotificationsPage> {
         title: Text(_esPadre ? "Solicitudes Pendientes" : "Mis Publicaciones"),
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _items.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _items.length,
-              itemBuilder: (context, index) {
-                final item = _items[index];
-                return _esPadre
-                    ? _buildApproverCard(item)
-                    : _buildStatusCard(item);
-              },
-            ),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _items.isEmpty
+            ? _buildEmptyState()
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _items.length,
+                itemBuilder: (context, index) {
+                  final item = _items[index];
+                  return _esPadre
+                      ? _buildApproverCard(item)
+                      : _buildStatusCard(item);
+                },
+              ),
+      ),
     );
   }
 

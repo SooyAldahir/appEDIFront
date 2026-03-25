@@ -50,78 +50,80 @@ class _GetFamilyPageState extends State<GetFamilyPage> {
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         elevation: 0,
       ),
-      body: ResponsiveContent(
-        child: Column(
-          children: [
-            // BARRA DE BÚSQUEDA
-            Container(
-              padding: const EdgeInsets.all(15),
-              color: const Color.fromRGBO(19, 67, 107, 1),
-              child: TextField(
-                controller: _searchCtrl,
-                onChanged: _controller.onSearchChanged,
-                style: const TextStyle(color: Colors.black),
-                decoration: InputDecoration(
-                  hintText: 'Buscar por apellido o padres...',
-                  hintStyle: TextStyle(color: Colors.grey[600]),
-                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(30),
-                    borderSide: BorderSide.none,
+      body: SafeArea(
+        child: ResponsiveContent(
+          child: Column(
+            children: [
+              // BARRA DE BÚSQUEDA
+              Container(
+                padding: const EdgeInsets.all(15),
+                color: const Color.fromRGBO(19, 67, 107, 1),
+                child: TextField(
+                  controller: _searchCtrl,
+                  onChanged: _controller.onSearchChanged,
+                  style: const TextStyle(color: Colors.black),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar por apellido o padres...',
+                    hintStyle: TextStyle(color: Colors.grey[600]),
+                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 ),
               ),
-            ),
 
-            // LISTA DE FAMILIAS
-            Expanded(
-              child: ValueListenableBuilder<bool>(
-                valueListenable: _controller.isLoading,
-                builder: (context, loading, _) {
-                  if (loading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+              // LISTA DE FAMILIAS
+              Expanded(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _controller.isLoading,
+                  builder: (context, loading, _) {
+                    if (loading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  return ValueListenableBuilder<List<dynamic>>(
-                    valueListenable: _controller.families,
-                    builder: (context, list, _) {
-                      if (list.isEmpty) {
-                        return const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.family_restroom_outlined,
-                                size: 60,
-                                color: Colors.grey,
-                              ),
-                              SizedBox(height: 10),
-                              Text(
-                                "No se encontraron familias",
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
-                          ),
+                    return ValueListenableBuilder<List<dynamic>>(
+                      valueListenable: _controller.families,
+                      builder: (context, list, _) {
+                        if (list.isEmpty) {
+                          return const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.family_restroom_outlined,
+                                  size: 60,
+                                  color: Colors.grey,
+                                ),
+                                SizedBox(height: 10),
+                                Text(
+                                  "No se encontraron familias",
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: list.length,
+                          itemBuilder: (context, index) {
+                            final f = list[index];
+                            return _buildFamilyCard(f);
+                          },
                         );
-                      }
-
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: list.length,
-                        itemBuilder: (context, index) {
-                          final f = list[index];
-                          return _buildFamilyCard(f);
-                        },
-                      );
-                    },
-                  );
-                },
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

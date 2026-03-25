@@ -38,26 +38,28 @@ class _AddAlumnsPageState extends State<AddAlumnsPage> {
         title: const Text('Asignar Alumnos a Familia'),
         backgroundColor: primary,
       ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildFamilySelector(),
-              const SizedBox(height: 30),
-              const Text(
-                'Buscar y Añadir Alumnos',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-              ),
-              const SizedBox(height: 10),
-              _buildAlumnSelector(),
-              const SizedBox(height: 20),
-              _buildSelectedAlumnsList(),
-              const SizedBox(height: 40),
-              _buildSaveButton(),
-            ],
+      body: SafeArea(
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFamilySelector(),
+                const SizedBox(height: 30),
+                const Text(
+                  'Buscar y Añadir Alumnos',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 10),
+                _buildAlumnSelector(),
+                const SizedBox(height: 20),
+                _buildSelectedAlumnsList(),
+                const SizedBox(height: 40),
+                _buildSaveButton(),
+              ],
+            ),
           ),
         ),
       ),

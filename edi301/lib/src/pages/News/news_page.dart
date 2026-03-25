@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/services/publicaciones_api.dart';
 import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
@@ -8,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/services/socket_service.dart';
 import 'package:edi301/src/pages/News/news_controller.dart';
 import 'package:edi301/src/pages/News/create_postpage.dart';
+import 'package:edi301/tools/fullscreen_image_viewer.dart';
 
 class NewsPage extends StatefulWidget {
   const NewsPage({super.key});
@@ -18,31 +20,150 @@ class NewsPage extends StatefulWidget {
 
 class _NewsPageState extends State<NewsPage> {
   final SocketService _socketService = SocketService();
+  TapDownDetails? _lastDoubleTapDownDetails;
 
   final HomeController _controller = HomeController();
   final PublicacionesApi _api = PublicacionesApi();
   final ApiHttp _http = ApiHttp();
 
+  final Map<int, GlobalKey> _likeButtonKeys = {};
+  final ScrollController _scrollController = ScrollController();
+
+  bool _loading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+
+  int _currentPage = 1;
+  final int _pageSize = 50;
+
   String _userRole = '';
   int _userId = 0;
   int? _familiaId;
 
-  bool _loading = true;
   List<dynamic> _posts = [];
+
+  GlobalKey _getLikeButtonKey(int postId) {
+    return _likeButtonKeys.putIfAbsent(postId, () => GlobalKey());
+  }
 
   @override
   void initState() {
     super.initState();
     _initData();
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 250) {
+        _loadMoreFeed();
+      }
+    });
+
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _controller.init(context);
     });
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _animateHeartOverlayToLike({
+    required int index,
+    required TapDownDetails details,
+  }) async {
+    final post = _posts[index];
+    final postId = post['id_post'];
+
+    final likeKey = _getLikeButtonKey(postId);
+    final likeContext = likeKey.currentContext;
+
+    if (likeContext == null) {
+      _toggleLike(index);
+      return;
+    }
+
+    final overlay = Overlay.of(context);
+    final likeBox = likeContext.findRenderObject() as RenderBox;
+
+    final start = details.globalPosition;
+    final end = likeBox.localToGlobal(
+      Offset(likeBox.size.width / 2, likeBox.size.height / 2),
+    );
+
+    final animation = ValueNotifier<double>(0.0);
+    late final OverlayEntry entry;
+
+    entry = OverlayEntry(
+      builder: (context) {
+        return IgnorePointer(
+          child: ValueListenableBuilder<double>(
+            valueListenable: animation,
+            builder: (context, t, _) {
+              final curved = Curves.easeInOutCubic.transform(t);
+
+              final dx = lerpDouble(start.dx, end.dx, curved)!;
+              final dy = lerpDouble(start.dy, end.dy, curved)!;
+
+              final scale = lerpDouble(1.35, 0.55, curved)!;
+              final opacity = lerpDouble(1.0, 0.75, curved)!;
+
+              return Stack(
+                children: [
+                  Positioned(
+                    left: dx - 22,
+                    top: dy - 22,
+                    child: Transform.scale(
+                      scale: scale,
+                      child: Opacity(
+                        opacity: opacity,
+                        child: const Icon(
+                          Icons.favorite,
+                          color: Colors.red,
+                          size: 44,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+
+    if (!mounted) return;
+    overlay.insert(entry);
+
+    final isLiked = post['is_liked'] == 1 || post['is_liked'] == true;
+    if (!isLiked) {
+      _toggleLike(index);
+    }
+
+    const totalDuration = Duration(milliseconds: 900);
+    const frameMs = 16;
+    final totalFrames = totalDuration.inMilliseconds ~/ frameMs;
+
+    for (int i = 0; i <= totalFrames; i++) {
+      if (!mounted) break;
+      animation.value = i / totalFrames;
+      await Future.delayed(const Duration(milliseconds: frameMs));
+    }
+
+    await Future.delayed(const Duration(milliseconds: 120));
+
+    animation.dispose();
+    if (entry.mounted) {
+      entry.remove();
+    }
+  }
+
   Future<void> _initData() async {
     await _loadUserData();
     _setupRealtime();
-    _loadFeed();
+    await _loadFeed();
   }
 
   Future<void> _loadUserData() async {
@@ -73,7 +194,6 @@ class _NewsPageState extends State<NewsPage> {
       _socketService.joinFamilyRoom(_familiaId!);
     }
 
-    // Evitar listeners duplicados
     _socketService.socket.off('feed_actualizado');
     _socketService.socket.on('feed_actualizado', (_) {
       if (mounted) _loadFeed();
@@ -112,16 +232,73 @@ class _NewsPageState extends State<NewsPage> {
 
   Future<void> _loadFeed() async {
     try {
-      final lista = await _api.getGlobalFeed();
       if (mounted) {
         setState(() {
-          _posts = lista;
+          _loading = true;
+          _currentPage = 1;
+          _hasMore = true;
+        });
+      }
+
+      final resp = await _api.getGlobalFeed(
+        page: _currentPage,
+        limit: _pageSize,
+      );
+
+      final data = List<dynamic>.from(resp['data'] ?? []);
+
+      if (mounted) {
+        setState(() {
+          _posts = data;
+          _hasMore = resp['hasMore'] == true;
+          _currentPage = 2;
           _loading = false;
         });
       }
     } catch (e) {
       print("Error cargando feed: $e");
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMoreFeed() async {
+    if (_loading || _isLoadingMore || !_hasMore) return;
+
+    try {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = true;
+        });
+      }
+
+      final resp = await _api.getGlobalFeed(
+        page: _currentPage,
+        limit: _pageSize,
+      );
+
+      final data = List<dynamic>.from(resp['data'] ?? []);
+
+      if (mounted) {
+        setState(() {
+          _posts.addAll(data);
+          _hasMore = resp['hasMore'] == true;
+          if (data.isNotEmpty) {
+            _currentPage++;
+          }
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      print("Error cargando más feed: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -141,10 +318,13 @@ class _NewsPageState extends State<NewsPage> {
 
   String _timeAgo(String? dateStr) {
     if (dateStr == null) return '';
-    final date = DateTime.tryParse(dateStr);
-    if (date == null) return '';
 
+    final parsed = DateTime.tryParse(dateStr);
+    if (parsed == null) return '';
+
+    final date = parsed.toLocal();
     final diff = DateTime.now().difference(date);
+
     if (diff.inDays > 7) {
       return "${date.day}/${date.month}/${date.year}";
     } else if (diff.inDays >= 1) {
@@ -160,12 +340,14 @@ class _NewsPageState extends State<NewsPage> {
 
   void _toggleLike(int index) async {
     final post = _posts[index];
-    final isLiked = post['is_liked'] == 1;
+    final isLiked = post['is_liked'] == 1 || post['is_liked'] == true;
     final postId = post['id_post'];
+    final likesCount =
+        int.tryParse(post['likes_count']?.toString() ?? '0') ?? 0;
 
     setState(() {
       _posts[index]['is_liked'] = isLiked ? 0 : 1;
-      _posts[index]['likes_count'] += isLiked ? -1 : 1;
+      _posts[index]['likes_count'] = isLiked ? likesCount - 1 : likesCount + 1;
     });
 
     try {
@@ -173,7 +355,7 @@ class _NewsPageState extends State<NewsPage> {
     } catch (e) {
       setState(() {
         _posts[index]['is_liked'] = isLiked ? 1 : 0;
-        _posts[index]['likes_count'] += isLiked ? 1 : -1;
+        _posts[index]['likes_count'] = likesCount;
       });
     }
   }
@@ -205,6 +387,9 @@ class _NewsPageState extends State<NewsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bannerOffset = ((_isAlumnoRole && !_hasFamiliaAsignada) ? 1 : 0);
+    final showLoaderItem = _hasMore && _posts.isNotEmpty;
+
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -239,12 +424,13 @@ class _NewsPageState extends State<NewsPage> {
           : RefreshIndicator(
               onRefresh: _loadFeed,
               child: ListView.builder(
+                controller: _scrollController,
                 padding: const EdgeInsets.only(bottom: 80),
                 itemCount:
                     (_posts.isEmpty ? 1 : _posts.length) +
-                    ((_isAlumnoRole && !_hasFamiliaAsignada) ? 1 : 0),
+                    bannerOffset +
+                    (showLoaderItem ? 1 : 0),
                 itemBuilder: (context, index) {
-                  // Banner
                   if ((_isAlumnoRole && !_hasFamiliaAsignada) && index == 0) {
                     return Container(
                       margin: const EdgeInsets.symmetric(
@@ -270,16 +456,18 @@ class _NewsPageState extends State<NewsPage> {
                     );
                   }
 
-                  // Ajuste índice real
-                  final offset = ((_isAlumnoRole && !_hasFamiliaAsignada)
-                      ? 1
-                      : 0);
-                  final realIndex = index - offset;
-
-                  // Empty state
                   if (_posts.isEmpty) return _buildEmptyState();
 
+                  if (showLoaderItem && index == _posts.length + bannerOffset) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  final realIndex = index - bannerOffset;
                   final item = _posts[realIndex];
+
                   if (item['tipo'] == 'EVENTO') return _buildEventCard(item);
                   return _buildPostCard(item, realIndex);
                 },
@@ -319,7 +507,6 @@ class _NewsPageState extends State<NewsPage> {
   }
 
   bool get _canCreatePost {
-    // ✅ Solo restringe a alumnos sin familia
     if (_isAlumnoRole && !_hasFamiliaAsignada) return false;
     return true;
   }
@@ -432,7 +619,6 @@ class _NewsPageState extends State<NewsPage> {
                 ),
               ),
             ),
-
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -483,15 +669,13 @@ class _NewsPageState extends State<NewsPage> {
     final nombreFamilia = post['nombre_familia'];
     final mensaje = post['mensaje'] ?? '';
     final urlImagen = post['url_imagen'];
-    // final tiempo = _timeAgo(post['created_at']); // (Opcional si quieres usarlo)
+    final tiempo = _timeAgo(post['created_at']);
     final esMiPost = post['id_usuario'] == _userId;
 
-    // CORRECCIÓN: Asegurar que sean int
     final likesCount = int.tryParse(post['likes_count'].toString()) ?? 0;
     final comentariosCount =
         int.tryParse(post['comentarios_count'].toString()) ?? 0;
 
-    // CORRECCIÓN: Manejo robusto del booleano is_liked
     final isLiked = post['is_liked'] == 1 || post['is_liked'] == true;
 
     final esCumple =
@@ -511,7 +695,6 @@ class _NewsPageState extends State<NewsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header de Cumpleaños
           if (esCumple)
             Container(
               width: double.infinity,
@@ -526,8 +709,6 @@ class _NewsPageState extends State<NewsPage> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),
-
-          // Header del Post (Avatar y Nombre)
           ListTile(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
@@ -549,13 +730,23 @@ class _NewsPageState extends State<NewsPage> {
               nombreUsuario,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
-            subtitle:
-                (nombreFamilia != null && nombreFamilia.toString().isNotEmpty)
-                ? Text(
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (nombreFamilia != null &&
+                    nombreFamilia.toString().isNotEmpty)
+                  Text(
                     "Con la $nombreFamilia",
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  )
-                : null,
+                  ),
+                if (tiempo.isNotEmpty)
+                  Text(
+                    tiempo,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+              ],
+            ),
             trailing: esMiPost
                 ? PopupMenuButton<String>(
                     onSelected: (val) {
@@ -578,49 +769,68 @@ class _NewsPageState extends State<NewsPage> {
                       ? const Icon(Icons.cake, color: Colors.pink)
                       : null),
           ),
-
-          // Imagen del Post (CON CORRECCIÓN DE ERROR 404)
           if (urlImagen != null &&
               urlImagen.toString().isNotEmpty &&
               urlImagen != 'null')
             GestureDetector(
-              onDoubleTap: () => _toggleLike(index),
-              child: Image.network(
-                _fixUrl(urlImagen),
-                fit: BoxFit.cover,
-                width: double.infinity,
-                // height: 300, // Puedes descomentar esto si quieres altura fija
-                loadingBuilder: (ctx, child, progress) {
-                  if (progress == null) return child;
-                  return Container(
-                    height: 200,
-                    color: Colors.grey[200],
-                    child: const Center(child: CircularProgressIndicator()),
-                  );
-                },
-                // AQUÍ ESTÁ LA MAGIA PARA EVITAR EL CRASH 404
-                errorBuilder: (context, error, stackTrace) {
-                  print("Error cargando imagen: $error"); // Solo log interno
-                  return Container(
-                    height: 150,
-                    width: double.infinity,
-                    color: Colors.grey[200],
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.broken_image, color: Colors.grey, size: 50),
-                        Text(
-                          "Imagen no disponible",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+              onTap: () {
+                final imageUrl = _fixUrl(urlImagen);
+                FullScreenImageViewer.open(
+                  context,
+                  imageProvider: NetworkImage(imageUrl),
+                  heroTag: 'post_image_${post['id_post']}',
+                );
+              },
+              onDoubleTapDown: (details) {
+                _lastDoubleTapDownDetails = details;
+              },
+              onDoubleTap: () {
+                final details = _lastDoubleTapDownDetails;
+                if (details != null) {
+                  _animateHeartOverlayToLike(index: index, details: details);
+                } else {
+                  _toggleLike(index);
+                }
+              },
+              child: Hero(
+                tag: 'post_image_${post['id_post']}',
+                child: Image.network(
+                  _fixUrl(urlImagen),
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  loadingBuilder: (ctx, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: const Center(child: CircularProgressIndicator()),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    print("Error cargando imagen: $error");
+                    return Container(
+                      height: 150,
+                      width: double.infinity,
+                      color: Colors.grey[200],
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.broken_image,
+                            color: Colors.grey,
+                            size: 50,
+                          ),
+                          Text(
+                            "Imagen no disponible",
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
-
-          // Mensaje
           if (mensaje.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(
@@ -629,15 +839,13 @@ class _NewsPageState extends State<NewsPage> {
               ),
               child: Text(mensaje, style: const TextStyle(fontSize: 15)),
             ),
-
-          // NUEVO: Barra de Acciones (Like y Comentar)
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             child: Row(
               children: [
-                // Botón de LIKE
                 TextButton.icon(
+                  key: _getLikeButtonKey(post['id_post']),
                   onPressed: () => _toggleLike(index),
                   icon: Icon(
                     isLiked ? Icons.favorite : Icons.favorite_border,
@@ -650,10 +858,7 @@ class _NewsPageState extends State<NewsPage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 15),
-
-                // Botón de COMENTAR
                 TextButton.icon(
                   onPressed: () => _showCommentsModal(context, post['id_post']),
                   icon: Icon(
@@ -812,7 +1017,6 @@ class _CommentsSheetState extends State<CommentsSheet> {
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const Divider(),
-
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())

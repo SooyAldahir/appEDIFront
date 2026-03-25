@@ -155,122 +155,129 @@ class _ChatPageState extends State<ChatPage> {
         title: Text(widget.nombreChat),
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _mensajes.isEmpty
-                ? const Center(child: Text("Inicia la conversación..."))
-                : ListView.builder(
-                    controller: _scrollCtrl,
-                    padding: const EdgeInsets.all(10),
-                    itemCount: _mensajes.length,
-                    itemBuilder: (ctx, i) {
-                      final msg = _mensajes[i];
-                      if (msg is! Map) return const SizedBox.shrink();
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _mensajes.isEmpty
+                  ? const Center(child: Text("Inicia la conversación..."))
+                  : ListView.builder(
+                      controller: _scrollCtrl,
+                      padding: const EdgeInsets.all(10),
+                      itemCount: _mensajes.length,
+                      itemBuilder: (ctx, i) {
+                        final msg = _mensajes[i];
+                        if (msg is! Map) return const SizedBox.shrink();
 
-                      final esMio = msg['es_mio'] == 1 || msg['es_mio'] == true;
+                        final esMio =
+                            msg['es_mio'] == 1 || msg['es_mio'] == true;
 
-                      return Align(
-                        alignment: esMio
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 5),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 15,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: esMio
-                                ? const Color.fromRGBO(245, 188, 6, 1)
-                                : Colors.grey[300],
-                            borderRadius: BorderRadius.only(
-                              topLeft: const Radius.circular(15),
-                              topRight: const Radius.circular(15),
-                              bottomLeft: esMio
-                                  ? const Radius.circular(15)
-                                  : Radius.zero,
-                              bottomRight: esMio
-                                  ? Radius.zero
-                                  : const Radius.circular(15),
+                        return Align(
+                          alignment: esMio
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 15,
+                              vertical: 10,
                             ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (!esMio)
-                                Text(
-                                  (msg['nombre_remitente'] ?? 'Usuario')
-                                      .toString(),
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              Text(
-                                (msg['mensaje'] ?? '').toString(),
-                                style: const TextStyle(fontSize: 16),
+                            decoration: BoxDecoration(
+                              color: esMio
+                                  ? const Color.fromRGBO(245, 188, 6, 1)
+                                  : Colors.grey[300],
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(15),
+                                topRight: const Radius.circular(15),
+                                bottomLeft: esMio
+                                    ? const Radius.circular(15)
+                                    : Radius.zero,
+                                bottomRight: esMio
+                                    ? Radius.zero
+                                    : const Radius.circular(15),
                               ),
-                              if (msg['_temp'] == true)
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 2),
-                                  child: Text(
-                                    'Enviando...',
-                                    style: TextStyle(
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (!esMio)
+                                  Text(
+                                    (msg['nombre_remitente'] ?? 'Usuario')
+                                        .toString(),
+                                    style: const TextStyle(
                                       fontSize: 10,
+                                      fontWeight: FontWeight.bold,
                                       color: Colors.black54,
                                     ),
                                   ),
+                                Text(
+                                  (msg['mensaje'] ?? '').toString(),
+                                  style: const TextStyle(fontSize: 16),
                                 ),
-                            ],
+                                if (msg['_temp'] == true)
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      'Enviando...',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                        );
+                      },
+                    ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _msgCtrl,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _sendMessage(),
-                    decoration: InputDecoration(
-                      hintText: "Escribe un mensaje...",
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _msgCtrl,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendMessage(),
+                      decoration: InputDecoration(
+                        hintText: "Escribe un mensaje...",
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[100],
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[100],
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                CircleAvatar(
-                  backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                    onPressed: _sendMessage,
+                  const SizedBox(width: 10),
+                  CircleAvatar(
+                    backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.send,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      onPressed: _sendMessage,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

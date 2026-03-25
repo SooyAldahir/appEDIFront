@@ -58,10 +58,41 @@ class AddFamilyController {
     _loading.dispose();
   }
 
+  String _firstSurname(String? fullLastName) {
+    if (fullLastName == null) return '';
+
+    final text = fullLastName.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (text.isEmpty) return '';
+
+    final parts = text.split(' ');
+    if (parts.isEmpty) return '';
+
+    final lower = parts.map((e) => e.toLowerCase()).toList();
+
+    if (parts.length >= 3 && lower[0] == 'de' && lower[1] == 'la') {
+      return '${parts[0]} ${parts[1]} ${parts[2]}';
+    }
+
+    if (parts.length >= 3 && lower[0] == 'de' && lower[1] == 'los') {
+      return '${parts[0]} ${parts[1]} ${parts[2]}';
+    }
+
+    if (parts.length >= 3 && lower[0] == 'de' && lower[1] == 'las') {
+      return '${parts[0]} ${parts[1]} ${parts[2]}';
+    }
+
+    if (parts.length >= 2 && (lower[0] == 'de' || lower[0] == 'del')) {
+      return '${parts[0]} ${parts[1]}';
+    }
+
+    return parts.first;
+  }
+
   void recomputeFamilyName() {
-    final f = _pickedFather?.apellido.trim().split(' ').first ?? '';
-    final m = _pickedMother?.apellido.trim().split(' ').first ?? '';
-    final base = [f, m].where((e) => e.isNotEmpty).join(' ');
+    final f = _firstSurname(_pickedFather?.apellido);
+    final m = _firstSurname(_pickedMother?.apellido);
+
+    final base = [f, m].where((e) => e.trim().isNotEmpty).join(' ');
     _familyName.value = base.isEmpty ? '' : 'Familia $base';
   }
 

@@ -117,94 +117,96 @@ class _CreatePostPageState extends State<CreatePostPage> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: _mensajeController,
-              maxLines: 5,
-              decoration: InputDecoration(
-                hintText: "¿Qué quieres compartir hoy?",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.grey[100],
-              ),
-            ),
-            const SizedBox(height: 20),
-            if (_imagenSeleccionada != null)
-              Stack(
-                alignment: Alignment.topRight,
-                children: [
-                  ClipRRect(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              TextField(
+                controller: _mensajeController,
+                maxLines: 5,
+                decoration: InputDecoration(
+                  hintText: "¿Qué quieres compartir hoy?",
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.file(
-                      _imagenSeleccionada!,
-                      height: 250,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
+                    borderSide: BorderSide.none,
                   ),
-                  GestureDetector(
-                    onTap: () => setState(() => _imagenSeleccionada = null),
-                    child: Container(
-                      margin: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.close, color: Colors.white),
-                    ),
-                  ),
-                ],
-              ),
-
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              onPressed: _seleccionarImagen,
-              icon: const Icon(Icons.photo_library),
-              label: const Text("Agregar Foto"),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  filled: true,
+                  fillColor: Colors.grey[100],
                 ),
               ),
-            ),
-
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: _cargando ? null : _enviarPost,
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: _esAutoridad
-                    ? Colors.green[600]
-                    : Colors.blueAccent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: _cargando
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Text(
-                      _esAutoridad ? "PUBLICAR AHORA" : "ENVIAR A APROBACIÓN",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+              const SizedBox(height: 20),
+              if (_imagenSeleccionada != null)
+                Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        _imagenSeleccionada!,
+                        height: 250,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
                       ),
                     ),
-            ),
-          ],
+                    GestureDetector(
+                      onTap: () => setState(() => _imagenSeleccionada = null),
+                      child: Container(
+                        margin: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: _seleccionarImagen,
+                icon: const Icon(Icons.photo_library),
+                label: const Text("Agregar Foto"),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _cargando ? null : _enviarPost,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: _esAutoridad
+                      ? Colors.green[600]
+                      : Colors.blueAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _cargando
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        _esAutoridad ? "PUBLICAR AHORA" : "ENVIAR A APROBACIÓN",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );

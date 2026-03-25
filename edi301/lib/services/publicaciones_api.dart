@@ -47,6 +47,7 @@ class PublicacionesApi {
         final file = await http.MultipartFile.fromPath('imagen', imagen.path);
         request.files.add(file);
       }
+
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
@@ -74,6 +75,7 @@ class PublicacionesApi {
           token = jsonDecode(uStr)['session_token'];
         }
       }
+
       final url = Uri.parse(
         '${ApiHttp.baseUrl}/api/publicaciones/familia/$idFamilia/pendientes',
       );
@@ -98,16 +100,36 @@ class PublicacionesApi {
     }
   }
 
-  Future<List<dynamic>> getPostsFamilia(int idFamilia) async {
+  Future<Map<String, dynamic>> getPostsFamilia(
+    int idFamilia, {
+    int page = 1,
+    int limit = 50,
+  }) async {
     try {
-      final res = await _http.getJson('/api/publicaciones/familia/$idFamilia');
+      final res = await _http.getJson(
+        '/api/publicaciones/familia/$idFamilia?page=$page&limit=$limit',
+      );
+
       if (res.statusCode == 200) {
-        return List<dynamic>.from(jsonDecode(res.body));
+        return Map<String, dynamic>.from(jsonDecode(res.body));
       }
-      return [];
+
+      return {
+        'page': page,
+        'limit': limit,
+        'count': 0,
+        'hasMore': false,
+        'data': <dynamic>[],
+      };
     } catch (e) {
       print("Error feed familia: $e");
-      return [];
+      return {
+        'page': page,
+        'limit': limit,
+        'count': 0,
+        'hasMore': false,
+        'data': <dynamic>[],
+      };
     }
   }
 
@@ -185,10 +207,16 @@ class PublicacionesApi {
     }
   }
 
-  Future<List<dynamic>> getGlobalFeed() async {
-    final response = await _http.getJson('/api/publicaciones/feed/global');
+  Future<Map<String, dynamic>> getGlobalFeed({
+    int page = 1,
+    int limit = 50,
+  }) async {
+    final response = await _http.getJson(
+      '/api/publicaciones/feed/global?page=$page&limit=$limit',
+    );
+
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      return Map<String, dynamic>.from(jsonDecode(response.body));
     } else {
       throw Exception('Error cargando feed global');
     }

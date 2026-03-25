@@ -29,6 +29,9 @@ class _PerfilPageState extends State<PerfilPage> {
   Map<String, dynamic> data = {
     'name': '—',
     'matricula': '—',
+    'numEmpleado': '—',
+    'docLabel': 'Matrícula',
+    'docValue': '—',
     'phone': '—',
     'email': '—',
     'residence': '—',
@@ -65,7 +68,6 @@ class _PerfilPageState extends State<PerfilPage> {
   }
 
   Future<void> _pickAndUploadProfile() async {
-    // ✅ FIX: evita subir si no hay id válido
     if (_userId == null || _userId == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -98,7 +100,6 @@ class _PerfilPageState extends State<PerfilPage> {
         );
         await _fetchFromServer();
       } else {
-        // ✅ FIX: imprime body real del error
         final body = await stream.stream.bytesToString();
         // ignore: avoid_print
         print("Error subida: ${stream.statusCode} body=$body");
@@ -143,8 +144,14 @@ class _PerfilPageState extends State<PerfilPage> {
         avatar = '${ApiHttp.baseUrl}$avatar';
       }
 
+      final isAlumno = tipo.toUpperCase() == 'ALUMNO';
+      final matricula = (u['matricula'] ?? u['Matricula'])?.toString();
+      final numEmpleado =
+          (u['num_empleado'] ?? u['numEmpleado'] ?? u['NumEmpleado'])
+              ?.toString();
+
       setState(() {
-        _isAlumno = tipo.toUpperCase() == 'ALUMNO';
+        _isAlumno = isAlumno;
         _userId = id;
 
         data = {
@@ -153,7 +160,10 @@ class _PerfilPageState extends State<PerfilPage> {
               ? '—'
               : ('$nombre $apellido').trim(),
           'email': (u['correo'] ?? u['E_mail'] ?? '—').toString(),
-          'matricula': (u['matricula'] ?? u['Matricula'] ?? '—').toString(),
+          'matricula': matricula ?? '—',
+          'numEmpleado': numEmpleado ?? '—',
+          'docLabel': isAlumno ? 'Matrícula' : 'No. Empleado',
+          'docValue': isAlumno ? (matricula ?? '—') : (numEmpleado ?? '—'),
           'phone': (u['telefono'] ?? u['Telefono'] ?? '—').toString(),
           'residence': (u['residencia'] ?? u['Residencia'] ?? '—').toString(),
           'address': (u['direccion'] ?? u['Direccion'] ?? '—').toString(),
@@ -200,15 +210,33 @@ class _PerfilPageState extends State<PerfilPage> {
         avatar = '${ApiHttp.baseUrl}$avatar';
       }
 
+      final tipo = (x['tipo_usuario'] ?? x['TipoUsuario'] ?? '')
+          .toString()
+          .toUpperCase();
+      final isAlumno = tipo == 'ALUMNO';
+
+      final matricula = (x['matricula'] ?? x['Matricula'] ?? data['matricula'])
+          ?.toString();
+      final numEmpleado =
+          (x['num_empleado'] ??
+                  x['numEmpleado'] ??
+                  x['NumEmpleado'] ??
+                  data['numEmpleado'])
+              ?.toString();
+
       setState(() {
+        _isAlumno = isAlumno;
+
         data = {
           ...data,
           'name': (('$nombre $apellido').trim().isNotEmpty)
               ? ('$nombre $apellido').trim()
               : data['name'],
           'email': (x['correo'] ?? x['E_mail'] ?? data['email']).toString(),
-          'matricula': (x['matricula'] ?? x['Matricula'] ?? data['matricula'])
-              .toString(),
+          'matricula': matricula ?? '—',
+          'numEmpleado': numEmpleado ?? '—',
+          'docLabel': isAlumno ? 'Matrícula' : 'No. Empleado',
+          'docValue': isAlumno ? (matricula ?? '—') : (numEmpleado ?? '—'),
           'phone': (x['telefono'] ?? x['Telefono'] ?? data['phone']).toString(),
           'residence': (x['residencia'] ?? x['Residencia'] ?? data['residence'])
               .toString(),
@@ -446,8 +474,8 @@ class _PerfilPageState extends State<PerfilPage> {
               children: [
                 InfoRow(
                   icon: Icons.badge_outlined,
-                  label: 'Matrícula',
-                  value: s('matricula'),
+                  label: s('docLabel'),
+                  value: s('docValue'),
                 ),
                 InfoRow(
                   icon: Icons.school_outlined,

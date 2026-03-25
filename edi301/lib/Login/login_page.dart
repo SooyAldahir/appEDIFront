@@ -33,28 +33,47 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-      body: ResponsiveContent(
-        child: SingleChildScrollView(
-          child: SizedBox(
-            width: double.infinity,
-            child: Column(
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(left: 40, right: 40, top: 100),
-                  child: Image(
-                    image: AssetImage('assets/img/logo_edi.png'),
-                    width: 225,
-                    height: 225,
+      body: SafeArea(
+        child: ResponsiveContent(
+          child: SingleChildScrollView(
+            child: SizedBox(
+              width: double.infinity,
+              child: Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(left: 40, right: 40, top: 100),
+                    child: Image(
+                      image: AssetImage('assets/img/logo_edi.png'),
+                      width: 225,
+                      height: 225,
+                    ),
                   ),
-                ),
-                _textFieldUser(),
-                _textFieldPassword(),
-                _buttonLogin(),
-                _textForgotPassword(),
-                _textDontHaveAccount(),
-              ],
+                  _loginText(),
+                  _textFieldUser(),
+                  _textFieldPassword(),
+                  _buttonLogin(),
+                  _textForgotPassword(),
+                  _textDontHaveAccount(),
+                ],
+              ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _loginText() {
+    return Container(
+      alignment: Alignment.center,
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.only(top: 10, bottom: 10),
+      child: Text(
+        "Iniciar Sesión",
+        style: TextStyle(
+          fontSize: 24,
+          color: Colors.white,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );
@@ -187,7 +206,7 @@ class _LoginPageState extends State<LoginPage> {
           GestureDetector(
             onTap: _controller.goToRegisterPage,
             child: const Text(
-              'Registrate',
+              'Registrarse',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.white,

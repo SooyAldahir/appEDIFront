@@ -54,177 +54,180 @@ class _EditPageState extends State<EditPage> {
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         title: const Text('Editar Perfil'),
       ),
-      body: ResponsiveContent(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 15,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Foto del perfil',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _controller.selectProfileImage(),
-                      child: const Text(
-                        'Editar',
-                        style: TextStyle(fontSize: 16, color: Colors.blue),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 15),
-
-              ValueListenableBuilder<XFile?>(
-                valueListenable: _controller.profileImage,
-                builder: (context, newImage, child) {
-                  return CircleAvatar(
-                    radius: 60,
-                    backgroundColor: Colors.grey[200],
-                    child: ClipOval(
-                      child: SizedBox(
-                        width: 120,
-                        height: 120,
-                        child: _buildProfileImage(newImage),
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 15),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 15,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Foto de portada',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _controller.selectCoverImage(),
-                      child: const Text(
-                        'Editar',
-                        style: TextStyle(fontSize: 16, color: Colors.blue),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 15),
-
-              SizedBox(
-                width: double.infinity,
-                height: 200,
-                child: Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+      body: SafeArea(
+        child: ResponsiveContent(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 15,
                   ),
-                  elevation: 0,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: ValueListenableBuilder<XFile?>(
-                      valueListenable: _controller.coverImage,
-                      builder: (context, newImage, child) {
-                        return _buildCoverImage(newImage);
-                      },
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Foto del perfil',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => _controller.selectProfileImage(),
+                        child: const Text(
+                          'Editar',
+                          style: TextStyle(fontSize: 16, color: Colors.blue),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+                const SizedBox(height: 15),
 
-              const SizedBox(height: 30),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Descripción',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _controller.descripcionCtrl,
-                      maxLines: 5,
-                      maxLength: 500,
-                      onChanged: (value) =>
-                          _controller.descripcionModificada.value = true,
-                      decoration: InputDecoration(
-                        hintText: 'Escribe una descripción para tu familia...',
-                        hintStyle: const TextStyle(color: Colors.grey),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Colors.grey),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: Color.fromRGBO(245, 188, 6, 1),
-                            width: 2,
-                          ),
-                        ),
-                        contentPadding: const EdgeInsets.all(15),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: ValueListenableBuilder<bool>(
-                  valueListenable: _controller.isLoading,
-                  builder: (context, loading, child) {
-                    return ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                ValueListenableBuilder<XFile?>(
+                  valueListenable: _controller.profileImage,
+                  builder: (context, newImage, child) {
+                    return CircleAvatar(
+                      radius: 60,
+                      backgroundColor: Colors.grey[200],
+                      child: ClipOval(
+                        child: SizedBox(
+                          width: 120,
+                          height: 120,
+                          child: _buildProfileImage(newImage),
                         ),
                       ),
-                      onPressed: loading
-                          ? null
-                          : () => _controller.saveChanges(),
-                      child: loading
-                          ? const CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Guardar Cambios',
-                              style: TextStyle(fontSize: 18),
-                            ),
                     );
                   },
                 ),
-              ),
-              const SizedBox(height: 30),
-            ],
+
+                const SizedBox(height: 15),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 15,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Foto de portada',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => _controller.selectCoverImage(),
+                        child: const Text(
+                          'Editar',
+                          style: TextStyle(fontSize: 16, color: Colors.blue),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 200,
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: ValueListenableBuilder<XFile?>(
+                        valueListenable: _controller.coverImage,
+                        builder: (context, newImage, child) {
+                          return _buildCoverImage(newImage);
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Descripción',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _controller.descripcionCtrl,
+                        maxLines: 5,
+                        maxLength: 500,
+                        onChanged: (value) =>
+                            _controller.descripcionModificada.value = true,
+                        decoration: InputDecoration(
+                          hintText:
+                              'Escribe una descripción para tu familia...',
+                          hintStyle: const TextStyle(color: Colors.grey),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                              color: Color.fromRGBO(245, 188, 6, 1),
+                              width: 2,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.all(15),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: ValueListenableBuilder<bool>(
+                    valueListenable: _controller.isLoading,
+                    builder: (context, loading, child) {
+                      return ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: loading
+                            ? null
+                            : () => _controller.saveChanges(),
+                        child: loading
+                            ? const CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Guardar Cambios',
+                                style: TextStyle(fontSize: 18),
+                              ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 30),
+              ],
+            ),
           ),
         ),
       ),

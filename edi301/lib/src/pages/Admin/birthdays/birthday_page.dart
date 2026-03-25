@@ -51,18 +51,20 @@ class _BirthdaysPageState extends State<BirthdaysPage> {
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         foregroundColor: Colors.white,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _cumpleaneros.isEmpty
-          ? _buildEmptyState()
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _cumpleaneros.length,
-              itemBuilder: (context, index) {
-                final user = _cumpleaneros[index];
-                return _buildBirthdayCard(user);
-              },
-            ),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _cumpleaneros.isEmpty
+            ? _buildEmptyState()
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _cumpleaneros.length,
+                itemBuilder: (context, index) {
+                  final user = _cumpleaneros[index];
+                  return _buildBirthdayCard(user);
+                },
+              ),
+      ),
     );
   }
 

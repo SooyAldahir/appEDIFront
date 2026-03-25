@@ -63,7 +63,7 @@ class _HomePageState extends State<HomePage> {
 
     await prefs.setInt('app_open_count', openCount);
 
-    if (openCount >= 3) {
+    if (openCount >= 6000) {
       if (mounted) {
         _mostrarDialogoEncuesta(context);
       }
@@ -222,7 +222,7 @@ class _HomePageState extends State<HomePage> {
       builder: (context, constraints) {
         if (constraints.maxWidth < 640) {
           return Scaffold(
-            body: currentPage,
+            body: SafeArea(child: currentPage),
             bottomNavigationBar: BottomNavigationBar(
               type: BottomNavigationBarType.fixed,
               backgroundColor: const Color.fromRGBO(19, 67, 107, 1),

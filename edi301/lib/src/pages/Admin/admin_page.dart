@@ -25,98 +25,104 @@ class _AdminPageState extends State<AdminPage> {
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         elevation: 0,
       ),
-      body: ResponsiveContent(
-        child: Column(
-          children: [
-            const SizedBox(height: 15),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: CustomButton(
-                label: 'Agregar Familia',
-                onPressed: () => Navigator.pushNamed(context, 'add_family'),
-                icon: const Icon(Icons.add_home, color: Colors.white, size: 30),
-              ),
-            ),
-            const SizedBox(height: 15),
-            Flexible(
-              child: Padding(
+      body: SafeArea(
+        child: ResponsiveContent(
+          child: Column(
+            children: [
+              const SizedBox(height: 15),
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: CustomButton(
-                  label: 'Asignar Alumnos',
-                  onPressed: () => Navigator.pushNamed(context, 'add_alumns'),
+                  label: 'Agregar Familia',
+                  onPressed: () => Navigator.pushNamed(context, 'add_family'),
                   icon: const Icon(
-                    Icons.person_add,
+                    Icons.add_home,
                     color: Colors.white,
                     size: 30,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 15),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: CustomButton(
-                label: 'Agregar Tutor Externo',
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  'add_tutor',
-                ), // Nueva ruta a crear
-                icon: const Icon(
-                  Icons.person_add_alt_1,
-                  color: Colors.white,
-                  size: 30,
+              const SizedBox(height: 15),
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: CustomButton(
+                    label: 'Asignar Alumnos',
+                    onPressed: () => Navigator.pushNamed(context, 'add_alumns'),
+                    icon: const Icon(
+                      Icons.person_add,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 15),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: CustomButton(
-                label: 'Consultar Familias',
-                onPressed: () => Navigator.pushNamed(context, 'get_family'),
-                icon: const Icon(
-                  Icons.visibility,
-                  color: Colors.white,
-                  size: 30,
+              const SizedBox(height: 15),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: CustomButton(
+                  label: 'Agregar Tutor Externo',
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    'add_tutor',
+                  ), // Nueva ruta a crear
+                  icon: const Icon(
+                    Icons.person_add_alt_1,
+                    color: Colors.white,
+                    size: 30,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 15),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: CustomButton(
-                label: 'Mi Agenda',
-                onPressed: () => Navigator.pushNamed(context, 'agenda'),
-                icon: const Icon(
-                  Icons.calendar_month,
-                  color: Colors.white,
-                  size: 30,
+              const SizedBox(height: 15),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: CustomButton(
+                  label: 'Consultar Familias',
+                  onPressed: () => Navigator.pushNamed(context, 'get_family'),
+                  icon: const Icon(
+                    Icons.visibility,
+                    color: Colors.white,
+                    size: 30,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 15),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: CustomButton(
-                label: 'Reportes PDF',
-                onPressed: () => Navigator.pushNamed(context, 'reportes'),
-                icon: const Icon(
-                  Icons.picture_as_pdf,
-                  color: Colors.white,
-                  size: 30,
+              const SizedBox(height: 15),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: CustomButton(
+                  label: 'Mi Agenda',
+                  onPressed: () => Navigator.pushNamed(context, 'agenda'),
+                  icon: const Icon(
+                    Icons.calendar_month,
+                    color: Colors.white,
+                    size: 30,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 15),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: CustomButton(
-                label: 'Cumpleaños',
-                onPressed: () => Navigator.pushNamed(context, 'cumpleaños'),
-                icon: const Icon(Icons.cake, color: Colors.white, size: 30),
+              const SizedBox(height: 15),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: CustomButton(
+                  label: 'Reportes PDF',
+                  onPressed: () => Navigator.pushNamed(context, 'reportes'),
+                  icon: const Icon(
+                    Icons.picture_as_pdf,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 15),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: CustomButton(
+                  label: 'Cumpleaños',
+                  onPressed: () => Navigator.pushNamed(context, 'cumpleaños'),
+                  icon: const Icon(Icons.cake, color: Colors.white, size: 30),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

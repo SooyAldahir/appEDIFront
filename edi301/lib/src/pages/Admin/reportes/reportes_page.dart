@@ -97,62 +97,64 @@ class _ReportesPageState extends State<ReportesPage> {
         title: const Text('Generar Reportes PDF'),
         backgroundColor: primary,
       ),
-      body: ResponsiveContent(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: ElevatedButton.icon(
-                icon: _isLoadingGeneral
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(Icons.download_for_offline),
-                label: Text(
-                  _isLoadingGeneral
-                      ? 'GENERANDO...'
-                      : 'GENERAR REPORTE GENERAL',
-                ),
-                onPressed: _isLoadingGeneral ? null : _generarReporteGeneral,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
+      body: SafeArea(
+        child: ResponsiveContent(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: ElevatedButton.icon(
+                  icon: _isLoadingGeneral
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.download_for_offline),
+                  label: Text(
+                    _isLoadingGeneral
+                        ? 'GENERANDO...'
+                        : 'GENERAR REPORTE GENERAL',
+                  ),
+                  onPressed: _isLoadingGeneral ? null : _generarReporteGeneral,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
                 ),
               ),
-            ),
 
-            const Divider(thickness: 2),
+              const Divider(thickness: 2),
 
-            _textFieldSearch(),
+              _textFieldSearch(),
 
-            Expanded(
-              child: ValueListenableBuilder<bool>(
-                valueListenable: _controller.isLoading,
-                builder: (context, loading, _) {
-                  if (loading)
-                    return const Center(child: CircularProgressIndicator());
+              Expanded(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _controller.isLoading,
+                  builder: (context, loading, _) {
+                    if (loading)
+                      return const Center(child: CircularProgressIndicator());
 
-                  return ValueListenableBuilder<List<dynamic>>(
-                    valueListenable: _controller.families,
-                    builder: (_, families, __) {
-                      if (families.isEmpty) {
-                        return const Center(
-                          child: Text('No se encontraron familias.'),
-                        );
-                      }
-                      return _buildFamilyCards(families);
-                    },
-                  );
-                },
+                    return ValueListenableBuilder<List<dynamic>>(
+                      valueListenable: _controller.families,
+                      builder: (_, families, __) {
+                        if (families.isEmpty) {
+                          return const Center(
+                            child: Text('No se encontraron familias.'),
+                          );
+                        }
+                        return _buildFamilyCards(families);
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

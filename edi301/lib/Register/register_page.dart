@@ -13,6 +13,7 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final RegisterController _controller = RegisterController();
+
   final List<TextEditingController> _otpControllers = List.generate(
     4,
     (index) => TextEditingController(),
@@ -28,13 +29,42 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   void initState() {
     super.initState();
+
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
       _controller.init(context);
     });
+
+    _controller.passCtrl.addListener(_rebuildOnTyping);
+    _controller.confirmPassCtrl.addListener(_rebuildOnTyping);
   }
+
+  void _rebuildOnTyping() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  // ====== Reglas en vivo ======
+  bool get _min8 => _controller.passCtrl.text.length >= 8;
+  bool get _hasUpper => RegExp(r'[A-Z]').hasMatch(_controller.passCtrl.text);
+  bool get _hasNumber => RegExp(r'[0-9]').hasMatch(_controller.passCtrl.text);
+  bool get _hasSpecial =>
+      RegExp(r'[!"#\$%&/\(\)=\?\.,@]').hasMatch(_controller.passCtrl.text);
+
+  bool get _match =>
+      _controller.passCtrl.text.isNotEmpty &&
+      _controller.passCtrl.text == _controller.confirmPassCtrl.text;
+
+  bool get _allOk => _min8 && _hasUpper && _hasNumber && _hasSpecial && _match;
 
   @override
   void dispose() {
+    _controller.passCtrl.removeListener(_rebuildOnTyping);
+    _controller.confirmPassCtrl.removeListener(_rebuildOnTyping);
+
+    for (final c in _otpControllers) {
+      c.dispose();
+    }
+
     _controller.dispose();
     super.dispose();
   }
@@ -52,27 +82,32 @@ class _RegisterPageState extends State<RegisterPage> {
           onPressed: _controller.goToLoginPage,
         ),
       ),
-      body: ResponsiveContent(
-        child: SingleChildScrollView(
-          child: SizedBox(
-            width: double.infinity,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: ValueListenableBuilder<int>(
-                valueListenable: _controller.registrationStep,
-                builder: (context, step, child) {
-                  switch (step) {
-                    case 1:
-                      return _buildStep1VerifyEmail();
-                    case 2:
-                      return _buildStep2VerifyCode();
-                    case 3:
-                      return _buildStep3SetPassword();
-                    case 0:
-                    default:
-                      return _buildStep0EnterDocument();
-                  }
-                },
+      body: SafeArea(
+        child: ResponsiveContent(
+          child: SingleChildScrollView(
+            child: SizedBox(
+              width: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _controller.registrationStep,
+                  builder: (context, step, child) {
+                    switch (step) {
+                      case 1:
+                        return _buildStep1VerifyEmail();
+                      case 2:
+                        return _buildStep2VerifyCode();
+                      case 3:
+                        return _buildStep3SetPassword();
+                      case 0:
+                      default:
+                        return _buildStep0EnterDocument();
+                    }
+                  },
+                ),
               ),
             ),
           ),
@@ -91,14 +126,14 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         const SizedBox(height: 20),
         const Text(
-          'Ingresa tu Matrícula o Número de Empleado',
+          'Ingresa tu Matrícula o Número de Colaborador',
           style: TextStyle(color: Colors.white, fontSize: 16),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
         _textField(
           controller: _controller.documentoCtrl,
-          hint: 'Matrícula / No. Empleado',
+          hint: 'Matrícula / No. Colaborador',
           icon: Icons.badge_outlined,
           keyboard: TextInputType.number,
         ),
@@ -138,7 +173,7 @@ class _RegisterPageState extends State<RegisterPage> {
             const SizedBox(height: 15),
             _buildDataRow('Nombre:', '${user.nombre} ${user.apellidos}'),
             _buildDataRow(
-              'Matricula/ NumEmpleado:',
+              'Identificador:',
               (user.matricula ?? user.numEmpleado).toString(),
             ),
             _buildDataRow('Escuela:', user.leNombreEscuelaOficial ?? 'N/A'),
@@ -178,7 +213,7 @@ class _RegisterPageState extends State<RegisterPage> {
         const SizedBox(height: 20),
         Text(
           'Revisa tu correo: ${_controller.foundUser.value?.correoOculto ?? '...'}',
-          style: TextStyle(color: Colors.white, fontSize: 16),
+          style: const TextStyle(color: Colors.white, fontSize: 16),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 10),
@@ -213,12 +248,7 @@ class _RegisterPageState extends State<RegisterPage> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 10),
-        const Text(
-          'Debe tener 8+ caracteres, 1 mayúscula, 1 número y 1 caracter especial.',
-          style: TextStyle(color: Colors.white70, fontSize: 13),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 20),
+
         _textField(
           controller: _controller.passCtrl,
           hint: 'Contraseña',
@@ -255,9 +285,60 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
 
-        _buttonAction(
-          text: 'Completar Registro',
-          onPressed: _controller.register,
+        const SizedBox(height: 12),
+
+        _RequirementCard(
+          items: [
+            _ReqItem(ok: _min8, text: 'Mínimo 8 caracteres'),
+            _ReqItem(ok: _hasUpper, text: 'Al menos 1 mayúscula (A-Z)'),
+            _ReqItem(ok: _hasNumber, text: 'Al menos 1 número (0-9)'),
+            _ReqItem(
+              ok: _hasSpecial,
+              text: r'Al menos 1 especial: !"#$%&/()=?.,@',
+            ),
+            _ReqItem(ok: _match, text: 'Las contraseñas coinciden'),
+          ],
+        ),
+
+        const SizedBox(height: 18),
+
+        ValueListenableBuilder<bool>(
+          valueListenable: _controller.loading,
+          builder: (context, isLoading, child) {
+            final disabled = isLoading || !_allOk;
+
+            return SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: disabled ? null : _controller.register,
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  backgroundColor: accentColor,
+                  disabledBackgroundColor: accentColor.withOpacity(0.45),
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                ),
+                child: isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: Colors.black,
+                        ),
+                      )
+                    : Text(
+                        'Completar Registro',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: disabled ? Colors.black54 : Colors.black,
+                        ),
+                      ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -352,11 +433,19 @@ class _RegisterPageState extends State<RegisterPage> {
               } else if (value.isEmpty && index > 0) {
                 FocusScope.of(context).previousFocus();
               }
+
               String code = "";
               for (var c in _otpControllers) {
                 code += c.text;
               }
+
               _controller.verificationCodeCtrl.text = code;
+
+              // Auto validación al completar 4 dígitos
+              if (code.length == 4) {
+                FocusScope.of(context).unfocus();
+                _controller.verifyCode();
+              }
             },
           ),
         );
@@ -405,57 +494,66 @@ class _RegisterPageState extends State<RegisterPage> {
       ),
     );
   }
+}
 
-  Widget _buildOtpInput() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: List.generate(4, (index) {
-        return SizedBox(
-          width: 60,
-          height: 60,
-          child: TextField(
-            autofocus: index == 0,
-            onChanged: (value) {
-              if (value.length == 1 && index < 3) {
-                FocusScope.of(context).nextFocus();
-              } else if (value.isEmpty && index > 0) {
-                FocusScope.of(context).previousFocus();
-              }
+// ======= UI checklist =======
 
-              String currentCode = _controller.verificationCodeCtrl.text;
-              if (currentCode.length > index) {
-                List<String> chars = currentCode.split('');
-                if (value.isNotEmpty) {
-                  chars[index] = value;
-                } else {}
-              }
-            },
-            controller: null,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 24,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-            maxLength: 1,
-            decoration: InputDecoration(
-              counterText: "",
-              filled: true,
-              fillColor: Colors.transparent,
-              contentPadding: const EdgeInsets.symmetric(vertical: 15),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: accentColor, width: 2),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Colors.white, width: 2),
-              ),
-            ),
+class _ReqItem {
+  final bool ok;
+  final String text;
+  const _ReqItem({required this.ok, required this.text});
+}
+
+class _RequirementCard extends StatelessWidget {
+  final List<_ReqItem> items;
+  const _RequirementCard({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Color.fromRGBO(19, 67, 107, 1),
+        borderRadius: BorderRadius.circular(14),
+
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
           ),
-        );
-      }),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: items.map((it) {
+          final color = it.ok ? Colors.green : Colors.red;
+          final icon = it.ok ? Icons.check_circle : Icons.cancel;
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    it.text,
+                    style: TextStyle(
+                      color: it.ok
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }

@@ -95,72 +95,74 @@ class _MyChatsPageState extends State<MyChatsPage> {
         backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
         foregroundColor: Colors.white,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _chats.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    size: 80,
-                    color: Colors.grey[300],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    "No tienes chats activos",
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            )
-          : ListView.builder(
-              itemCount: _chats.length,
-              itemBuilder: (ctx, i) {
-                final chat = _chats[i];
-                final tipo = chat['tipo'];
-                final fotoRaw = (chat['foto_perfil_chat'] ?? '').toString();
-                final fotoAbs = _absUrl(fotoRaw);
-
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: tipo == 'GRUPAL'
-                        ? Colors.orange
-                        : const Color.fromRGBO(19, 67, 107, 1),
-                    backgroundImage: (tipo != 'GRUPAL' && fotoAbs.isNotEmpty)
-                        ? NetworkImage(fotoAbs)
-                        : null,
-                    child: (tipo != 'GRUPAL' && fotoAbs.isNotEmpty)
-                        ? null
-                        : Icon(
-                            tipo == 'GRUPAL' ? Icons.groups : Icons.person,
-                            color: Colors.white,
-                          ),
-                  ),
-                  title: Text(
-                    chat['titulo_chat'] ?? 'Desconocido',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    chat['ultimo_mensaje'] ?? 'Incia la conversascion...',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontStyle: chat['ultimo_mensaje'] == null
-                          ? FontStyle.italic
-                          : FontStyle.normal,
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _chats.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.chat_bubble_outline,
+                      size: 80,
+                      color: Colors.grey[300],
                     ),
-                  ),
-                  trailing: Text(
-                    _formatDate(chat['fecha_ultimo']),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  onTap: () => _goToChat(chat),
-                );
-              },
-            ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "No tienes chats activos",
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                itemCount: _chats.length,
+                itemBuilder: (ctx, i) {
+                  final chat = _chats[i];
+                  final tipo = chat['tipo'];
+                  final fotoRaw = (chat['foto_perfil_chat'] ?? '').toString();
+                  final fotoAbs = _absUrl(fotoRaw);
+
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: tipo == 'GRUPAL'
+                          ? Colors.orange
+                          : const Color.fromRGBO(19, 67, 107, 1),
+                      backgroundImage: (tipo != 'GRUPAL' && fotoAbs.isNotEmpty)
+                          ? NetworkImage(fotoAbs)
+                          : null,
+                      child: (tipo != 'GRUPAL' && fotoAbs.isNotEmpty)
+                          ? null
+                          : Icon(
+                              tipo == 'GRUPAL' ? Icons.groups : Icons.person,
+                              color: Colors.white,
+                            ),
+                    ),
+                    title: Text(
+                      chat['titulo_chat'] ?? 'Desconocido',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      chat['ultimo_mensaje'] ?? 'Incia la conversascion...',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontStyle: chat['ultimo_mensaje'] == null
+                            ? FontStyle.italic
+                            : FontStyle.normal,
+                      ),
+                    ),
+                    trailing: Text(
+                      _formatDate(chat['fecha_ultimo']),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    onTap: () => _goToChat(chat),
+                  );
+                },
+              ),
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
         child: const Icon(Icons.info, color: Colors.black),

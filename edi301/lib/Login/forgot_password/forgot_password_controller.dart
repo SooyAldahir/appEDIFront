@@ -21,15 +21,47 @@ class ForgotPasswordController {
     loading.dispose();
   }
 
+  // =========================
+  // VALIDACIÓN DE CONTRASEÑA
+  // =========================
+  bool _isPasswordValid(String password) {
+    if (password.length < 8) return false;
+    if (!RegExp(r'[A-Z]').hasMatch(password)) return false;
+    if (!RegExp(r'[0-9]').hasMatch(password)) return false;
+    if (!RegExp(r'[!"#\$%&/\(\)=\?\.,@]').hasMatch(password)) return false;
+    return true;
+  }
+
+  String? _passwordError(String password) {
+    if (password.length < 8) {
+      return 'Debe tener al menos 8 caracteres';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      return 'Debe contener al menos una mayúscula';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(password)) {
+      return 'Debe contener al menos un número';
+    }
+    if (!RegExp(r'[!"#\$%&/\(\)=\?\.,@]').hasMatch(password)) {
+      return 'Debe contener un carácter especial: !"#\$%&/()=?.,';
+    }
+    return null;
+  }
+
+  // =========================
+  // ENVÍO OTP
+  // =========================
   Future<void> sendOtp(BuildContext context) async {
     if (emailCtrl.text.trim().isEmpty) {
       _snack(context, 'Ingresa tu correo');
       return;
     }
+
     loading.value = true;
+
     try {
       await _otpService.sendOtp(emailCtrl.text.trim());
-      step.value = 1; // Pasar a validar OTP
+      step.value = 1;
     } catch (e) {
       _snack(context, 'Error al enviar código. Verifica tu correo.');
     } finally {
@@ -37,17 +69,23 @@ class ForgotPasswordController {
     }
   }
 
+  // =========================
+  // VERIFICAR OTP
+  // =========================
   Future<void> verifyOtp(BuildContext context) async {
     if (otpCtrl.text.trim().isEmpty) {
       _snack(context, 'Ingresa el código');
       return;
     }
+
     loading.value = true;
+
     try {
       final valid = await _otpService.verifyOtp(
         emailCtrl.text.trim(),
         otpCtrl.text.trim(),
       );
+
       if (valid) {
         step.value = 2;
       } else {
@@ -60,16 +98,25 @@ class ForgotPasswordController {
     }
   }
 
+  // =========================
+  // ACTUALIZAR CONTRASEÑA
+  // =========================
   Future<void> updatePassword(BuildContext context) async {
-    if (passCtrl.text.trim().length < 6) {
-      _snack(context, 'La contraseña debe tener al menos 6 caracteres');
+    final password = passCtrl.text.trim();
+
+    final validationError = _passwordError(password);
+
+    if (validationError != null) {
+      _snack(context, validationError);
       return;
     }
+
     loading.value = true;
+
     try {
       final success = await _usersApi.resetPassword(
         emailCtrl.text.trim(),
-        passCtrl.text.trim(),
+        password,
       );
 
       if (success) {
@@ -83,6 +130,7 @@ class ForgotPasswordController {
               backgroundColor: Colors.green,
             ),
           );
+
           Navigator.pop(context);
         }
       } else {

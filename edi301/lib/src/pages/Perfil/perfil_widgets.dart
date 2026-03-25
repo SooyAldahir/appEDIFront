@@ -49,7 +49,6 @@ class HeaderCard extends StatelessWidget {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        // Solo abre si hay imagen válida (no default / null)
                         if (avatarUrl.isNotEmpty &&
                             !avatarUrl.contains('null') &&
                             avatarUrl != '—') {
@@ -89,7 +88,7 @@ class HeaderCard extends StatelessWidget {
                       child: GestureDetector(
                         onTap: onEditAvatar,
                         child: Container(
-                          padding: const EdgeInsets.all(6),
+                          padding: const EdgeInsets.all(4),
                           decoration: const BoxDecoration(
                             color: Color.fromRGBO(245, 188, 6, 1),
                             shape: BoxShape.circle,
@@ -104,10 +103,10 @@ class HeaderCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 15),
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.only(top: 40),
+                    padding: const EdgeInsets.only(top: 5),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -124,28 +123,45 @@ class HeaderCard extends StatelessWidget {
                           spacing: 8,
                           runSpacing: -8,
                           children: [
-                            ActionChip(
-                              avatar: onTapStatus != null
-                                  ? const Icon(
+                            onTapStatus != null
+                                ? ActionChip(
+                                    avatar: const Icon(
                                       Icons.edit,
                                       size: 14,
                                       color: Colors.white,
-                                    )
-                                  : null,
-                              label: Text(status),
-                              backgroundColor: statusColor.withOpacity(
-                                onTapStatus != null ? 1 : 0.15,
-                              ),
-                              labelStyle: TextStyle(
-                                color: onTapStatus != null
-                                    ? Colors.white
-                                    : statusColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              onPressed: onTapStatus,
-                              visualDensity: VisualDensity.compact,
-                              side: BorderSide.none,
-                            ),
+                                    ),
+                                    label: Text(status),
+                                    backgroundColor: statusColor,
+                                    labelStyle: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    onPressed: onTapStatus,
+                                    visualDensity: VisualDensity.compact,
+                                    side: BorderSide.none,
+                                  )
+                                : Chip(
+                                    avatar: Icon(
+                                      Icons.circle,
+                                      size: 14,
+                                      color: statusColor,
+                                    ),
+                                    label: Text(status),
+                                    backgroundColor: statusColor.withOpacity(
+                                      0.15,
+                                    ),
+                                    labelStyle: TextStyle(
+                                      color: statusColor,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    side: BorderSide(
+                                      color: statusColor.withOpacity(0.35),
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ),
                             if (residence.isNotEmpty && residence != '—')
                               Chip(
                                 label: Text('Residencia: $residence'),

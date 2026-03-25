@@ -58,6 +58,8 @@ class _FamilyPageState extends State<FamiliyPage> {
     _loadUserRole();
     _familyFuture = _fetchFamilyData();
     _availableFamiliesFuture = _fetchAvailableFamilies();
+    String _userRole = '';
+    int? _userId;
   }
 
   String _absUrl(String raw) {
@@ -143,8 +145,9 @@ class _FamilyPageState extends State<FamiliyPage> {
 
       if (!mounted) return;
       setState(() {
-        _userRole = (user['nombre_rol'] ?? user['rol'] ?? '').toString();
-        _userId = parsedId;
+        _userRole = user['nombre_rol'] ?? user['rol'] ?? '';
+        _userId =
+            (user['id_usuario'] ?? user['id'] ?? user['IdUsuario']) as int?;
       });
     }
   }
@@ -261,171 +264,177 @@ class _FamilyPageState extends State<FamiliyPage> {
         elevation: 0,
         title: const Text("Mi Familia", style: TextStyle(color: Colors.white)),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final size = constraints.biggest;
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final size = constraints.biggest;
 
-          // inicializa posición solo una vez (para no resetear al rebuild)
-          if (!_chatFabReady) {
-            _chatFabOffset = _clampOffset(
-              Offset(size.width - 56 - 12, size.height - 56 - 24),
-              size,
-            );
-            _chatFabReady = true;
-          }
+            // inicializa posición solo una vez (para no resetear al rebuild)
+            if (!_chatFabReady) {
+              _chatFabOffset = _clampOffset(
+                Offset(size.width - 56 - 12, size.height - 56 - 24),
+                size,
+              );
+              _chatFabReady = true;
+            }
 
-          return Stack(
-            children: [
-              // CONTENIDO NORMAL
-              ResponsiveContent(
-                child: FutureBuilder<Family?>(
+            return Stack(
+              children: [
+                // CONTENIDO NORMAL
+                ResponsiveContent(
+                  child: FutureBuilder<Family?>(
+                    future: _familyFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      if (snapshot.hasError ||
+                          !snapshot.hasData ||
+                          snapshot.data == null) {
+                        return _buildNoFamilyState();
+                      }
+
+                      final family = snapshot.data!;
+
+                      final coverUrlRaw = (family.fotoPortadaUrl ?? '')
+                          .toString();
+                      final profileUrlRaw = (family.fotoPerfilUrl ?? '')
+                          .toString();
+
+                      final coverAbs = _absUrl(coverUrlRaw);
+                      final profileAbs = _absUrl(profileUrlRaw);
+
+                      final ImageProvider coverImage = coverAbs.isNotEmpty
+                          ? NetworkImage(coverAbs)
+                          : const AssetImage(
+                              'assets/img/familia-extensa-e1591818033557.jpg',
+                            );
+
+                      final ImageProvider profileImage = profileAbs.isNotEmpty
+                          ? NetworkImage(profileAbs)
+                          : const AssetImage(
+                              'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
+                            );
+
+                      return SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              height: 200,
+                              child: FamilyWidget(
+                                backgroundImage: coverImage,
+                                circleImage: profileImage,
+                                canOpenCover: coverAbs.isNotEmpty,
+                                canOpenProfile: profileAbs.isNotEmpty,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0,
+                              ),
+                              child: FamilyData(
+                                familyName: family.familyName,
+                                numChildres:
+                                    (family.householdChildren.length +
+                                            family.assignedStudents.length +
+                                            ((family.fatherEmployeeId != null &&
+                                                    family.fatherEmployeeId !=
+                                                        0)
+                                                ? 1
+                                                : 0) +
+                                            ((family.motherEmployeeId != null &&
+                                                    family.motherEmployeeId !=
+                                                        0)
+                                                ? 1
+                                                : 0))
+                                        .toString(),
+                                text: 'Integrantes',
+                                description:
+                                    family.descripcion ??
+                                    'Añade una descripción en "Editar Perfil".',
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            if (![
+                              'Hijo',
+                              'HijoEDI',
+                              'ALUMNO',
+                              'Estudiante',
+                            ].contains(_userRole))
+                              _bottomEditProfile(),
+                            const SizedBox(height: 10),
+                            _buildToggleButtons(),
+                            const SizedBox(height: 10),
+                            mostrarHijos
+                                ? Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                    ),
+                                    child: _buildIntegrantesCards(
+                                      family: family,
+                                    ),
+                                  )
+                                : FamilyGallery(idFamilia: family.id ?? 0),
+                            const SizedBox(
+                              height: 90,
+                            ), // espacio para que no tape contenido
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                // BOTÓN DRAGGABLE DEL CHAT FAMILIAR
+                FutureBuilder<Family?>(
                   future: _familyFuture,
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
+                    if (!(snapshot.hasData && snapshot.data != null)) {
+                      return const SizedBox();
                     }
 
-                    if (snapshot.hasError ||
-                        !snapshot.hasData ||
-                        snapshot.data == null) {
-                      return _buildNoFamilyState();
-                    }
+                    final familyData = snapshot.data!;
+                    final id = familyData.id ?? 0;
 
-                    final family = snapshot.data!;
-
-                    final coverUrlRaw = (family.fotoPortadaUrl ?? '')
-                        .toString();
-                    final profileUrlRaw = (family.fotoPerfilUrl ?? '')
-                        .toString();
-
-                    final coverAbs = _absUrl(coverUrlRaw);
-                    final profileAbs = _absUrl(profileUrlRaw);
-
-                    final ImageProvider coverImage = coverAbs.isNotEmpty
-                        ? NetworkImage(coverAbs)
-                        : const AssetImage(
-                            'assets/img/familia-extensa-e1591818033557.jpg',
-                          );
-
-                    final ImageProvider profileImage = profileAbs.isNotEmpty
-                        ? NetworkImage(profileAbs)
-                        : const AssetImage(
-                            'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-                          );
-
-                    return SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            height: 200,
-                            child: FamilyWidget(
-                              backgroundImage: coverImage,
-                              circleImage: profileImage,
-                              canOpenCover: coverAbs.isNotEmpty,
-                              canOpenProfile: profileAbs.isNotEmpty,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16.0,
-                            ),
-                            child: FamilyData(
-                              familyName: family.familyName,
-                              numChildres:
-                                  (family.householdChildren.length +
-                                          family.assignedStudents.length +
-                                          ((family.fatherEmployeeId != null &&
-                                                  family.fatherEmployeeId != 0)
-                                              ? 1
-                                              : 0) +
-                                          ((family.motherEmployeeId != null &&
-                                                  family.motherEmployeeId != 0)
-                                              ? 1
-                                              : 0))
-                                      .toString(),
-                              text: 'Integrantes',
-                              description:
-                                  family.descripcion ??
-                                  'Añade una descripción en "Editar Perfil".',
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          if (![
-                            'Hijo',
-                            'HijoEDI',
-                            'ALUMNO',
-                            'Estudiante',
-                          ].contains(_userRole))
-                            _bottomEditProfile(),
-                          const SizedBox(height: 10),
-                          _buildToggleButtons(),
-                          const SizedBox(height: 10),
-                          mostrarHijos
-                              ? Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                  ),
-                                  child: _buildIntegrantesCards(family: family),
-                                )
-                              : FamilyGallery(idFamilia: family.id ?? 0),
-                          const SizedBox(
-                            height: 90,
-                          ), // espacio para que no tape contenido
-                        ],
+                    return Positioned(
+                      left: _chatFabOffset.dx,
+                      top: _chatFabOffset.dy,
+                      child: GestureDetector(
+                        onPanUpdate: (details) {
+                          setState(() {
+                            _chatFabOffset = _clampOffset(
+                              _chatFabOffset + details.delta,
+                              size,
+                            );
+                          });
+                        },
+                        child: FloatingActionButton(
+                          heroTag: 'family_chat_draggable_fab',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChatFamilyPage(
+                                  idFamilia: id,
+                                  nombreFamilia: familyData.familyName,
+                                ),
+                              ),
+                            );
+                          },
+                          backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
+                          child: const Icon(Icons.chat, color: Colors.black),
+                        ),
                       ),
                     );
                   },
                 ),
-              ),
-
-              // BOTÓN DRAGGABLE DEL CHAT FAMILIAR
-              FutureBuilder<Family?>(
-                future: _familyFuture,
-                builder: (context, snapshot) {
-                  if (!(snapshot.hasData && snapshot.data != null)) {
-                    return const SizedBox();
-                  }
-
-                  final familyData = snapshot.data!;
-                  final id = familyData.id ?? 0;
-
-                  return Positioned(
-                    left: _chatFabOffset.dx,
-                    top: _chatFabOffset.dy,
-                    child: GestureDetector(
-                      onPanUpdate: (details) {
-                        setState(() {
-                          _chatFabOffset = _clampOffset(
-                            _chatFabOffset + details.delta,
-                            size,
-                          );
-                        });
-                      },
-                      child: FloatingActionButton(
-                        heroTag: 'family_chat_draggable_fab',
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatFamilyPage(
-                                idFamilia: id,
-                                nombreFamilia: familyData.familyName,
-                              ),
-                            ),
-                          );
-                        },
-                        backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
-                        child: const Icon(Icons.chat, color: Colors.black),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -446,6 +455,9 @@ class _FamilyPageState extends State<FamiliyPage> {
     if (papaId != null && papaId != 0) {
       final papaNombre = (family.fatherName ?? '').trim();
       final papaFotoAbs = _absUrl((family.papaFotoPerfilUrl ?? '').toString());
+
+      final bool isMe = (myId != null && papaId == myId);
+
       widgets.add(
         ProfileCard(
           imageUrl: papaFotoAbs.isNotEmpty
@@ -456,8 +468,12 @@ class _FamilyPageState extends State<FamiliyPage> {
           phoneNumber: family.papaTelefono,
           onTap: () =>
               Navigator.pushNamed(context, 'student_detail', arguments: papaId),
-          onChat: () =>
-              _startChat(papaId, papaNombre.isNotEmpty ? papaNombre : 'Padre'),
+          onChat: isMe
+              ? null
+              : () => _startChat(
+                  papaId,
+                  papaNombre.isNotEmpty ? papaNombre : 'Padre',
+                ),
         ),
       );
     }
@@ -465,6 +481,9 @@ class _FamilyPageState extends State<FamiliyPage> {
     if (mamaId != null && mamaId != 0) {
       final mamaNombre = (family.motherName ?? '').trim();
       final mamaFotoAbs = _absUrl((family.mamaFotoPerfilUrl ?? '').toString());
+
+      final bool isMe = (myId != null && mamaId == myId);
+
       widgets.add(
         ProfileCard(
           imageUrl: mamaFotoAbs.isNotEmpty
@@ -475,8 +494,12 @@ class _FamilyPageState extends State<FamiliyPage> {
           phoneNumber: family.mamaTelefono,
           onTap: () =>
               Navigator.pushNamed(context, 'student_detail', arguments: mamaId),
-          onChat: () =>
-              _startChat(mamaId, mamaNombre.isNotEmpty ? mamaNombre : 'Madre'),
+          onChat: isMe
+              ? null
+              : () => _startChat(
+                  mamaId,
+                  mamaNombre.isNotEmpty ? mamaNombre : 'Madre',
+                ),
         ),
       );
     }
@@ -488,11 +511,13 @@ class _FamilyPageState extends State<FamiliyPage> {
     ];
 
     for (final h in hijos) {
+      final bool isMe = (myId != null && h.idUsuario == myId);
+
       // Restricción: si soy hijo/alumno, solo puedo abrir detalle de mí mismo
-      final bool canOpenDetail =
-          !isChild || (myId != null && h.idUsuario == myId);
+      final bool canOpenDetail = !isChild || isMe;
 
       final fotoAbs = _absUrl((h.fotoPerfil ?? '').toString());
+
       widgets.add(
         ProfileCard(
           imageUrl: fotoAbs.isNotEmpty
@@ -508,7 +533,7 @@ class _FamilyPageState extends State<FamiliyPage> {
                   arguments: h.idUsuario,
                 )
               : null,
-          onChat: () => _startChat(h.idUsuario, h.fullName),
+          onChat: isMe ? null : () => _startChat(h.idUsuario, h.fullName),
         ),
       );
     }

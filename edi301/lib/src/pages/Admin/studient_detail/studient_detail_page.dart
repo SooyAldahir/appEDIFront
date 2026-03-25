@@ -128,14 +128,19 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
         backgroundColor: primary,
         title: const Text('Detalle del alumno'),
       ),
-      body: ResponsiveContent(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-            ? Center(
-                child: Text(_error!, style: const TextStyle(color: Colors.red)),
-              )
-            : _buildContent(context, theme, primary),
+      body: SafeArea(
+        child: ResponsiveContent(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+              ? Center(
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                )
+              : _buildContent(context, theme, primary),
+        ),
       ),
     );
   }

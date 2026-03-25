@@ -97,55 +97,58 @@ class AgendaDetailPage extends StatelessWidget {
           ),
         ],
       ),
-      body: ResponsiveContent(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (evento.imagen != null && evento.imagen!.startsWith('http'))
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  evento.imagen!,
-                  height: 200,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (ctx, err, stack) =>
-                      Container(height: 200, color: Colors.grey[200]),
+      body: SafeArea(
+        child: ResponsiveContent(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (evento.imagen != null && evento.imagen!.startsWith('http'))
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    evento.imagen!,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (ctx, err, stack) =>
+                        Container(height: 200, color: Colors.grey[200]),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Text(
+                evento.titulo,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            const SizedBox(height: 16),
-            Text(
-              evento.titulo,
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            _InfoTile(
-              icon: Icons.calendar_today,
-              label: 'Fecha',
-              value: formatDate(evento.fechaEvento),
-            ),
-            _InfoTile(
-              icon: Icons.access_time,
-              label: 'Hora',
-              value: formatTime(evento.horaEvento),
-            ),
-            if (evento.diasAnticipacion != null)
+              const SizedBox(height: 24),
               _InfoTile(
-                icon: Icons.notifications_active,
-                label: 'Avisar desde',
-                value: "${evento.diasAnticipacion} días antes",
+                icon: Icons.calendar_today,
+                label: 'Fecha',
+                value: formatDate(evento.fechaEvento),
               ),
-            const Divider(height: 32),
-            _InfoTile(
-              icon: Icons.description_outlined,
-              label: 'Descripción',
-              value: (evento.descripcion == null || evento.descripcion!.isEmpty)
-                  ? 'No hay descripción.'
-                  : evento.descripcion!,
-            ),
-          ],
+              _InfoTile(
+                icon: Icons.access_time,
+                label: 'Hora',
+                value: formatTime(evento.horaEvento),
+              ),
+              if (evento.diasAnticipacion != null)
+                _InfoTile(
+                  icon: Icons.notifications_active,
+                  label: 'Avisar desde',
+                  value: "${evento.diasAnticipacion} días antes",
+                ),
+              const Divider(height: 32),
+              _InfoTile(
+                icon: Icons.description_outlined,
+                label: 'Descripción',
+                value:
+                    (evento.descripcion == null || evento.descripcion!.isEmpty)
+                    ? 'No hay descripción.'
+                    : evento.descripcion!,
+              ),
+            ],
+          ),
         ),
       ),
     );
