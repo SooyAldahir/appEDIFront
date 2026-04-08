@@ -64,27 +64,30 @@ class _FamilyPageState extends State<FamiliyPage> {
 
   String _absUrl(String raw) {
     if (raw.isEmpty || raw == 'null') return '';
-    var s = raw.trim();
+    final s = raw.trim();
+    if (s.isEmpty || s == 'null') return '';
 
+    // URL completa (Cloudinary, S3, etc.) — se devuelve tal cual
     if (s.startsWith('http://') || s.startsWith('https://')) return s;
 
-    s = s.replaceAll('\\', '/');
+    // Ruta relativa del servidor propio
+    var path = s.replaceAll('\\', '/');
 
-    final idxPublic = s.indexOf('public/uploads/');
+    final idxPublic = path.indexOf('public/uploads/');
     if (idxPublic != -1) {
-      s = s.substring(idxPublic + 'public'.length);
+      path = path.substring(idxPublic + 'public'.length);
     }
 
-    final idxUploads = s.indexOf('/uploads/');
+    final idxUploads = path.indexOf('/uploads/');
     if (idxUploads != -1) {
-      s = s.substring(idxUploads);
-    } else if (s.startsWith('uploads/')) {
-      s = '/$s';
-    } else if (!s.startsWith('/')) {
-      s = '/$s';
+      path = path.substring(idxUploads);
+    } else if (path.startsWith('uploads/')) {
+      path = '/$path';
+    } else if (!path.startsWith('/')) {
+      path = '/$path';
     }
 
-    return '${ApiHttp.baseUrl}$s';
+    return '${ApiHttp.baseUrl}$path';
   }
 
   String _pickField(dynamic obj, List<String> keys) {
@@ -913,22 +916,7 @@ class FamilyWidget extends StatelessWidget {
               radius: 50,
               backgroundColor: Colors.white,
               child: ClipOval(
-                child: Image(
-                  image: circleImage,
-                  width: 92,
-                  height: 92,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.grey[200],
-                      child: const Icon(
-                        Icons.person,
-                        size: 50,
-                        color: Colors.grey,
-                      ),
-                    );
-                  },
-                ),
+                child: _SafeImage(image: circleImage, width: 92, height: 92),
               ),
             ),
           ),
@@ -1026,11 +1014,10 @@ class ProfileCard extends StatelessWidget {
     final bool hasValidImage =
         imageUrl.isNotEmpty && !imageUrl.contains('null');
 
+    // Usamos AssetImage como fallback para evitar 404 en NetworkImage
     final ImageProvider imgProvider = hasValidImage
         ? NetworkImage(imageUrl)
-        : const NetworkImage(
-            'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
-          );
+        : const AssetImage('assets/img/7141724.png');
 
     return Card(
       elevation: 1.5,
@@ -1061,6 +1048,12 @@ class ProfileCard extends StatelessWidget {
                       width: 60,
                       height: 60,
                       fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Image.asset(
+                        'assets/img/7141724.png',
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ),
@@ -1072,6 +1065,8 @@ class ProfileCard extends StatelessWidget {
                   children: [
                     Text(
                       name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -1079,11 +1074,15 @@ class ProfileCard extends StatelessWidget {
                     ),
                     Text(
                       school ?? 'Escuela no registrada',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 14, color: Colors.grey[800]),
                     ),
                     if (phoneNumber != null)
                       Text(
                         'Tel: $phoneNumber',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                       ),
                   ],
@@ -1138,10 +1137,74 @@ class FullScreenImagePage extends StatelessWidget {
             panEnabled: true,
             minScale: 0.5,
             maxScale: 4.0,
-            child: Image(image: imageProvider, fit: BoxFit.contain),
+            child: Image(
+              image: imageProvider,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) => Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.broken_image, color: Colors.white54, size: 60),
+                  SizedBox(height: 12),
+                  Text(
+                    'No se pudo cargar la imagen',
+                    style: TextStyle(color: Colors.white54),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+// =========================
+//  SAFE IMAGE — carga segura con fallback al asset local
+// =========================
+class _SafeImage extends StatelessWidget {
+  final ImageProvider image;
+  final double width;
+  final double height;
+
+  const _SafeImage({
+    required this.image,
+    required this.width,
+    required this.height,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Image(
+      image: image,
+      width: width,
+      height: height,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        // Si la imagen de red falla, mostramos el asset de perfil genérico
+        return Image.asset(
+          'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
+          width: width,
+          height: height,
+          fit: BoxFit.cover,
+        );
+      },
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) return child;
+        // Mientras carga, mostrar el asset como placeholder
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Image.asset(
+              'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
+              width: width,
+              height: height,
+              fit: BoxFit.cover,
+            ),
+            child,
+          ],
+        );
+      },
     );
   }
 }

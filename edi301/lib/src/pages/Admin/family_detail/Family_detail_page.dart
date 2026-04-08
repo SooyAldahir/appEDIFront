@@ -1,11 +1,14 @@
+import 'package:edi301/services/search_api.dart' show UserMini;
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 import 'package:edi301/models/family_model.dart';
 import 'package:edi301/services/familia_api.dart';
 import 'package:edi301/services/socket_service.dart';
 import 'package:edi301/services/members_api.dart';
+import 'package:edi301/services/publicaciones_api.dart';
 import 'package:edi301/src/pages/Admin/add_alumns/add_alumns_controller.dart';
-import 'package:edi301/services/search_api.dart';
+import 'package:edi301/src/pages/Admin/reportes/reporte_familia_individual_service.dart';
+import 'package:edi301/core/api_client_http.dart';
 
 class FamilyDetailPage extends StatefulWidget {
   const FamilyDetailPage({super.key});
@@ -14,64 +17,79 @@ class FamilyDetailPage extends StatefulWidget {
   State<FamilyDetailPage> createState() => _FamilyDetailPageState();
 }
 
-class _FamilyDetailPageState extends State<FamilyDetailPage> {
+class _FamilyDetailPageState extends State<FamilyDetailPage>
+    with SingleTickerProviderStateMixin {
+  static const _primary = Color.fromRGBO(19, 67, 107, 1);
+  static const _gold = Color.fromRGBO(245, 188, 6, 1);
+
   final SocketService _socketService = SocketService();
+  final _membersApi = MembersApi();
+  final _pubApi = PublicacionesApi();
+  final _reporteService = ReporteFamiliaIndividualService();
+
   bool _realtimeSetup = false;
   int? _rtFamilyId;
   Family? _family;
   bool _isLoading = true;
   String? _error;
-  final _membersApi = MembersApi();
+
+  // Publicaciones
+  List<dynamic> _posts = [];
+  bool _postsLoading = false;
+
+  // Tab controller
+  late TabController _tabController;
+
+  // PDF export state
+  bool _exportingPdf = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_isLoading) {
       final args = ModalRoute.of(context)!.settings.arguments;
-
       int? familyId;
       if (args is Family) {
         familyId = args.id;
       } else if (args is int) {
         familyId = args;
       }
-
       if (familyId != null) {
-        // ✅ Fijar a no-null para usarlo dentro de closures sin errores de null-safety.
         final int fid = familyId;
         if (!_realtimeSetup || _rtFamilyId != familyId) {
           _socketService.initSocket();
           _socketService.joinFamilyRoom(fid);
-
-          _socketService.socket.off('miembro_agregado');
-          _socketService.socket.on('miembro_agregado', (_) {
-            if (mounted) _fetchFamilyDetails(fid);
-          });
-
-          _socketService.socket.off('miembro_eliminado');
-          _socketService.socket.on('miembro_eliminado', (_) {
-            if (mounted) _fetchFamilyDetails(fid);
-          });
-
-          _socketService.socket.off('miembros_actualizados');
-          _socketService.socket.on('miembros_actualizados', (_) {
-            if (mounted) _fetchFamilyDetails(fid);
-          });
-
-          _socketService.socket.off('nuevos_alumnos_asignados');
-          _socketService.socket.on('nuevos_alumnos_asignados', (_) {
-            if (mounted) _fetchFamilyDetails(fid);
-          });
-
+          for (final ev in [
+            'miembro_agregado',
+            'miembro_eliminado',
+            'miembros_actualizados',
+            'nuevos_alumnos_asignados',
+          ]) {
+            _socketService.socket.off(ev);
+            _socketService.socket.on(ev, (_) {
+              if (mounted) _fetchFamilyDetails(fid);
+            });
+          }
           _realtimeSetup = true;
           _rtFamilyId = fid;
         }
-
         _fetchFamilyDetails(fid);
       } else {
         setState(() {
           _isLoading = false;
-          _error = 'No se pudo cargar la familia. ID no encontrado.';
+          _error = 'ID de familia no encontrado.';
         });
       }
     }
@@ -87,13 +105,44 @@ class _FamilyDetailPageState extends State<FamilyDetailPage> {
           _isLoading = false;
         });
       }
+      await _fetchPosts(familyId);
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         setState(() {
           _isLoading = false;
-          _error = 'Error al cargar los detalles: ${e.toString()}';
+          _error = e.toString();
         });
+    }
+  }
+
+  Future<void> _fetchPosts(int familyId) async {
+    setState(() => _postsLoading = true);
+    try {
+      final res = await _pubApi.getPostsFamilia(familyId, limit: 100);
+      final data = res['data'] as List? ?? [];
+      if (mounted) setState(() => _posts = data);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _postsLoading = false);
+    }
+  }
+
+  Future<void> _exportPdf() async {
+    if (_family == null || _exportingPdf) return;
+    setState(() => _exportingPdf = true);
+    try {
+      await _reporteService.generarYAbrir(_family!);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al generar PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _exportingPdf = false);
     }
   }
 
@@ -102,9 +151,7 @@ class _FamilyDetailPageState extends State<FamilyDetailPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmar eliminación'),
-        content: Text(
-          '¿Estás seguro de que deseas quitar a $memberName de esta familia? (La relación se desactivará, el usuario no se borrará).',
-        ),
+        content: Text('¿Quitar a $memberName de esta familia?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -124,7 +171,6 @@ class _FamilyDetailPageState extends State<FamilyDetailPage> {
   Future<void> _handleDeleteMember(FamilyMember member) async {
     final confirmed = await _showDeleteDialog(member.fullName);
     if (!confirmed || !mounted) return;
-
     try {
       await _membersApi.removeMember(member.idMiembro);
       setState(() {
@@ -132,139 +178,363 @@ class _FamilyDetailPageState extends State<FamilyDetailPage> {
           _family!.householdChildren.removeWhere(
             (m) => m.idMiembro == member.idMiembro,
           );
-        } else if (member.tipoMiembro == 'ALUMNO_ASIGNADO') {
+        } else {
           _family!.assignedStudents.removeWhere(
             (m) => m.idMiembro == member.idMiembro,
           );
         }
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Miembro quitado con éxito.'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Miembro quitado.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al quitar miembro: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
+  // ── URL helper ───────────────────────────────────────────────────────────────
+  String _absUrl(String? raw) {
+    if (raw == null || raw.isEmpty || raw == 'null') return '';
+    var s = raw.trim();
+    if (s.startsWith('http')) return s;
+    if (!s.startsWith('/')) s = '/$s';
+    return '${ApiHttp.baseUrl}$s';
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Cargando Familia...')),
+        appBar: AppBar(title: const Text('Cargando...')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-
     if (_error != null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Error')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(_error!, textAlign: TextAlign.center),
-          ),
-        ),
+        body: Center(child: Text(_error!, textAlign: TextAlign.center)),
       );
     }
 
     final fam = _family!;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(fam.familyName),
-        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+        backgroundColor: _primary,
+        foregroundColor: Colors.white,
+        actions: [
+          // PDF export button
+          _exportingPdf
+              ? const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.picture_as_pdf),
+                  tooltip: 'Exportar reporte PDF',
+                  onPressed: _exportPdf,
+                ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: _gold,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          tabs: const [
+            Tab(icon: Icon(Icons.people), text: 'Integrantes'),
+            Tab(icon: Icon(Icons.photo_library), text: 'Publicaciones'),
+            Tab(icon: Icon(Icons.image), text: 'Fotos'),
+          ],
+        ),
       ),
       body: SafeArea(
         child: ResponsiveContent(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+          child: TabBarView(
+            controller: _tabController,
             children: [
-              _Header(f: fam),
-              const SizedBox(height: 16),
-              _Section(
-                title: 'Hijos en casa',
-                items: fam.householdChildren,
-                emptyText: 'Sin hijos registrados en casa.',
-                buildTrailing: (child) => IconButton(
-                  tooltip: 'Quitar de la familia',
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _handleDeleteMember(child),
-                ),
-                leadingIcon: Icons.family_restroom,
-              ),
-              const SizedBox(height: 12),
-              _Section(
-                title: 'Alumnos asignados',
-                items: fam.assignedStudents,
-                emptyText: 'Sin alumnos asignados.',
-                buildTrailing: (student) => Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: 'Ver detalles',
-                      icon: const Icon(Icons.info_outline),
-                      onPressed: () => Navigator.pushNamed(
-                        context,
-                        'student_detail',
-                        arguments: student.idUsuario,
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Quitar de la familia',
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _handleDeleteMember(student),
-                    ),
-                  ],
-                ),
-                leadingIcon: Icons.school,
-              ),
-              const SizedBox(height: 24),
-
-              ElevatedButton.icon(
-                icon: const Icon(Icons.person_add),
-                label: const Text('Agregar alumnos a esta familia'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: () async {
-                  final bool? didAdd = await showModalBottomSheet<bool>(
-                    context: context,
-                    isScrollControlled: true,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(20),
-                      ),
-                    ),
-                    builder: (ctx) => _AddAlumnsSheet(family: fam),
-                  );
-                  if (didAdd == true && mounted) {
-                    setState(() => _isLoading = true);
-                    await _fetchFamilyDetails(fam.id!);
-                  }
-                },
-              ),
+              _buildIntegrantesTab(fam),
+              _buildPublicacionesTab(),
+              _buildFotosTab(),
             ],
           ),
         ),
       ),
     );
   }
+
+  // ── Tab 1: Integrantes (original content) ──────────────────────────────────
+  Widget _buildIntegrantesTab(Family fam) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _Header(f: fam),
+        const SizedBox(height: 16),
+        _Section(
+          title: 'Hijos en casa',
+          items: fam.householdChildren,
+          emptyText: 'Sin hijos registrados.',
+          leadingIcon: Icons.family_restroom,
+          buildTrailing: (child) => IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            onPressed: () => _handleDeleteMember(child),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _Section(
+          title: 'Alumnos asignados',
+          items: fam.assignedStudents,
+          emptyText: 'Sin alumnos asignados.',
+          leadingIcon: Icons.school,
+          buildTrailing: (student) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.info_outline),
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  'student_detail',
+                  arguments: student.idUsuario,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _handleDeleteMember(student),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.person_add),
+          label: const Text('Agregar alumnos a esta familia'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _gold,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+          onPressed: () async {
+            final bool? didAdd = await showModalBottomSheet<bool>(
+              context: context,
+              isScrollControlled: true,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              builder: (ctx) => _AddAlumnsSheet(family: fam),
+            );
+            if (didAdd == true && mounted) {
+              setState(() => _isLoading = true);
+              await _fetchFamilyDetails(fam.id!);
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  // ── Tab 2: Publicaciones ───────────────────────────────────────────────────
+  Widget _buildPublicacionesTab() {
+    if (_postsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_posts.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.article_outlined, size: 56, color: Colors.grey),
+            SizedBox(height: 10),
+            Text(
+              'No hay publicaciones de esta familia.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _posts.length,
+      itemBuilder: (_, i) => _PostCard(post: _posts[i], absUrl: _absUrl),
+    );
+  }
+
+  // ── Tab 3: Fotos (publicaciones con imagen) ────────────────────────────────
+  Widget _buildFotosTab() {
+    if (_postsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final fotos = _posts.where((p) {
+      final img = (p['url_imagen'] ?? '').toString();
+      return img.isNotEmpty && img != 'null';
+    }).toList();
+
+    if (fotos.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.photo_library_outlined, size: 56, color: Colors.grey),
+            SizedBox(height: 10),
+            Text(
+              'No hay fotos publicadas.',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: fotos.length,
+      itemBuilder: (_, i) {
+        final post = fotos[i];
+        final imgUrl = _absUrl((post['url_imagen'] ?? '').toString());
+        final autor = '${post['nombre'] ?? ''} ${post['apellido'] ?? ''}'
+            .trim();
+        final fecha = _formatDate(post['created_at']);
+        return GestureDetector(
+          onTap: () => _showImageDetail(
+            context,
+            imgUrl,
+            autor,
+            fecha,
+            (post['mensaje'] ?? '').toString(),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.network(
+                  imgUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.broken_image, color: Colors.grey),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    color: Colors.black54,
+                    padding: const EdgeInsets.all(6),
+                    child: Text(
+                      autor,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 11),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _formatDate(dynamic raw) {
+    if (raw == null) return '';
+    try {
+      final d = DateTime.parse(raw.toString()).toLocal();
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  void _showImageDetail(
+    BuildContext context,
+    String url,
+    String autor,
+    String fecha,
+    String mensaje,
+  ) {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.network(
+              url,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) =>
+                  const Icon(Icons.broken_image, color: Colors.white, size: 60),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (autor.isNotEmpty)
+                    Text(
+                      autor,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  if (fecha.isNotEmpty)
+                    Text(
+                      fecha,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12,
+                      ),
+                    ),
+                  if (mensaje.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      mensaje,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
+// ── Sub-widgets (unchanged from original) ─────────────────────────────────────
 class _Header extends StatelessWidget {
   const _Header({required this.f});
   final Family f;
@@ -297,6 +567,17 @@ class _Header extends StatelessWidget {
                 ),
               ],
             ),
+            if (f.descripcion != null && f.descripcion!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                f.descripcion!,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.black54,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -312,11 +593,10 @@ class _Section extends StatelessWidget {
     required this.buildTrailing,
     required this.leadingIcon,
   });
-
   final String title;
   final List<FamilyMember> items;
   final String emptyText;
-  final Widget Function(FamilyMember item) buildTrailing;
+  final Widget Function(FamilyMember) buildTrailing;
   final IconData leadingIcon;
 
   @override
@@ -331,10 +611,7 @@ class _Section extends StatelessWidget {
         children: [
           if (items.isEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: 8.0,
-                horizontal: 16.0,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               child: Text(
                 emptyText,
                 style: const TextStyle(color: Colors.grey),
@@ -355,10 +632,95 @@ class _Section extends StatelessWidget {
   }
 }
 
+// ── Post card widget ───────────────────────────────────────────────────────────
+class _PostCard extends StatelessWidget {
+  const _PostCard({required this.post, required this.absUrl});
+  final dynamic post;
+  final String Function(String?) absUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final autor = '${post['nombre'] ?? ''} ${post['apellido'] ?? ''}'.trim();
+    final mensaje = (post['mensaje'] ?? '').toString();
+    final imgUrl = absUrl((post['url_imagen'] ?? '').toString());
+    final hasImg = imgUrl.isNotEmpty;
+    final fecha = _fmt(post['created_at']);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 1,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasImg)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
+              child: Image.network(
+                imgUrl,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.person,
+                      size: 16,
+                      color: Color.fromRGBO(19, 67, 107, 1),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        autor.isEmpty ? 'Desconocido' : autor,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      fecha,
+                      style: const TextStyle(color: Colors.grey, fontSize: 11),
+                    ),
+                  ],
+                ),
+                if (mensaje.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(mensaje, style: const TextStyle(fontSize: 13)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _fmt(dynamic raw) {
+    if (raw == null) return '';
+    try {
+      final d = DateTime.parse(raw.toString()).toLocal();
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+}
+
+// ── Add alumns sheet (unchanged) ───────────────────────────────────────────────
 class _AddAlumnsSheet extends StatefulWidget {
   final Family family;
   const _AddAlumnsSheet({required this.family});
-
   @override
   State<_AddAlumnsSheet> createState() => _AddAlumnsSheetState();
 }
@@ -427,40 +789,33 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
             prefixIcon: const Icon(Icons.person_search),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          onChanged: (value) {
-            _controller.searchAlumns(value);
-          },
+          onChanged: _controller.searchAlumns,
         ),
         const SizedBox(height: 8),
         ValueListenableBuilder<List<UserMini>>(
           valueListenable: _controller.alumnSearchResults,
-          builder: (context, results, child) {
-            if (results.isEmpty) {
-              return const SizedBox.shrink();
-            }
+          builder: (context, results, _) {
+            if (results.isEmpty) return const SizedBox.shrink();
             return ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxHeight: 180,
-              ), // Altura limitada
+              constraints: const BoxConstraints(maxHeight: 180),
               child: Card(
                 elevation: 2,
                 child: ListView.builder(
                   shrinkWrap: true,
                   itemCount: results.length,
-                  itemBuilder: (context, index) {
-                    final alumn = results[index];
+                  itemBuilder: (_, i) {
+                    final a = results[i];
                     return ListTile(
                       leading: const CircleAvatar(child: Icon(Icons.school)),
-                      title: Text('${alumn.nombre} ${alumn.apellido}'),
-                      subtitle: Text('Matrícula: ${alumn.matricula ?? 'N/A'}'),
+                      title: Text('${a.nombre} ${a.apellido}'),
+                      subtitle: Text('Matrícula: ${a.matricula ?? 'N/A'}'),
                       trailing: IconButton(
                         icon: const Icon(
                           Icons.add_circle_outline,
                           color: Colors.green,
                         ),
-                        tooltip: 'Añadir alumno',
                         onPressed: () {
-                          _controller.addAlumn(alumn);
+                          _controller.addAlumn(a);
                           _alumnSearchCtrl.clear();
                           _controller.searchAlumns('');
                           FocusScope.of(context).unfocus();
@@ -480,7 +835,7 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
   Widget _buildSelectedAlumnsList() {
     return ValueListenableBuilder<List<UserMini>>(
       valueListenable: _controller.selectedAlumns,
-      builder: (context, alumns, child) {
+      builder: (_, alumns, __) {
         if (alumns.isEmpty) {
           return const Center(
             child: Text(
@@ -489,7 +844,6 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
             ),
           );
         }
-
         return SizedBox(
           height: 100,
           child: SingleChildScrollView(
@@ -498,10 +852,10 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
               runSpacing: 8,
               children: alumns
                   .map(
-                    (alumn) => Chip(
-                      label: Text('${alumn.nombre} ${alumn.apellido}'),
+                    (a) => Chip(
+                      label: Text('${a.nombre} ${a.apellido}'),
                       avatar: const Icon(Icons.school),
-                      onDeleted: () => _controller.removeAlumn(alumn),
+                      onDeleted: () => _controller.removeAlumn(a),
                     ),
                   )
                   .toList(),
@@ -517,30 +871,28 @@ class _AddAlumnsSheetState extends State<_AddAlumnsSheet> {
       width: double.infinity,
       child: ValueListenableBuilder<bool>(
         valueListenable: _controller.loading,
-        builder: (context, isLoading, child) {
-          return ElevatedButton.icon(
-            icon: isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.save),
-            label: Text(isLoading ? 'GUARDANDO...' : 'GUARDAR ASIGNACIONES'),
-            onPressed: isLoading ? null : _controller.saveAssignments,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+        builder: (_, loading, __) => ElevatedButton.icon(
+          icon: loading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.save),
+          label: Text(loading ? 'GUARDANDO...' : 'GUARDAR ASIGNACIONES'),
+          onPressed: loading ? null : _controller.saveAssignments,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }

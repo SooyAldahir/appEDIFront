@@ -130,6 +130,9 @@ class UsersApi {
     required String email,
     required String contrasena,
     required int idRol,
+    String? telefono,
+    String? direccion,
+    String? fechaNacimiento,
   }) async {
     final payload = {
       "nombre": nombre,
@@ -140,6 +143,9 @@ class UsersApi {
       "id_rol": idRol,
       "matricula": null,
       "num_empleado": null,
+      if (telefono != null && telefono.isNotEmpty) "telefono": telefono,
+      if (direccion != null && direccion.isNotEmpty) "direccion": direccion,
+      if (fechaNacimiento != null) "fecha_nacimiento": fechaNacimiento,
     };
 
     final res = await _http.postJson('/api/usuarios', data: payload);
