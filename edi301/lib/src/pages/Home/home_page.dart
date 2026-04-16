@@ -65,7 +65,7 @@ class _HomePageState extends State<HomePage> {
     int openCount = prefs.getInt('app_open_count') ?? 0;
     openCount++;
     await prefs.setInt('app_open_count', openCount);
-    if (openCount >= 6000 && mounted) _mostrarDialogoEncuesta(context);
+    if (openCount >= 2 && mounted) _mostrarDialogoEncuesta(context);
   }
 
   void _mostrarDialogoEncuesta(BuildContext context) {
@@ -114,7 +114,7 @@ class _HomePageState extends State<HomePage> {
               await prefs.setBool('encuesta_mostrada', true);
               if (ctx.mounted) Navigator.of(ctx).pop();
               final uri = Uri.parse(
-                'https://docs.google.com/forms/d/e/1FAIpQLSfmPuyryfjKzi372NfoNHPHrwyduHVrILEfvNG8g9JLEVxS5w/viewform?usp=header',
+                'https://docs.google.com/forms/d/e/1FAIpQLSfmPuyryfjKzi372NfoNHPHrwyduHVrILEfvNG8g9JLEVxS5w/viewform?usp=sharing&ouid=101381466647283644158',
               );
               try {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);

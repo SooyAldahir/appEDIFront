@@ -190,7 +190,7 @@ class EditController {
           const SnackBar(content: Text('¡Cambios guardados con éxito!')),
         );
 
-        Navigator.pop(context!);
+        Navigator.pop(context!, true); // true → familiy_page recarga los datos
       }
     } catch (e) {
       print('Error al guardar: $e');

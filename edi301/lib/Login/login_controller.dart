@@ -82,22 +82,21 @@ class LoginController {
       await prefs.setString('session_token', token);
       await prefs.setString('user', jsonEncode(data));
 
-      // ✅ Registrar token FCM (una sola vez)
+      // ✅ Registrar token FCM siempre en cada login
+      // (no usamos lastSent aquí para garantizar que el backend siempre tenga el token vigente,
+      //  especialmente si la DB fue limpiada o el token expiró)
       if (idUsuario != null) {
         try {
           final fcmToken = await FirebaseMessaging.instance.getToken();
           if (fcmToken != null && fcmToken.isNotEmpty) {
-            final lastSent = prefs.getString('last_fcm_token_sent');
-            if (lastSent != fcmToken) {
-              print("🔥 Registrando FCM Token: $fcmToken");
-              final ok = await _usersApi.updateFcmToken(
-                int.parse(idUsuario.toString()),
-                fcmToken,
-              );
-              print("✅ ¿Registro exitoso en servidor?: $ok");
-              if (ok) {
-                await prefs.setString('last_fcm_token_sent', fcmToken);
-              }
+            print("🔥 Registrando FCM Token en login: $fcmToken");
+            final ok = await _usersApi.updateFcmToken(
+              int.parse(idUsuario.toString()),
+              fcmToken,
+            );
+            print("✅ ¿Registro exitoso en servidor?: $ok");
+            if (ok) {
+              await prefs.setString('last_fcm_token_sent', fcmToken);
             }
           }
         } catch (e) {

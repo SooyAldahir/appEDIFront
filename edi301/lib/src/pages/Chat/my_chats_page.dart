@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:edi301/services/chat_api.dart';
 import 'package:edi301/src/pages/Chat/chat_page.dart';
@@ -14,11 +15,37 @@ class _MyChatsPageState extends State<MyChatsPage> {
   final ChatApi _api = ChatApi();
   List<dynamic> _chats = [];
   bool _loading = true;
+  Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadChats();
+    _loadChats();          // Primera carga con spinner
+    _startPolling();       // Auto-refresh silencioso
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Polling cada 4 s para detectar mensajes nuevos sin que el usuario
+  /// tenga que entrar al chat manualmente.
+  void _startPolling() {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (mounted) _refreshSilently();
+    });
+  }
+
+  /// Recarga la lista sin mostrar el spinner de carga completa.
+  Future<void> _refreshSilently() async {
+    try {
+      final chats = await _api.getMyChats();
+      if (mounted) setState(() => _chats = chats);
+    } catch (_) {
+      // Ignorar errores transitorios en el polling silencioso
+    }
   }
 
   Future<void> _loadChats() async {

@@ -34,10 +34,10 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _init() async {
     await _loadMyId();
     await _loadMessages(); // Carga inicial
-    _startPolling(); // ✅ Inicia el refresco automático
+    _startPolling();       // ✅ Inicia el refresco automático
   }
 
-  // ✅ Inicia el temporizador de pulling cada 3 segundos
+  // ✅ Polling cada 2 segundos
   void _startPolling() {
     _pollingTimer?.cancel(); // Limpia cualquier timer previo
     _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
@@ -59,44 +59,50 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
-    _pollingTimer
-        ?.cancel(); // ✅ Obligatorio: detener el timer al salir de la página
+    _pollingTimer?.cancel(); // ✅ Obligatorio: detener el timer al salir de la página
     _msgCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
 
-  // ✅ Ajustado para manejar refrescos silenciosos
+  // ✅ Maneja tanto la carga inicial como refrescos silenciosos con try-catch
   Future<void> _loadMessages({bool isPolling = false}) async {
     // Solo mostramos el loader principal si es la primera carga y no hay mensajes
     if (!isPolling && _mensajes.isEmpty) {
       setState(() => _loading = true);
     }
 
-    final msgs = await _api.getMessages(widget.idSala);
+    try {
+      final msgs = await _api.getMessages(widget.idSala);
 
-    final normalized = msgs.map((m) {
-      if (m is! Map) return m;
-      final msg = Map<String, dynamic>.from(m);
-      final int? senderId = msg['id_usuario'] is int
-          ? msg['id_usuario']
-          : int.tryParse((msg['id_usuario'] ?? '').toString());
-      msg['es_mio'] = (_myId != null && senderId == _myId) ? 1 : 0;
-      return msg;
-    }).toList();
+      final normalized = msgs.map((m) {
+        if (m is! Map) return m;
+        final msg = Map<String, dynamic>.from(m);
+        final int? senderId = msg['id_usuario'] is int
+            ? msg['id_usuario']
+            : int.tryParse((msg['id_usuario'] ?? '').toString());
+        msg['es_mio'] = (_myId != null && senderId == _myId) ? 1 : 0;
+        return msg;
+      }).toList();
 
-    if (mounted) {
-      // Solo actualizamos la UI si la cantidad de mensajes cambió
-      if (normalized.length != _mensajes.length) {
-        setState(() {
-          _mensajes = normalized;
-          _loading = false;
-        });
-        _scrollToBottom();
-      } else {
-        // Si no hay cambios, simplemente quitamos el loading si estaba activo
-        if (_loading) setState(() => _loading = false);
+      if (mounted) {
+        // Solo actualizamos la UI si la cantidad de mensajes cambió
+        if (normalized.length != _mensajes.length) {
+          setState(() {
+            _mensajes = normalized;
+            _loading = false;
+          });
+          _scrollToBottom();
+        } else {
+          // Si no hay cambios, simplemente quitamos el loading si estaba activo
+          if (_loading) setState(() => _loading = false);
+        }
       }
+    } catch (e) {
+      // Error transitorio (ej. servidor reiniciando) → ignorar en polling,
+      // solo quitar spinner en primera carga
+      if (mounted && _loading) setState(() => _loading = false);
+      if (!isPolling) print('❌ Error cargando mensajes: $e');
     }
   }
 

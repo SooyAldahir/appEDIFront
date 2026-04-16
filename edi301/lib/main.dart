@@ -38,7 +38,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 /// Sincroniza token al backend si hay usuario logueado.
-/// Guarda el último token enviado para evitar spam de requests.
+/// Siempre intenta sincronizar para evitar tokens stale en la DB
+/// (ej. tras limpiar la DB durante pruebas o reinicio del servidor).
 Future<void> _syncFcmIfLoggedIn() async {
   final prefs = await SharedPreferences.getInstance();
   final userJson = prefs.getString('user');
@@ -48,15 +49,24 @@ Future<void> _syncFcmIfLoggedIn() async {
   final idUsuario = user['id_usuario'] ?? user['IdUsuario'];
   if (idUsuario == null) return;
 
-  final fcmToken = await FirebaseMessaging.instance.getToken();
-  if (fcmToken == null || fcmToken.isEmpty) return;
+  // ✅ En iOS hay que esperar el APNS token antes de pedir el FCM token
+  if (Platform.isIOS) {
+    final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
+    if (apnsToken == null) return; // Simulador o sin permisos → salir sin error
+  }
 
-  final lastSent = prefs.getString('last_fcm_token_sent');
-  if (lastSent == fcmToken) {
-    // ya está sincronizado
+  String? fcmToken;
+  try {
+    fcmToken = await FirebaseMessaging.instance.getToken();
+  } catch (e) {
+    print("⚠️ No se pudo obtener FCM token: $e");
     return;
   }
 
+  if (fcmToken == null || fcmToken.isEmpty) return;
+
+  // Siempre sincronizamos en cada arranque para garantizar que la DB
+  // tenga el token vigente, independientemente del caché local.
   final ok = await UsersApi().updateFcmToken(
     int.parse(idUsuario.toString()),
     fcmToken,
@@ -69,7 +79,7 @@ Future<void> _syncFcmIfLoggedIn() async {
   }
 }
 
-/// Escucha refresh de token y lo manda al backend.
+/// Escucha refresh de token y lo amnda al backend
 Future<void> _listenFcmRefresh() async {
   final prefs = await SharedPreferences.getInstance();
   final userJson = prefs.getString('user');
@@ -110,18 +120,34 @@ void main() async {
   await notiService.init();
   await notiService.requestPermissions();
 
-  // Foreground
+  // Foreground: mostrar notificación local cuando la app está abierta
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print('Mensaje recibido en foreground: ${message.notification?.title}');
+    print('📬 Notificación foreground: ${message.notification?.title} | data: ${message.data}');
 
     final notification = message.notification;
     if (notification != null) {
+      // Usamos timestamp como ID para que cada notificación sea única
+      // (hashCode puede colisionar si dos mensajes tienen el mismo texto)
+      final int notifId = DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
       notiService.showNotification(
-        id: notification.hashCode,
+        id: notifId,
         title: notification.title ?? 'Sin título',
         body: notification.body ?? '',
         payload: message.data['tipo'] ?? 'GENERAL',
       );
+    } else {
+      // Mensaje "data-only" (sin notification block): construir aviso manual
+      final title = message.data['title'] ?? message.data['titulo'] ?? 'Nuevo mensaje';
+      final body  = message.data['body']  ?? message.data['cuerpo'] ?? '';
+      if (body.isNotEmpty) {
+        final int notifId = DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
+        notiService.showNotification(
+          id: notifId,
+          title: title,
+          body: body,
+          payload: message.data['tipo'] ?? 'GENERAL',
+        );
+      }
     }
   });
 

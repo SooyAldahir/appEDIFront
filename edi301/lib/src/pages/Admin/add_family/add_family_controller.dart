@@ -88,11 +88,60 @@ class AddFamilyController {
     return parts.first;
   }
 
-  void recomputeFamilyName() {
-    final f = _firstSurname(_pickedFather?.apellido);
-    final m = _firstSurname(_pickedMother?.apellido);
+  /// Retorna el segundo apellido (todo lo que queda después del primer apellido).
+  /// Ejemplo: "García López" → "López", "de la Cruz Martínez" → "Martínez"
+  String _secondSurname(String? fullLastName) {
+    if (fullLastName == null) return '';
 
-    final base = [f, m].where((e) => e.trim().isNotEmpty).join(' ');
+    final text = fullLastName.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (text.isEmpty) return '';
+
+    final parts = text.split(' ');
+    if (parts.length <= 1) return '';
+
+    final lower = parts.map((e) => e.toLowerCase()).toList();
+
+    int firstSurnameLength;
+    if (parts.length >= 3 &&
+        lower[0] == 'de' &&
+        (lower[1] == 'la' || lower[1] == 'los' || lower[1] == 'las')) {
+      firstSurnameLength = 3;
+    } else if (parts.length >= 2 &&
+        (lower[0] == 'de' || lower[0] == 'del')) {
+      firstSurnameLength = 2;
+    } else {
+      firstSurnameLength = 1;
+    }
+
+    if (firstSurnameLength >= parts.length) return '';
+    return parts.sublist(firstSurnameLength).join(' ');
+  }
+
+  void recomputeFamilyName() {
+    final hasFather = _pickedFather != null;
+    final hasMother = _pickedMother != null;
+
+    String base;
+
+    if (hasFather && hasMother) {
+      // Ambos padres: primer apellido de cada uno
+      final f = _firstSurname(_pickedFather!.apellido);
+      final m = _firstSurname(_pickedMother!.apellido);
+      base = [f, m].where((e) => e.trim().isNotEmpty).join(' ');
+    } else if (hasFather) {
+      // Solo papá: sus dos apellidos
+      final f1 = _firstSurname(_pickedFather!.apellido);
+      final f2 = _secondSurname(_pickedFather!.apellido);
+      base = [f1, f2].where((e) => e.trim().isNotEmpty).join(' ');
+    } else if (hasMother) {
+      // Solo mamá: sus dos apellidos
+      final m1 = _firstSurname(_pickedMother!.apellido);
+      final m2 = _secondSurname(_pickedMother!.apellido);
+      base = [m1, m2].where((e) => e.trim().isNotEmpty).join(' ');
+    } else {
+      base = '';
+    }
+
     _familyName.value = base.isEmpty ? '' : 'Familia $base';
   }
 
