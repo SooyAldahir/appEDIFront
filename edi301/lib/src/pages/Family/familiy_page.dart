@@ -308,17 +308,12 @@ class _FamilyPageState extends State<FamiliyPage> {
                       final coverAbs = _absUrl(coverUrlRaw);
                       final profileAbs = _absUrl(profileUrlRaw);
 
-                      final ImageProvider coverImage = coverAbs.isNotEmpty
-                          ? NetworkImage(coverAbs)
-                          : const AssetImage(
-                              'assets/img/familia-extensa-e1591818033557.jpg',
-                            );
+                      final ImageProvider? coverImage =
+                          coverAbs.isNotEmpty ? NetworkImage(coverAbs) : null;
 
-                      final ImageProvider profileImage = profileAbs.isNotEmpty
+                      final ImageProvider? profileImage = profileAbs.isNotEmpty
                           ? NetworkImage(profileAbs)
-                          : const AssetImage(
-                              'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-                            );
+                          : null;
 
                       return SingleChildScrollView(
                         child: Column(
@@ -463,9 +458,7 @@ class _FamilyPageState extends State<FamiliyPage> {
 
       widgets.add(
         ProfileCard(
-          imageUrl: papaFotoAbs.isNotEmpty
-              ? papaFotoAbs
-              : 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
+          imageUrl: papaFotoAbs,
           name: papaNombre.isNotEmpty ? papaNombre : 'Padre',
           school: 'Padre',
           phoneNumber: family.papaTelefono,
@@ -489,9 +482,7 @@ class _FamilyPageState extends State<FamiliyPage> {
 
       widgets.add(
         ProfileCard(
-          imageUrl: mamaFotoAbs.isNotEmpty
-              ? mamaFotoAbs
-              : 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
+          imageUrl: mamaFotoAbs,
           name: mamaNombre.isNotEmpty ? mamaNombre : 'Madre',
           school: 'Madre',
           phoneNumber: family.mamaTelefono,
@@ -523,9 +514,7 @@ class _FamilyPageState extends State<FamiliyPage> {
 
       widgets.add(
         ProfileCard(
-          imageUrl: fotoAbs.isNotEmpty
-              ? fotoAbs
-              : 'https://cdn-icons-png.flaticon.com/512/7141/7141724.png',
+          imageUrl: fotoAbs,
           name: h.fullName,
           school: h.carrera,
           phoneNumber: h.telefono,
@@ -864,8 +853,8 @@ class _FamilyPageState extends State<FamiliyPage> {
 //  FAMILY HEADER WIDGET
 // =========================
 class FamilyWidget extends StatelessWidget {
-  final ImageProvider backgroundImage;
-  final ImageProvider circleImage;
+  final ImageProvider? backgroundImage;
+  final ImageProvider? circleImage;
   final bool canOpenCover;
   final bool canOpenProfile;
 
@@ -877,51 +866,89 @@ class FamilyWidget extends StatelessWidget {
     required this.canOpenProfile,
   });
 
+  static const _primary = Color.fromRGBO(19, 67, 107, 1);
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
+        // ── Portada ──────────────────────────────────────────────────────
         GestureDetector(
-          onTap: canOpenCover
-              ? () => _openFullScreen(context, backgroundImage, 'coverTag')
+          onTap: canOpenCover && backgroundImage != null
+              ? () => _openFullScreen(context, backgroundImage!, 'coverTag')
               : null,
           child: Hero(
             tag: 'coverTag',
-            child: Image(
-              image: backgroundImage,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: 200,
-              errorBuilder: (context, error, stackTrace) => Container(
-                width: double.infinity,
-                height: 200,
-                color: Colors.grey[300],
-                child: const Icon(
-                  Icons.broken_image,
-                  color: Colors.grey,
-                  size: 40,
-                ),
-              ),
-            ),
+            child: backgroundImage != null
+                ? Image(
+                    image: backgroundImage!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: 200,
+                    errorBuilder: (context, error, stackTrace) =>
+                        _coverPlaceholder(),
+                  )
+                : _coverPlaceholder(),
           ),
         ),
+        // ── Foto de perfil ────────────────────────────────────────────────
         Positioned(
           bottom: 10,
           left: 10,
           child: GestureDetector(
-            onTap: canOpenProfile
-                ? () => _openFullScreen(context, circleImage, 'profileTag')
+            onTap: canOpenProfile && circleImage != null
+                ? () => _openFullScreen(context, circleImage!, 'profileTag')
                 : null,
             child: CircleAvatar(
               radius: 50,
               backgroundColor: Colors.white,
-              child: ClipOval(
-                child: _SafeImage(image: circleImage, width: 92, height: 92),
-              ),
+              child: circleImage != null
+                  ? ClipOval(
+                      child: _SafeImage(
+                        image: circleImage,
+                        width: 92,
+                        height: 92,
+                      ),
+                    )
+                  : Container(
+                      width: 92,
+                      height: 92,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color.fromRGBO(19, 67, 107, 0.08),
+                      ),
+                      child: const Icon(
+                        Icons.family_restroom,
+                        size: 40,
+                        color: _primary,
+                      ),
+                    ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _coverPlaceholder() {
+    return Container(
+      width: double.infinity,
+      height: 200,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color.fromRGBO(19, 67, 107, 0.15),
+            Color.fromRGBO(19, 67, 107, 0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: const Icon(
+        Icons.home_outlined,
+        size: 64,
+        color: Color.fromRGBO(19, 67, 107, 0.25),
+      ),
     );
   }
 
@@ -1007,6 +1034,22 @@ class ProfileCard extends StatelessWidget {
     this.onChat,
   });
 
+  Widget _avatarPlaceholder() {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color.fromRGBO(19, 67, 107, 0.08),
+      ),
+      child: const Icon(
+        Icons.person,
+        size: 30,
+        color: Color.fromRGBO(19, 67, 107, 0.5),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final heroTag = 'member_${name.hashCode}_${imageUrl.hashCode}';
@@ -1014,10 +1057,8 @@ class ProfileCard extends StatelessWidget {
     final bool hasValidImage =
         imageUrl.isNotEmpty && !imageUrl.contains('null');
 
-    // Usamos AssetImage como fallback para evitar 404 en NetworkImage
-    final ImageProvider imgProvider = hasValidImage
-        ? NetworkImage(imageUrl)
-        : const AssetImage('assets/img/7141724.png');
+    final ImageProvider? imgProvider =
+        hasValidImage ? NetworkImage(imageUrl) : null;
 
     return Card(
       elevation: 1.5,
@@ -1031,7 +1072,7 @@ class ProfileCard extends StatelessWidget {
           child: Row(
             children: [
               GestureDetector(
-                onTap: hasValidImage
+                onTap: hasValidImage && imgProvider != null
                     ? () {
                         FullScreenImageViewer.open(
                           context,
@@ -1042,20 +1083,18 @@ class ProfileCard extends StatelessWidget {
                     : null,
                 child: Hero(
                   tag: heroTag,
-                  child: ClipOval(
-                    child: Image(
-                      image: imgProvider,
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Image.asset(
-                        'assets/img/7141724.png',
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
+                  child: hasValidImage && imgProvider != null
+                      ? ClipOval(
+                          child: Image(
+                            image: imgProvider,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                _avatarPlaceholder(),
+                          ),
+                        )
+                      : _avatarPlaceholder(),
                 ),
               ),
               const SizedBox(width: 15),
@@ -1163,7 +1202,7 @@ class FullScreenImagePage extends StatelessWidget {
 //  SAFE IMAGE — carga segura con fallback al asset local
 // =========================
 class _SafeImage extends StatelessWidget {
-  final ImageProvider image;
+  final ImageProvider? image;
   final double width;
   final double height;
 
@@ -1173,36 +1212,34 @@ class _SafeImage extends StatelessWidget {
     required this.height,
   });
 
+  Widget _placeholder() {
+    return Container(
+      width: width,
+      height: height,
+      color: const Color.fromRGBO(19, 67, 107, 0.08),
+      child: const Icon(
+        Icons.family_restroom,
+        size: 40,
+        color: Color.fromRGBO(19, 67, 107, 0.4),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (image == null) return _placeholder();
     return Image(
-      image: image,
+      image: image!,
       width: width,
       height: height,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
-        // Si la imagen de red falla, mostramos el asset de perfil genérico
-        return Image.asset(
-          'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-          width: width,
-          height: height,
-          fit: BoxFit.cover,
-        );
-      },
+      errorBuilder: (context, error, stackTrace) => _placeholder(),
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded || frame != null) return child;
-        // Mientras carga, mostrar el asset como placeholder
+        // Mientras carga, mostrar placeholder
         return Stack(
           alignment: Alignment.center,
-          children: [
-            Image.asset(
-              'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-              width: width,
-              height: height,
-              fit: BoxFit.cover,
-            ),
-            child,
-          ],
+          children: [_placeholder(), child],
         );
       },
     );

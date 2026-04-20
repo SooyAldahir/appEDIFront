@@ -36,13 +36,13 @@ class HeaderCard extends StatelessWidget {
   static const _gold = Color.fromRGBO(245, 188, 6, 1);
   static const _navyL = Color.fromRGBO(30, 85, 135, 1);
 
-  ImageProvider _imgProvider() {
+  ImageProvider? _imgProvider() {
     if (avatarUrl.isNotEmpty &&
         avatarUrl != '—' &&
         !avatarUrl.contains('null')) {
       return NetworkImage(avatarUrl);
     }
-    return const AssetImage('assets/img/7141724.png');
+    return null;
   }
 
   @override
@@ -80,10 +80,10 @@ class HeaderCard extends StatelessWidget {
                 Stack(
                   children: [
                     GestureDetector(
-                      onTap: hasAvatar
+                      onTap: hasAvatar && imgProvider != null
                           ? () => FullScreenImageViewer.open(
                               context,
-                              imageProvider: imgProvider,
+                              imageProvider: imgProvider!,
                               heroTag: heroTag,
                             )
                           : null,
@@ -105,7 +105,8 @@ class HeaderCard extends StatelessWidget {
                             radius: 42,
                             backgroundColor: Colors.grey[200],
                             backgroundImage: imgProvider,
-                            onBackgroundImageError: (_, __) {},
+                            onBackgroundImageError:
+                                imgProvider != null ? (_, __) {} : null,
                             child: !hasAvatar
                                 ? const Icon(
                                     Icons.person,

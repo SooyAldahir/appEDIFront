@@ -90,9 +90,12 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
   String _formatFecha(String? fechaRaw) {
     if (fechaRaw == null || fechaRaw.isEmpty || fechaRaw == '—') return '—';
     try {
-      DateTime fecha = DateTime.parse(fechaRaw);
-      return DateFormat('dd/MM/yyyy').format(fecha);
+      final dt = DateTime.parse(fechaRaw);
+      return DateFormat('dd/MM').format(dt);
     } catch (e) {
+      // Si ya viene formateado, extraer solo día y mes
+      final parts = fechaRaw.split('T')[0].split('-');
+      if (parts.length >= 3) return '${parts[2].padLeft(2, '0')}/${parts[1].padLeft(2, '0')}';
       return fechaRaw.split('T')[0];
     }
   }
@@ -162,9 +165,8 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
     final bool showAddress = !isInternal && rawAddr != '—';
     final fotoRaw = s('foto_perfil', '');
     final fotoAbs = _absUrl(fotoRaw);
-    final ImageProvider avatarProvider = fotoAbs.isNotEmpty
-        ? NetworkImage(fotoAbs)
-        : const AssetImage('assets/img/7141724.png');
+    final ImageProvider? avatarProvider =
+        fotoAbs.isNotEmpty ? NetworkImage(fotoAbs) : null;
 
     final bool hasPhoto = fotoAbs.isNotEmpty;
 
@@ -184,11 +186,11 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: hasPhoto
+                    onTap: hasPhoto && avatarProvider != null
                         ? () {
                             FullScreenImageViewer.open(
                               context,
-                              imageProvider: avatarProvider,
+                              imageProvider: avatarProvider!,
                               heroTag: heroTag,
                             );
                           }
@@ -201,7 +203,11 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
                         backgroundImage: avatarProvider,
                         child: hasPhoto
                             ? null
-                            : const Icon(Icons.person, size: 28),
+                            : Icon(
+                                Icons.person,
+                                size: 28,
+                                color: primary.withOpacity(.6),
+                              ),
                       ),
                     ),
                   ),
@@ -255,7 +261,6 @@ class _StudentDetailPageState extends State<StudentDetailPage> {
             title: 'Contacto',
             primary: primary,
             children: [
-              _InfoTile(Icons.badge_outlined, docLabel, docValue),
               _InfoTile(Icons.call_outlined, 'Teléfono', phone),
               _InfoTile(Icons.mail_outline, 'Correo', email),
               if (showAddress)

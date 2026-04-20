@@ -34,6 +34,7 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _init() async {
     await _loadMyId();
     await _loadMessages(); // Carga inicial
+    _api.markAsRead(widget.idSala); // Marcar sala como leída al entrar (fire & forget)
     _startPolling();       // ✅ Inicia el refresco automático
   }
 
@@ -127,6 +128,8 @@ class _ChatPageState extends State<ChatPage> {
 
     // Petición HTTP (El backend enviará la Push de Firebase automáticamente)
     final success = await _api.sendMessage(widget.idSala, text);
+    // Marcar la sala como leída después de enviar (el mensaje es mío, ya lo "vi")
+    _api.markAsRead(widget.idSala);
 
     if (success) {
       // Refrescamos inmediatamente para confirmar el mensaje

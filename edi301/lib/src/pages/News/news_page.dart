@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:ui';
 import 'package:edi301/core/api_client_http.dart';
+import 'package:edi301/services/notificaciones_api.dart';
 import 'package:edi301/services/publicaciones_api.dart';
 import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
+import 'package:edi301/src/pages/Notifications/notificaciones_historial_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,6 +27,9 @@ class _NewsPageState extends State<NewsPage> {
   final HomeController _controller = HomeController();
   final PublicacionesApi _api = PublicacionesApi();
   final ApiHttp _http = ApiHttp();
+
+  final NotificacionesApi _notiApi = NotificacionesApi();
+  int _unreadCount = 0;
 
   final Map<int, GlobalKey> _likeButtonKeys = {};
   final ScrollController _scrollController = ScrollController();
@@ -164,6 +169,14 @@ class _NewsPageState extends State<NewsPage> {
     await _loadUserData();
     _setupRealtime();
     await _loadFeed();
+    _loadUnreadCount();
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final count = await _notiApi.unreadCount();
+      if (mounted) setState(() => _unreadCount = count);
+    } catch (_) {}
   }
 
   Future<void> _loadUserData() async {
@@ -408,13 +421,53 @@ class _NewsPageState extends State<NewsPage> {
             'ALUMNO',
             'HijoEDI',
           ].contains(_userRole))
-            IconButton(
-              icon: const Icon(Icons.notifications),
-              onPressed: () {
-                Navigator.pushNamed(context, 'notifications').then((_) {
-                  _loadFeed();
-                });
-              },
+            Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_rounded),
+                  tooltip: 'Notificaciones',
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificacionesHistorialPage(),
+                      ),
+                    );
+                    // Al volver, actualizar el contador
+                    _loadUnreadCount();
+                    _loadFeed();
+                  },
+                ),
+                if (_unreadCount > 0)
+                  Positioned(
+                    right: 6,
+                    top: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: const Color.fromRGBO(245, 188, 6, 1),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color.fromRGBO(19, 67, 107, 1),
+                          width: 1.5,
+                        ),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 18,
+                        minHeight: 18,
+                      ),
+                      child: Text(
+                        _unreadCount > 99 ? '99+' : '$_unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           const SizedBox(width: 10),
         ],

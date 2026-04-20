@@ -52,7 +52,8 @@ class ForgotPasswordController {
   // ENVÍO OTP
   // =========================
   Future<void> sendOtp(BuildContext context) async {
-    if (emailCtrl.text.trim().isEmpty) {
+    final email = emailCtrl.text.trim();
+    if (email.isEmpty) {
       _snack(context, 'Ingresa tu correo');
       return;
     }
@@ -60,10 +61,15 @@ class ForgotPasswordController {
     loading.value = true;
 
     try {
-      await _otpService.sendOtp(emailCtrl.text.trim());
+      // 1. Validar que el correo exista en la base de datos
+      await _usersApi.checkEmailExists(email);
+
+      // 2. Si existe, enviar el OTP
+      await _otpService.sendOtp(email);
       step.value = 1;
     } catch (e) {
-      _snack(context, 'Error al enviar código. Verifica tu correo.');
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      _snack(context, msg.isNotEmpty ? msg : 'Error al enviar código. Verifica tu correo.');
     } finally {
       loading.value = false;
     }

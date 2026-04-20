@@ -204,6 +204,33 @@ class _HomePageState extends State<HomePage> {
     setState(() => _selectedIndex = index);
   }
 
+  /// Ícono con punto rojo si hay mensajes no leídos en la sección de chat.
+  Widget _buildNavIcon(String ruta, IconData icon, int unreadCount) {
+    if (ruta != 'chat' || unreadCount == 0) return Icon(icon);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon),
+        Positioned(
+          right: -3,
+          top: -3,
+          child: Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: const Color.fromRGBO(245, 188, 6, 1),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color.fromRGBO(19, 67, 107, 1),
+                width: 1.5,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_menuOptions.isEmpty) {
@@ -211,73 +238,85 @@ class _HomePageState extends State<HomePage> {
     }
     if (_selectedIndex >= _menuOptions.length) _selectedIndex = 0;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // ── Mobile: PageView + BottomNavigationBar ──────────────────────
-        if (constraints.maxWidth < 640) {
-          return Scaffold(
-            body: SafeArea(
-              child: PageView(
-                controller: _pageCtrl,
-                onPageChanged: _onPageChanged,
-                // physics: const NeverScrollableScrollPhysics(), // ← descomenta para deshabilitar swipe
-                children: _menuOptions
-                    .map((op) => _getPageFromRoute(op['ruta'] as String))
-                    .toList(),
-              ),
-            ),
-            bottomNavigationBar: BottomNavigationBar(
-              type: BottomNavigationBarType.fixed,
-              backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-              selectedItemColor: const Color.fromRGBO(245, 188, 6, 1),
-              unselectedItemColor: Colors.white,
-              currentIndex: _selectedIndex,
-              onTap: _onNavTap,
-              items: _menuOptions
-                  .map(
-                    (op) => BottomNavigationBarItem(
-                      icon: Icon(op['icon'] as IconData),
-                      label: op['label'] as String,
-                    ),
-                  )
-                  .toList(),
-            ),
-          );
-        }
-
-        // ── Tablet/Desktop: NavigationRail (sin PageView) ───────────────
-        final currentPage = _getPageFromRoute(
-          _menuOptions[_selectedIndex]['ruta'] as String,
-        );
-
-        return Scaffold(
-          body: Row(
-            children: [
-              NavigationRail(
-                backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-                selectedIndex: _selectedIndex,
-                onDestinationSelected: _onNavTap,
-                labelType: NavigationRailLabelType.all,
-                selectedLabelTextStyle: const TextStyle(
-                  color: Color.fromRGBO(245, 188, 6, 1),
+    return ValueListenableBuilder<int>(
+      valueListenable: MyChatsPage.totalUnread,
+      builder: (context, unreadCount, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // ── Mobile: PageView + BottomNavigationBar ──────────────────────
+            if (constraints.maxWidth < 640) {
+              return Scaffold(
+                body: SafeArea(
+                  child: PageView(
+                    controller: _pageCtrl,
+                    onPageChanged: _onPageChanged,
+                    children: _menuOptions
+                        .map((op) => _getPageFromRoute(op['ruta'] as String))
+                        .toList(),
+                  ),
                 ),
-                unselectedLabelTextStyle: const TextStyle(color: Colors.white),
-                selectedIconTheme: const IconThemeData(
-                  color: Color.fromRGBO(245, 188, 6, 1),
-                ),
-                unselectedIconTheme: const IconThemeData(color: Colors.white),
-                destinations: _menuOptions
-                    .map(
-                      (op) => NavigationRailDestination(
-                        icon: Icon(op['icon'] as IconData),
-                        label: Text(op['label'] as String),
+                bottomNavigationBar: BottomNavigationBar(
+                  type: BottomNavigationBarType.fixed,
+                  backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+                  selectedItemColor: const Color.fromRGBO(245, 188, 6, 1),
+                  unselectedItemColor: Colors.white,
+                  currentIndex: _selectedIndex,
+                  onTap: _onNavTap,
+                  items: _menuOptions.map((op) {
+                    final ruta = op['ruta'] as String;
+                    return BottomNavigationBarItem(
+                      icon: _buildNavIcon(
+                        ruta,
+                        op['icon'] as IconData,
+                        unreadCount,
                       ),
-                    )
-                    .toList(),
+                      label: op['label'] as String,
+                    );
+                  }).toList(),
+                ),
+              );
+            }
+
+            // ── Tablet/Desktop: NavigationRail (sin PageView) ───────────────
+            final currentPage = _getPageFromRoute(
+              _menuOptions[_selectedIndex]['ruta'] as String,
+            );
+
+            return Scaffold(
+              body: Row(
+                children: [
+                  NavigationRail(
+                    backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+                    selectedIndex: _selectedIndex,
+                    onDestinationSelected: _onNavTap,
+                    labelType: NavigationRailLabelType.all,
+                    selectedLabelTextStyle: const TextStyle(
+                      color: Color.fromRGBO(245, 188, 6, 1),
+                    ),
+                    unselectedLabelTextStyle:
+                        const TextStyle(color: Colors.white),
+                    selectedIconTheme: const IconThemeData(
+                      color: Color.fromRGBO(245, 188, 6, 1),
+                    ),
+                    unselectedIconTheme:
+                        const IconThemeData(color: Colors.white),
+                    destinations: _menuOptions.map((op) {
+                      final ruta = op['ruta'] as String;
+                      return NavigationRailDestination(
+                        icon: _buildNavIcon(
+                          ruta,
+                          op['icon'] as IconData,
+                          unreadCount,
+                        ),
+                        label: Text(op['label'] as String),
+                      );
+                    }).toList(),
+                  ),
+                  Expanded(child: currentPage),
+                ],
               ),
-              Expanded(child: currentPage),
-            ],
-          ),
+            );
+          },
         );
       },
     );

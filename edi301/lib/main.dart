@@ -5,6 +5,7 @@ import 'package:edi301/Login/forgot_password/forgot_password_page.dart';
 import 'package:edi301/src/pages/Admin/add_tutor/add_tutor_page.dart';
 import 'package:edi301/src/pages/Admin/birthdays/birthday_page.dart';
 import 'package:edi301/src/pages/Notifications/notifications_page.dart';
+import 'package:edi301/src/pages/Notifications/notificaciones_historial_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:edi301/tools/notification_service.dart';
@@ -222,6 +223,7 @@ class MyApp extends StatelessWidget {
         'agenda_detail': (context) => const AgendaDetailPage(),
         'reportes': (context) => const ReportesPage(),
         'notifications': (_) => const NotificationsPage(),
+        'notificaciones_historial': (_) => const NotificacionesHistorialPage(),
         'cumpleaños': (context) => const BirthdaysPage(),
         'add_tutor': (BuildContext context) => const AddTutorPage(),
         'forgot_password': (BuildContext context) => const ForgotPasswordPage(),

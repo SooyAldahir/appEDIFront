@@ -57,8 +57,12 @@ class _PerfilPageState extends State<PerfilPage> {
   String _formatFecha(String? raw) {
     if (raw == null || raw.isEmpty || raw == '—') return '—';
     try {
-      return DateFormat('dd/MM/yyyy').format(DateTime.parse(raw));
+      final dt = DateTime.parse(raw);
+      return DateFormat('dd/MM').format(dt);
     } catch (_) {
+      // Si ya viene formateado (dd/MM/yyyy o dd/MM), extraer solo día y mes
+      final parts = raw.split('T')[0].split('-');
+      if (parts.length >= 3) return '${parts[2].padLeft(2, '0')}/${parts[1].padLeft(2, '0')}';
       return raw.split('T')[0];
     }
   }
@@ -434,12 +438,6 @@ class _PerfilPageState extends State<PerfilPage> {
                       primary: _primary,
                       icon: Icons.school_rounded,
                       children: [
-                        InfoRow(
-                          icon: Icons.badge_outlined,
-                          label: s('docLabel'),
-                          value: s('docValue'),
-                          accent: _primary,
-                        ),
                         InfoRow(
                           icon: Icons.menu_book_rounded,
                           label: 'Programa',

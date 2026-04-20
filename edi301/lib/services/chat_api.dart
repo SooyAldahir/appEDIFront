@@ -40,4 +40,26 @@ class ChatApi {
     }
     return null;
   }
+
+  /// Marca todos los mensajes de una sala como leídos para el usuario actual.
+  Future<void> markAsRead(int idSala) async {
+    try {
+      await _http.patchJson('/api/chat/$idSala/leer');
+    } catch (_) {}
+  }
+
+  /// Devuelve el total de mensajes no leídos en todos los chats del usuario.
+  Future<int> totalUnread() async {
+    try {
+      final res = await _http.getJson('/api/chat/unread-total');
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(res.body);
+        final data = decoded is Map && decoded['data'] != null
+            ? decoded['data']
+            : decoded;
+        return (data['total'] ?? 0) as int;
+      }
+    } catch (_) {}
+    return 0;
+  }
 }

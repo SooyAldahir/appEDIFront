@@ -244,18 +244,23 @@ class _EditPageState extends State<EditPage> {
       return Image.network(
         url,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Image.asset(
-            'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-            fit: BoxFit.cover,
-          );
-        },
+        errorBuilder: (context, error, stackTrace) => _profilePlaceholder(),
       );
     }
 
-    return Image.asset(
-      'assets/img/los-24-mandamientos-de-la-familia-feliz-lg.jpg',
-      fit: BoxFit.cover,
+    return _profilePlaceholder();
+  }
+
+  Widget _profilePlaceholder() {
+    return Container(
+      width: 120,
+      height: 120,
+      color: const Color.fromRGBO(19, 67, 107, 0.08),
+      child: const Icon(
+        Icons.person,
+        size: 50,
+        color: Color.fromRGBO(19, 67, 107, 0.4),
+      ),
     );
   }
 
@@ -276,22 +281,46 @@ class _EditPageState extends State<EditPage> {
         width: double.infinity,
         height: 200,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Image.asset(
-            'assets/img/familia-extensa-e1591818033557.jpg',
-            width: double.infinity,
-            height: 200,
-            fit: BoxFit.cover,
-          );
-        },
+        errorBuilder: (context, error, stackTrace) => _coverPlaceholder(),
       );
     }
 
-    return Image.asset(
-      'assets/img/familia-extensa-e1591818033557.jpg',
+    return _coverPlaceholder();
+  }
+
+  Widget _coverPlaceholder() {
+    return Container(
       width: double.infinity,
       height: 200,
-      fit: BoxFit.cover,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color.fromRGBO(19, 67, 107, 0.12),
+            Color.fromRGBO(19, 67, 107, 0.04),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(
+            Icons.add_photo_alternate_outlined,
+            size: 48,
+            color: Color.fromRGBO(19, 67, 107, 0.35),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Toca "Editar" para agregar una foto de portada',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color.fromRGBO(19, 67, 107, 0.45),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }

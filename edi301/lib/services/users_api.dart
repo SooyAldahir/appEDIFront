@@ -258,6 +258,17 @@ class UsersApi {
     return User.fromJson(data);
   }
 
+  /// Verifica si el correo existe en la BD. Lanza [Exception] con mensaje amigable si no existe.
+  Future<void> checkEmailExists(String email) async {
+    final res = await _http.postJson(
+      '/api/auth/verificar-correo',
+      data: {'correo': email},
+    );
+    if (res.statusCode >= 400) {
+      throw Exception(parseHttpError(res));
+    }
+  }
+
   Future<bool> resetPassword(String email, String newPassword) async {
     try {
       final res = await _http.postJson(
