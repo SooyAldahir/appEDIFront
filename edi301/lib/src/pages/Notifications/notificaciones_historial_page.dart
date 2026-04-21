@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:edi301/services/notificaciones_api.dart';
 import 'package:edi301/core/api_error.dart';
+import 'package:edi301/src/pages/Notifications/notifications_page.dart';
 
 class NotificacionesHistorialPage extends StatefulWidget {
   const NotificacionesHistorialPage({super.key});
@@ -158,6 +159,8 @@ class _NotificacionesHistorialPageState
         return Icons.check_circle_rounded;
       case 'POST_RECHAZADO':
         return Icons.cancel_rounded;
+      case 'SOLICITUD':
+        return Icons.pending_actions_rounded;
       case 'CUMPLEANOS':
       case 'CUMPLEAÑOS':
         return Icons.cake_rounded;
@@ -166,6 +169,12 @@ class _NotificacionesHistorialPageState
         return Icons.event_rounded;
       case 'MENSAJE':
         return Icons.chat_bubble_rounded;
+      case 'LIKE':
+        return Icons.favorite_rounded;
+      case 'COMENTARIO':
+        return Icons.comment_rounded;
+      case 'ORACION':
+        return Icons.self_improvement_rounded;
       default:
         return Icons.notifications_rounded;
     }
@@ -181,6 +190,8 @@ class _NotificacionesHistorialPageState
         return const Color(0xFF2E7D32);
       case 'POST_RECHAZADO':
         return Colors.red.shade700;
+      case 'SOLICITUD':
+        return Colors.orange.shade700;
       case 'CUMPLEANOS':
       case 'CUMPLEAÑOS':
         return Colors.pinkAccent;
@@ -189,8 +200,33 @@ class _NotificacionesHistorialPageState
         return const Color(0xFF6A1B9A);
       case 'MENSAJE':
         return const Color(0xFF00838F);
+      case 'LIKE':
+        return Colors.red.shade400;
+      case 'COMENTARIO':
+        return Colors.blue.shade600;
+      case 'ORACION':
+        return const Color(0xFF6A1B9A);
       default:
         return _primary;
+    }
+  }
+
+  // ── Acción al tocar una notificación ────────────────────────────────────
+  Future<void> _onTapNotificacion(NotificacionItem item) async {
+    await _markRead(item);
+    if (!mounted) return;
+
+    switch (item.tipo.toUpperCase()) {
+      case 'SOLICITUD':
+        // Navegar a la pantalla donde se aprueban/rechazan solicitudes
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const NotificationsPage()),
+        );
+        break;
+      default:
+        // Para otros tipos solo marca como leído (ya se hizo arriba)
+        break;
     }
   }
 
@@ -347,7 +383,7 @@ class _NotificacionesHistorialPageState
         ),
       ),
       child: GestureDetector(
-        onTap: () => _markRead(item),
+        onTap: () => _onTapNotificacion(item),
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           decoration: BoxDecoration(

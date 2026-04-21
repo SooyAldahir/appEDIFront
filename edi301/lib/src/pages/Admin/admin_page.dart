@@ -84,6 +84,16 @@ class AdminPage extends StatelessWidget {
     accent: Color(0xFFCE93D8),
   );
 
+  // Card de Alerta Instantánea (ancho completo, destacada)
+  static const _alertCard = _AdminItem(
+    label: 'Alerta Instantánea',
+    sub: 'Notifica a todos los usuarios ahora',
+    icon: Icons.campaign_rounded,
+    route: 'broadcast',
+    gradient: [Color(0xFFB71C1C), Color(0xFF7F0000)],
+    accent: Color(0xFFFF8A80),
+  );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -123,6 +133,13 @@ class AdminPage extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 sliver: SliverToBoxAdapter(
                     child: _PrimaryCard(item: _adminCard)),
+              ),
+
+              // ── Alerta Instantánea ───────────────────────────────────────
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                sliver: SliverToBoxAdapter(
+                    child: _PrimaryCard(item: _alertCard)),
               ),
 
               // ── Bottom row ───────────────────────────────────────────────

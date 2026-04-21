@@ -717,6 +717,123 @@ class _NewsPageState extends State<NewsPage> {
     );
   }
 
+  // ── Resuelve el tema visual especial de un post según tipo y emojis ───────
+  // Prioridad descendente: Emergencia > Cumpleaños > Logro > Espiritual >
+  //                        Salida > Deporte > Arte > Comunicado
+  _PostTheme? _resolvePostTheme(Map<String, dynamic> post) {
+    final tipo = (post['tipo'] ?? '').toString().toUpperCase();
+    final msg  = (post['mensaje'] ?? '').toString();
+
+    bool has(String e) => msg.contains(e);
+    bool hasAny(List<String> list) => list.any((e) => msg.contains(e));
+
+    // 1 · EMERGENCIA
+    if (hasAny(['⚠️', '❗', '🚨', '🆘'])) {
+      return const _PostTheme(
+        bgColor:      Color(0xFFFFEBEE),
+        borderColor:  Color(0xFFD32F2F),
+        bannerColor:  Color(0xFFD32F2F),
+        bannerText:   '⚠️  AVISO URGENTE  ⚠️',
+        avatarColor:  Color(0xFFD32F2F),
+        trailingIcon: Icons.warning_rounded,
+        iconColor:    Color(0xFFD32F2F),
+      );
+    }
+
+    // 2 · CUMPLEAÑOS
+    if (tipo == 'CUMPLEAÑOS' || (has('🎂') && has('🎉'))) {
+      return const _PostTheme(
+        bgColor:      Color(0xFFFFF8E1),
+        borderColor:  Colors.orangeAccent,
+        bannerColor:  Colors.deepOrange,
+        bannerText:   '🎉  ¡CELEBRACIÓN ESPECIAL!  🎉',
+        avatarColor:  Colors.orange,
+        trailingIcon: Icons.cake,
+        iconColor:    Colors.pink,
+      );
+    }
+
+    // 3 · LOGRO / RECONOCIMIENTO
+    if (has('🏆') || has('🥇') || (has('⭐') && has('🎊'))) {
+      return const _PostTheme(
+        bgColor:      Color(0xFFFFFDE7),
+        borderColor:  Colors.amber,
+        bannerColor:  Color(0xFFF9A825),
+        bannerText:   '🏆  ¡LOGRO ESPECIAL!',
+        avatarColor:  Colors.amber,
+        trailingIcon: Icons.emoji_events,
+        iconColor:    Colors.amber,
+      );
+    }
+
+    // 4 · ESPIRITUAL / FE
+    if (has('🙏') && hasAny(['📖', '✝️', '🕊️', '⛪', '🕌', '🛐'])) {
+      return const _PostTheme(
+        bgColor:      Color(0xFFF3E5F5),
+        borderColor:  Color(0xFF7B1FA2),
+        bannerColor:  Color(0xFF7B1FA2),
+        bannerText:   '🙏  MOMENTO ESPIRITUAL',
+        avatarColor:  Color(0xFF7B1FA2),
+        trailingIcon: Icons.self_improvement,
+        iconColor:    Color(0xFF7B1FA2),
+      );
+    }
+
+    // 5 · SALIDA / PASEO / VIAJE
+    if (hasAny(['🚌', '🗺️', '✈️', '🧳', '🏕️', '🌍'])) {
+      return const _PostTheme(
+        bgColor:      Color(0xFFE0F7FA),
+        borderColor:  Color(0xFF00838F),
+        bannerColor:  Color(0xFF00838F),
+        bannerText:   '🗺️  SALIDA ESPECIAL',
+        avatarColor:  Color(0xFF00838F),
+        trailingIcon: Icons.explore,
+        iconColor:    Color(0xFF00838F),
+      );
+    }
+
+    // 6 · DEPORTE / ACTIVIDAD FÍSICA
+    if (hasAny(['⚽', '🏀', '🏈', '🏃', '🏋️', '🤸', '🎽', '🧗'])) {
+      return const _PostTheme(
+        bgColor:      Color(0xFFE8F5E9),
+        borderColor:  Color(0xFF2E7D32),
+        bannerColor:  Color(0xFF2E7D32),
+        bannerText:   '⚽  ACTIVIDAD DEPORTIVA',
+        avatarColor:  Color(0xFF388E3C),
+        trailingIcon: Icons.directions_run,
+        iconColor:    Color(0xFF2E7D32),
+      );
+    }
+
+    // 7 · ARTE / MÚSICA / TALENTO
+    if (hasAny(['🎨', '🎵', '🎭', '🎤', '🎸', '🎬', '🖼️', '🎻'])) {
+      return const _PostTheme(
+        bgColor:      Color(0xFFFCE4EC),
+        borderColor:  Color(0xFFC2185B),
+        bannerColor:  Color(0xFFC2185B),
+        bannerText:   '🎨  EXPRESIÓN ARTÍSTICA',
+        avatarColor:  Color(0xFFE91E63),
+        trailingIcon: Icons.palette,
+        iconColor:    Color(0xFFC2185B),
+      );
+    }
+
+    // 8 · COMUNICADO OFICIAL
+    if (hasAny(['📢', '📣'])) {
+      return const _PostTheme(
+        bgColor:      Color(0xFFE3F2FD),
+        borderColor:  Color(0xFF1565C0),
+        bannerColor:  Color(0xFF1565C0),
+        bannerText:   '📢  COMUNICADO OFICIAL',
+        avatarColor:  Color(0xFF1976D2),
+        trailingIcon: Icons.campaign,
+        iconColor:    Color(0xFF1565C0),
+      );
+    }
+
+    return null; // post normal, sin tema especial
+  }
+
   Widget _buildPostCard(Map<String, dynamic> post, int index) {
     final nombreUsuario = "${post['nombre']} ${post['apellido'] ?? ''}";
     final nombreFamilia = post['nombre_familia'];
@@ -731,35 +848,39 @@ class _NewsPageState extends State<NewsPage> {
 
     final isLiked = post['is_liked'] == 1 || post['is_liked'] == true;
 
-    final esCumple =
-        (post['tipo'] == 'CUMPLEAÑOS') ||
-        (mensaje.contains('🎂') && mensaje.contains('🎉'));
+    final theme = _resolvePostTheme(post);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      elevation: esCumple ? 6 : 2,
-      color: esCumple ? const Color(0xFFFFF8E1) : Colors.white,
+      elevation: theme != null ? 6 : 2,
+      color: theme?.bgColor ?? Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(15),
-        side: esCumple
-            ? const BorderSide(color: Colors.orangeAccent, width: 1.5)
+        side: theme != null
+            ? BorderSide(color: theme.borderColor, width: 1.5)
             : BorderSide.none,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (esCumple)
+          if (theme != null)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              decoration: const BoxDecoration(
-                color: Colors.orangeAccent,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              decoration: BoxDecoration(
+                color: theme.bannerColor,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(15),
+                ),
               ),
-              child: const Text(
-                "🎉 ¡CELEBRACIÓN ESPECIAL! 🎉",
+              child: Text(
+                theme.bannerText,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.white,
+                ),
               ),
             ),
           ListTile(
@@ -768,7 +889,8 @@ class _NewsPageState extends State<NewsPage> {
               vertical: 4,
             ),
             leading: CircleAvatar(
-              backgroundColor: esCumple ? Colors.orange : Colors.blue[100],
+              backgroundColor:
+                  theme?.avatarColor ?? Colors.blue[100]!,
               backgroundImage: post['foto_perfil'] != null
                   ? NetworkImage(_fixUrl(post['foto_perfil']))
                   : null,
@@ -818,8 +940,8 @@ class _NewsPageState extends State<NewsPage> {
                       ),
                     ],
                   )
-                : (esCumple
-                      ? const Icon(Icons.cake, color: Colors.pink)
+                : (theme != null
+                      ? Icon(theme.trailingIcon, color: theme.iconColor)
                       : null),
           ),
           if (urlImagen != null &&
@@ -1080,12 +1202,9 @@ class _CommentsSheetState extends State<CommentsSheet> {
                     itemBuilder: (ctx, i) {
                       final c = _comments[i];
                       final nombre = "${c['nombre']} ${c['apellido'] ?? ''}";
-                      final soyDueno = c['id_usuario'] == widget.currentUserId;
-                      final soyAdmin = [
-                        'Admin',
-                        'PapaEDI',
-                        'MamaEDI',
-                      ].contains(widget.currentUserRole);
+                      final soyDueno =
+                          (c['id_usuario'] as int?) == widget.currentUserId;
+                      final soyAdmin = widget.currentUserRole == 'Admin';
                       final puedoBorrar = soyDueno || soyAdmin;
                       final fotoUrl = widget.fixUrl(c['foto_perfil']);
 
@@ -1183,4 +1302,27 @@ class _CommentsSheetState extends State<CommentsSheet> {
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Tema visual para posts especiales
+// ─────────────────────────────────────────────────────────────────────────────
+class _PostTheme {
+  final Color bgColor;        // Fondo de la tarjeta
+  final Color borderColor;    // Borde de la tarjeta
+  final Color bannerColor;    // Fondo del banner superior
+  final String bannerText;    // Texto del banner superior
+  final Color avatarColor;    // Color del avatar (sin foto)
+  final IconData trailingIcon;// Ícono que aparece arriba a la derecha
+  final Color iconColor;      // Color de ese ícono
+
+  const _PostTheme({
+    required this.bgColor,
+    required this.borderColor,
+    required this.bannerColor,
+    required this.bannerText,
+    required this.avatarColor,
+    required this.trailingIcon,
+    required this.iconColor,
+  });
 }

@@ -37,6 +37,30 @@ class MensajesApi {
     }
   }
 
+  Future<int> getUnreadCount(int idFamilia, String desde) async {
+    try {
+      final token = await _tokenStorage.read();
+      if (token == null || token.isEmpty) return 0;
+
+      final uri = Uri.parse(
+        '$_baseUrl/api/mensajes/familia/$idFamilia/no-leidos',
+      ).replace(queryParameters: {'desde': desde});
+
+      final response = await http.get(uri, headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return (data['total'] ?? 0) as int;
+      }
+      return 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   Future<bool> enviarMensaje(int idFamilia, String mensaje) async {
     try {
       final token = await _tokenStorage.read();

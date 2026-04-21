@@ -30,6 +30,7 @@ import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
 import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
 import 'package:edi301/src/pages/Admin/reportes/reportes_page.dart';
 import 'package:edi301/src/pages/Admin/assign_admin_page.dart';
+import 'package:edi301/src/pages/Admin/broadcast/broadcast_page.dart';
 import 'package:edi301/services/socket_service.dart';
 import 'package:edi301/services/users_api.dart';
 
@@ -228,6 +229,7 @@ class MyApp extends StatelessWidget {
         'add_tutor': (BuildContext context) => const AddTutorPage(),
         'forgot_password': (BuildContext context) => const ForgotPasswordPage(),
         'assign_admin': (context) => const AssignAdminPage(),
+        'broadcast':    (context) => const BroadcastPage(),
       },
     );
   }

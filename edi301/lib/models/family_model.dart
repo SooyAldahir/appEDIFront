@@ -71,6 +71,8 @@ class Family {
   final String? mamaTelefono;
   final String? papaFotoPerfilUrl;
   final String? mamaFotoPerfilUrl;
+  final String? papaFechaNacimiento;
+  final String? mamaFechaNacimiento;
   String get residence => residencia ?? '';
   const Family({
     required this.id,
@@ -92,9 +94,21 @@ class Family {
     this.mamaTelefono,
     this.papaFotoPerfilUrl,
     this.mamaFotoPerfilUrl,
+    this.papaFechaNacimiento,
+    this.mamaFechaNacimiento,
   });
 
   factory Family.fromJson(Map<String, dynamic> j) {
+    String? _parseDate(dynamic d) {
+      if (d == null) return null;
+      try {
+        final date = DateTime.parse(d.toString());
+        return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+      } catch (_) {
+        return d.toString();
+      }
+    }
+
     String? _normalizeRes(dynamic v) {
       if (v == null) return null;
       final s = v.toString().trim();
@@ -165,6 +179,8 @@ class Family {
       mamaTelefono: j['mama_telefono']?.toString(),
       papaFotoPerfilUrl: j['papa_foto_perfil_url']?.toString(),
       mamaFotoPerfilUrl: j['mama_foto_perfil_url']?.toString(),
+      papaFechaNacimiento: _parseDate(j['papa_fecha_nacimiento']),
+      mamaFechaNacimiento: _parseDate(j['mama_fecha_nacimiento']),
     );
   }
 

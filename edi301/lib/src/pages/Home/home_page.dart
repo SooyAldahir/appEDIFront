@@ -10,6 +10,7 @@ import 'package:edi301/src/pages/Perfil/perfil_page.dart';
 import 'package:edi301/src/pages/Admin/admin_page.dart';
 import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
 import 'package:edi301/src/pages/Chat/my_chats_page.dart';
+import 'package:edi301/src/pages/Family/chat_family_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HomePage extends StatefulWidget {
@@ -204,9 +205,16 @@ class _HomePageState extends State<HomePage> {
     setState(() => _selectedIndex = index);
   }
 
-  /// Ícono con punto rojo si hay mensajes no leídos en la sección de chat.
-  Widget _buildNavIcon(String ruta, IconData icon, int unreadCount) {
-    if (ruta != 'chat' || unreadCount == 0) return Icon(icon);
+  /// Ícono con punto dorado si hay mensajes no leídos (chat privado o familiar).
+  Widget _buildNavIcon(
+    String ruta,
+    IconData icon,
+    int unreadChats,
+    int unreadFamily,
+  ) {
+    final hasUnread = (ruta == 'chat' && unreadChats > 0) ||
+        (ruta == 'family' && unreadFamily > 0);
+    if (!hasUnread) return Icon(icon);
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -240,81 +248,88 @@ class _HomePageState extends State<HomePage> {
 
     return ValueListenableBuilder<int>(
       valueListenable: MyChatsPage.totalUnread,
-      builder: (context, unreadCount, _) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            // ── Mobile: PageView + BottomNavigationBar ──────────────────────
-            if (constraints.maxWidth < 640) {
-              return Scaffold(
-                body: SafeArea(
-                  child: PageView(
-                    controller: _pageCtrl,
-                    onPageChanged: _onPageChanged,
-                    children: _menuOptions
-                        .map((op) => _getPageFromRoute(op['ruta'] as String))
-                        .toList(),
-                  ),
-                ),
-                bottomNavigationBar: BottomNavigationBar(
-                  type: BottomNavigationBarType.fixed,
-                  backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-                  selectedItemColor: const Color.fromRGBO(245, 188, 6, 1),
-                  unselectedItemColor: Colors.white,
-                  currentIndex: _selectedIndex,
-                  onTap: _onNavTap,
-                  items: _menuOptions.map((op) {
-                    final ruta = op['ruta'] as String;
-                    return BottomNavigationBarItem(
-                      icon: _buildNavIcon(
-                        ruta,
-                        op['icon'] as IconData,
-                        unreadCount,
+      builder: (context, unreadChats, _) {
+        return ValueListenableBuilder<int>(
+          valueListenable: ChatFamilyPage.familyUnread,
+          builder: (context, unreadFamily, _) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                // ── Mobile: PageView + BottomNavigationBar ────────────────
+                if (constraints.maxWidth < 640) {
+                  return Scaffold(
+                    body: SafeArea(
+                      child: PageView(
+                        controller: _pageCtrl,
+                        onPageChanged: _onPageChanged,
+                        children: _menuOptions
+                            .map((op) => _getPageFromRoute(op['ruta'] as String))
+                            .toList(),
                       ),
-                      label: op['label'] as String,
-                    );
-                  }).toList(),
-                ),
-              );
-            }
-
-            // ── Tablet/Desktop: NavigationRail (sin PageView) ───────────────
-            final currentPage = _getPageFromRoute(
-              _menuOptions[_selectedIndex]['ruta'] as String,
-            );
-
-            return Scaffold(
-              body: Row(
-                children: [
-                  NavigationRail(
-                    backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-                    selectedIndex: _selectedIndex,
-                    onDestinationSelected: _onNavTap,
-                    labelType: NavigationRailLabelType.all,
-                    selectedLabelTextStyle: const TextStyle(
-                      color: Color.fromRGBO(245, 188, 6, 1),
                     ),
-                    unselectedLabelTextStyle:
-                        const TextStyle(color: Colors.white),
-                    selectedIconTheme: const IconThemeData(
-                      color: Color.fromRGBO(245, 188, 6, 1),
+                    bottomNavigationBar: BottomNavigationBar(
+                      type: BottomNavigationBarType.fixed,
+                      backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+                      selectedItemColor: const Color.fromRGBO(245, 188, 6, 1),
+                      unselectedItemColor: Colors.white,
+                      currentIndex: _selectedIndex,
+                      onTap: _onNavTap,
+                      items: _menuOptions.map((op) {
+                        final ruta = op['ruta'] as String;
+                        return BottomNavigationBarItem(
+                          icon: _buildNavIcon(
+                            ruta,
+                            op['icon'] as IconData,
+                            unreadChats,
+                            unreadFamily,
+                          ),
+                          label: op['label'] as String,
+                        );
+                      }).toList(),
                     ),
-                    unselectedIconTheme:
-                        const IconThemeData(color: Colors.white),
-                    destinations: _menuOptions.map((op) {
-                      final ruta = op['ruta'] as String;
-                      return NavigationRailDestination(
-                        icon: _buildNavIcon(
-                          ruta,
-                          op['icon'] as IconData,
-                          unreadCount,
+                  );
+                }
+
+                // ── Tablet/Desktop: NavigationRail ────────────────────────
+                final currentPage = _getPageFromRoute(
+                  _menuOptions[_selectedIndex]['ruta'] as String,
+                );
+
+                return Scaffold(
+                  body: Row(
+                    children: [
+                      NavigationRail(
+                        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
+                        selectedIndex: _selectedIndex,
+                        onDestinationSelected: _onNavTap,
+                        labelType: NavigationRailLabelType.all,
+                        selectedLabelTextStyle: const TextStyle(
+                          color: Color.fromRGBO(245, 188, 6, 1),
                         ),
-                        label: Text(op['label'] as String),
-                      );
-                    }).toList(),
+                        unselectedLabelTextStyle:
+                            const TextStyle(color: Colors.white),
+                        selectedIconTheme: const IconThemeData(
+                          color: Color.fromRGBO(245, 188, 6, 1),
+                        ),
+                        unselectedIconTheme:
+                            const IconThemeData(color: Colors.white),
+                        destinations: _menuOptions.map((op) {
+                          final ruta = op['ruta'] as String;
+                          return NavigationRailDestination(
+                            icon: _buildNavIcon(
+                              ruta,
+                              op['icon'] as IconData,
+                              unreadChats,
+                              unreadFamily,
+                            ),
+                            label: Text(op['label'] as String),
+                          );
+                        }).toList(),
+                      ),
+                      Expanded(child: currentPage),
+                    ],
                   ),
-                  Expanded(child: currentPage),
-                ],
-              ),
+                );
+              },
             );
           },
         );

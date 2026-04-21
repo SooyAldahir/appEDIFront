@@ -15,6 +15,10 @@ class ChatFamilyPage extends StatefulWidget {
     required this.nombreFamilia,
   }) : super(key: key);
 
+  /// Notifier global: cantidad de mensajes de familia no leídos.
+  /// home_page.dart lo escucha para mostrar el badge en la pestaña Familia.
+  static final ValueNotifier<int> familyUnread = ValueNotifier<int>(0);
+
   @override
   _ChatFamilyPageState createState() => _ChatFamilyPageState();
 }
@@ -37,6 +41,14 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
   }
 
   Future<void> _init() async {
+    // Marcar chat familiar como leído al abrir
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'familia_leido_${widget.idFamilia}',
+      DateTime.now().toIso8601String(),
+    );
+    ChatFamilyPage.familyUnread.value = 0;
+
     await _loadUser();
     await _cargarMensajes(); // Carga inicial de mensajes
     _startPolling(); // ✅ Inicia el refresco automático

@@ -22,7 +22,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
   bool _esPadre = false;
 
   int? _userId;
-  int? _familiaId;
   bool _realtimeSetup = false;
 
   @override
@@ -50,11 +49,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       '')
                   .toString(),
             );
-      final int? familiaId = (user['id_familia'] ?? user['FamiliaID']) is int
-          ? (user['id_familia'] ?? user['FamiliaID'])
-          : int.tryParse(
-              (user['id_familia'] ?? user['FamiliaID'] ?? '').toString(),
-            );
+
       final esJuez = [
         'Admin',
         'Padre',
@@ -67,9 +62,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
       List<dynamic> datos = [];
 
       if (esJuez) {
-        if (familiaId != null) {
-          datos = await _api.getPendientes(familiaId);
-        }
+        // El backend resuelve la familia directamente desde EDI.Miembros_Familia
+        // usando el JWT. No hay que pasar id_familia desde el cliente.
+        datos = await _api.getMisPendientes();
       } else {
         datos = await _api.getMisPosts();
       }
@@ -80,7 +75,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
           _esPadre = esJuez;
           _items = datos;
           _userId = userId;
-          _familiaId = familiaId;
           _loading = false;
         });
 
@@ -118,7 +112,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
     _socketService.initSocket();
 
     if (_userId != null) _socketService.joinUserRoom(_userId!);
-    if (_familiaId != null) _socketService.joinFamilyRoom(_familiaId!);
 
     _socketService.socket.off('post_pendiente_creado');
     _socketService.socket.on('post_pendiente_creado', (_) {

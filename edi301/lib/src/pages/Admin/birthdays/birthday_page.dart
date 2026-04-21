@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:edi301/services/users_api.dart';
 import 'package:edi301/core/api_client_http.dart';
+import 'package:edi301/services/chat_api.dart';
+import 'package:edi301/src/pages/Chat/chat_page.dart';
 import 'package:http/http.dart' as http;
 import 'package:edi301/core/api_error.dart';
 
@@ -103,16 +105,19 @@ class _BirthdaysPageState extends State<BirthdaysPage>
     }
   }
 
-  void _irAlChat(_Cumpleanero u) {
-    Navigator.pushNamed(
-      context,
-      'chat',
-      arguments: {
-        'id_usuario': u.idUsuario,
-        'nombre': u.nombreCompleto,
-        'foto_perfil': u.fotoPerfil,
-      },
-    );
+  void _irAlChat(_Cumpleanero u) async {
+    final idSala = await ChatApi().initPrivateChat(u.idUsuario);
+    if (idSala != null && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatPage(
+            idSala: idSala,
+            nombreChat: u.nombreCompleto,
+          ),
+        ),
+      );
+    }
   }
 
   @override

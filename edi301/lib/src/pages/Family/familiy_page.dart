@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:edi301/services/chat_api.dart';
+import 'package:edi301/services/mensajes_api.dart';
 import 'package:edi301/src/pages/Chat/chat_page.dart';
 import 'package:edi301/src/pages/Family/chat_family_page.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +24,7 @@ class FamiliyPage extends StatefulWidget {
 
 class _FamilyPageState extends State<FamiliyPage> {
   final unescape = HtmlUnescape();
-  bool mostrarHijos = true;
+  int _tab = 0; // 0 = Mi familia, 1 = Fotos, 2 = Cumpleaños
   final FamilyController _controller = FamilyController();
   final FamiliaApi _familiaApi = FamiliaApi();
 
@@ -37,6 +39,8 @@ class _FamilyPageState extends State<FamiliyPage> {
     560,
   ); // posición inicial (ajusta si quieres)
   bool _chatFabReady = false;
+
+  Timer? _unreadTimer;
 
   Offset _clampOffset(Offset o, Size size) {
     // tamaño aprox del botón (FAB 56 + margen)
@@ -56,10 +60,39 @@ class _FamilyPageState extends State<FamiliyPage> {
   void initState() {
     super.initState();
     _loadUserRole();
-    _familyFuture = _fetchFamilyData();
+    _familyFuture = _fetchFamilyData().then((family) {
+      if (family != null && family.id != null) {
+        _startUnreadPolling(family.id!);
+      }
+      return family;
+    });
     _availableFamiliesFuture = _fetchAvailableFamilies();
     String _userRole = '';
     int? _userId;
+  }
+
+  void _startUnreadPolling(int idFamilia) {
+    _checkFamilyUnread(idFamilia);
+    _unreadTimer?.cancel();
+    _unreadTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) _checkFamilyUnread(idFamilia);
+    });
+  }
+
+  Future<void> _checkFamilyUnread(int idFamilia) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastRead =
+          prefs.getString('familia_leido_$idFamilia') ?? '1900-01-01T00:00:00.000Z';
+      final count = await MensajesApi().getUnreadCount(idFamilia, lastRead);
+      ChatFamilyPage.familyUnread.value = count;
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _unreadTimer?.cancel();
+    super.dispose();
   }
 
   String _absUrl(String raw) {
@@ -366,16 +399,22 @@ class _FamilyPageState extends State<FamiliyPage> {
                             const SizedBox(height: 10),
                             _buildToggleButtons(),
                             const SizedBox(height: 10),
-                            mostrarHijos
-                                ? Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                    ),
-                                    child: _buildIntegrantesCards(
-                                      family: family,
-                                    ),
-                                  )
-                                : FamilyGallery(idFamilia: family.id ?? 0),
+                            if (_tab == 0)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: _buildIntegrantesCards(family: family),
+                              )
+                            else if (_tab == 1)
+                              FamilyGallery(idFamilia: family.id ?? 0)
+                            else
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: _buildCumpleanosSection(family: family),
+                              ),
                             const SizedBox(
                               height: 90,
                             ), // espacio para que no tape contenido
@@ -817,17 +856,24 @@ class _FamilyPageState extends State<FamiliyPage> {
   //  TOGGLE
   // =========================
   Widget _buildToggleButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
-      children: [
-        _buildToggleButton('Mi familia', mostrarHijos, () {
-          setState(() => mostrarHijos = true);
-        }),
-        const SizedBox(width: 10),
-        _buildToggleButton('Fotos', !mostrarHijos, () {
-          setState(() => mostrarHijos = false);
-        }),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          _buildToggleButton('Mi familia', _tab == 0, () {
+            setState(() => _tab = 0);
+          }),
+          const SizedBox(width: 8),
+          _buildToggleButton('Fotos', _tab == 1, () {
+            setState(() => _tab = 1);
+          }),
+          const SizedBox(width: 8),
+          _buildToggleButton('Cumpleaños 🎂', _tab == 2, () {
+            setState(() => _tab = 2);
+          }),
+        ],
+      ),
     );
   }
 
@@ -843,10 +889,415 @@ class _FamilyPageState extends State<FamiliyPage> {
             ? const Color.fromARGB(190, 245, 189, 6)
             : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        elevation: isSelected ? 2 : 0,
       ),
-      child: Text(text, style: const TextStyle(color: Colors.black)),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: Colors.black,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
     );
   }
+
+  // =========================
+  //  CUMPLEAÑOS
+  // =========================
+
+  static DateTime? _parseFechaDDMMYYYY(String? fecha) {
+    if (fecha == null || fecha.isEmpty) return null;
+    try {
+      final p = fecha.split('/');
+      if (p.length == 3) {
+        return DateTime(int.parse(p[2]), int.parse(p[1]), int.parse(p[0]));
+      }
+      return DateTime.parse(fecha);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static int _daysUntil(DateTime birth) {
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
+    var next = DateTime(today.year, birth.month, birth.day);
+    if (next.isBefore(today)) next = DateTime(today.year + 1, birth.month, birth.day);
+    return next.difference(today).inDays;
+  }
+
+  static int _nextAge(DateTime birth) {
+    final today = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
+    final thisBirthday = DateTime(today.year, birth.month, birth.day);
+    return thisBirthday.isBefore(today)
+        ? today.year + 1 - birth.year
+        : today.year - birth.year;
+  }
+
+  static String _formatBirthDate(DateTime d) {
+    const meses = [
+      '', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    ];
+    return '${d.day} de ${meses[d.month]}';
+  }
+
+  Widget _buildCumpleanosSection({required Family family}) {
+    // ── Reunir todos los miembros con cumpleaños ─────────────────────────────
+    final entries = <_BirthdayEntry>[];
+
+    void add(
+      String name,
+      String? fecha,
+      String? photoUrl,
+      String tipo,
+      int? userId,
+    ) {
+      final dt = _parseFechaDDMMYYYY(fecha);
+      if (dt == null) return;
+      entries.add(
+        _BirthdayEntry(
+          name: name,
+          birthDate: dt,
+          photoUrl: photoUrl,
+          tipo: tipo,
+          userId: userId,
+          daysUntil: _daysUntil(dt),
+          nextAge: _nextAge(dt),
+        ),
+      );
+    }
+
+    // Padres
+    if ((family.fatherName ?? '').isNotEmpty &&
+        family.papaFechaNacimiento != null) {
+      add(
+        family.fatherName!,
+        family.papaFechaNacimiento,
+        _absUrl(family.papaFotoPerfilUrl ?? ''),
+        'Padre',
+        family.fatherEmployeeId,
+      );
+    }
+    if ((family.motherName ?? '').isNotEmpty &&
+        family.mamaFechaNacimiento != null) {
+      add(
+        family.motherName!,
+        family.mamaFechaNacimiento,
+        _absUrl(family.mamaFotoPerfilUrl ?? ''),
+        'Madre',
+        family.motherEmployeeId,
+      );
+    }
+
+    // Hijos y alumnos
+    for (final m in [...family.householdChildren, ...family.assignedStudents]) {
+      if (m.fechaNacimiento != null) {
+        add(
+          m.fullName,
+          m.fechaNacimiento,
+          m.fotoPerfil != null ? _absUrl(m.fotoPerfil!) : null,
+          'Hijo',
+          m.idUsuario,
+        );
+      }
+    }
+
+    // ── Ordenar por días que faltan ──────────────────────────────────────────
+    entries.sort((a, b) => a.daysUntil.compareTo(b.daysUntil));
+
+    if (entries.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 60),
+        child: Column(
+          children: [
+            Icon(Icons.cake_outlined, size: 72, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              'Sin fechas de cumpleaños',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Agrega las fechas de nacimiento\nen los perfiles de cada integrante.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ── Banner de cumpleaños de hoy ─────────────────────────────────────────
+    final hoy = entries.where((e) => e.daysUntil == 0).toList();
+
+    // ── Grupos ───────────────────────────────────────────────────────────────
+    final estaS = entries.where((e) => e.daysUntil > 0 && e.daysUntil <= 7).toList();
+    final esteMes = entries.where((e) => e.daysUntil > 7 && e.daysUntil <= 30).toList();
+    final masAdelante = entries.where((e) => e.daysUntil > 30).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Banner hoy
+        ...hoy.map((e) => _buildHoyBanner(e)),
+        if (hoy.isNotEmpty) const SizedBox(height: 16),
+
+        // Próximos 7 días
+        if (estaS.isNotEmpty) ...[
+          _buildGroupLabel('📅  Esta semana', Colors.green.shade700),
+          ...estaS.map((e) => _buildBirthdayCard(e)),
+          const SizedBox(height: 8),
+        ],
+
+        // Este mes
+        if (esteMes.isNotEmpty) ...[
+          _buildGroupLabel('🗓️  Este mes', Colors.blue.shade700),
+          ...esteMes.map((e) => _buildBirthdayCard(e)),
+          const SizedBox(height: 8),
+        ],
+
+        // Más adelante
+        if (masAdelante.isNotEmpty) ...[
+          _buildGroupLabel('✨  Próximamente', Colors.grey.shade600),
+          ...masAdelante.map((e) => _buildBirthdayCard(e)),
+        ],
+
+        const SizedBox(height: 30),
+      ],
+    );
+  }
+
+  Widget _buildHoyBanner(_BirthdayEntry e) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF5BC06), Color(0xFFFFD54F)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF5BC06).withOpacity(0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Text('🎉', style: TextStyle(fontSize: 32)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '¡Hoy cumple años!',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.brown.shade700,
+                  ),
+                ),
+                Text(
+                  e.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  'Cumple ${e.nextAge} años hoy 🥳',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.brown.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildAvatar(e, 48, const Color(0xFFE65100)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupLabel(String label, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          color: color,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBirthdayCard(_BirthdayEntry e) {
+    // Colores por proximidad
+    final Color bgColor;
+    final Color accentColor;
+    final String badge;
+
+    if (e.daysUntil <= 7) {
+      bgColor = const Color(0xFFE8F5E9);
+      accentColor = Colors.green.shade700;
+      badge = e.daysUntil == 1 ? 'Mañana' : 'En ${e.daysUntil} días';
+    } else if (e.daysUntil <= 30) {
+      bgColor = const Color(0xFFE3F2FD);
+      accentColor = Colors.blue.shade700;
+      badge = 'En ${e.daysUntil} días';
+    } else {
+      bgColor = Colors.grey.shade50;
+      accentColor = const Color.fromRGBO(19, 67, 107, 1);
+      // Mostrar fecha corta del próximo cumpleaños
+      final next = DateTime(
+        DateTime.now().year + (e.daysUntil > 365 ? 1 : 0),
+        e.birthDate.month,
+        e.birthDate.day,
+      );
+      badge = _formatBirthDate(next);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            _buildAvatar(e, 46, accentColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    e.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '🎂  ${_formatBirthDate(e.birthDate)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                  Text(
+                    'Cumple ${e.nextAge} años',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: accentColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: accentColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                badge,
+                style: TextStyle(
+                  color: accentColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(_BirthdayEntry e, double size, Color fallbackColor) {
+    final url = e.photoUrl ?? '';
+    if (url.isNotEmpty) {
+      return CircleAvatar(
+        radius: size / 2,
+        backgroundImage: NetworkImage(url),
+        backgroundColor: fallbackColor.withOpacity(0.2),
+        onBackgroundImageError: (_, __) {},
+      );
+    }
+    final initial = e.name.isNotEmpty ? e.name[0].toUpperCase() : '?';
+    return CircleAvatar(
+      radius: size / 2,
+      backgroundColor: fallbackColor.withOpacity(0.18),
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: fallbackColor,
+          fontWeight: FontWeight.bold,
+          fontSize: size * 0.38,
+        ),
+      ),
+    );
+  }
+}
+
+// =========================
+//  BIRTHDAY ENTRY MODEL
+// =========================
+class _BirthdayEntry {
+  final String name;
+  final DateTime birthDate;
+  final String? photoUrl;
+  final String tipo;
+  final int? userId;
+  final int daysUntil;
+  final int nextAge;
+
+  const _BirthdayEntry({
+    required this.name,
+    required this.birthDate,
+    required this.tipo,
+    required this.daysUntil,
+    required this.nextAge,
+    this.photoUrl,
+    this.userId,
+  });
 }
 
 // =========================

@@ -176,6 +176,45 @@ class PublicacionesApi {
     }
   }
 
+  /// Devuelve los posts pendientes de aprobación para el padre/tutor autenticado,
+  /// sin necesitar conocer el id_familia en el cliente. El backend lo resuelve
+  /// a través de la membresía del usuario en EDI.Miembros_Familia.
+  Future<List<dynamic>> getMisPendientes() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('token');
+      if (token == null) {
+        final uStr = prefs.getString('user');
+        if (uStr != null) {
+          final u = jsonDecode(uStr);
+          token = u['token'] ?? u['session_token'] ?? u['access_token'];
+        }
+      }
+
+      final url = Uri.parse(
+        '${ApiHttp.baseUrl}/api/publicaciones/mis-pendientes',
+      );
+
+      final res = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
+      );
+
+      if (res.statusCode == 200) {
+        return List<dynamic>.from(jsonDecode(res.body));
+      } else {
+        print("Error mis-pendientes (${res.statusCode}): ${res.body}");
+        return [];
+      }
+    } catch (e) {
+      print("Error getMisPendientes: $e");
+      return [];
+    }
+  }
+
   Future<bool> responderSolicitud(int idPost, String nuevoEstado) async {
     try {
       final prefs = await SharedPreferences.getInstance();
