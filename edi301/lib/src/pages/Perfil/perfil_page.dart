@@ -11,6 +11,8 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:edi301/tools/media_picker.dart';
 import 'package:edi301/core/api_error.dart';
+import 'package:edi301/services/chat_api.dart';
+import 'package:edi301/src/pages/Chat/chat_page.dart';
 
 class PerfilPage extends StatefulWidget {
   const PerfilPage({super.key});
@@ -28,6 +30,7 @@ class _PerfilPageState extends State<PerfilPage> {
   final EstadosApi _estadosApi = EstadosApi();
   final ApiHttp _http = ApiHttp();
   final TokenStorage _storage = TokenStorage();
+  final ChatApi _chatApi = ChatApi();
 
   Map<String, dynamic> data = {
     'name': '—',
@@ -62,7 +65,8 @@ class _PerfilPageState extends State<PerfilPage> {
     } catch (_) {
       // Si ya viene formateado (dd/MM/yyyy o dd/MM), extraer solo día y mes
       final parts = raw.split('T')[0].split('-');
-      if (parts.length >= 3) return '${parts[2].padLeft(2, '0')}/${parts[1].padLeft(2, '0')}';
+      if (parts.length >= 3)
+        return '${parts[2].padLeft(2, '0')}/${parts[1].padLeft(2, '0')}';
       return raw.split('T')[0];
     }
   }
@@ -120,7 +124,10 @@ class _PerfilPageState extends State<PerfilPage> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(friendlyError(e)), backgroundColor: Colors.red.shade700),
+        SnackBar(
+          content: Text(friendlyError(e)),
+          backgroundColor: Colors.red.shade700,
+        ),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -376,6 +383,64 @@ class _PerfilPageState extends State<PerfilPage> {
     setState(() => _loading = false);
   }
 
+  // ── Contactar admin ───────────────────────────────────────────────────────
+  Future<void> _contactAdmin() async {
+    // Mostrar spinner mientras carga
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    final admins = await _chatApi.getAdmins();
+    if (!mounted) return;
+    Navigator.pop(context); // cerrar spinner
+
+    if (admins.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No hay administradores disponibles en este momento.'),
+        ),
+      );
+      return;
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => AdminPickerSheet(
+        admins: admins,
+        absUrl: _absUrlHelper,
+        onPick: (adminId, adminName) async {
+          Navigator.pop(ctx);
+          final idSala = await _chatApi.initPrivateChat(adminId);
+          if (idSala != null && mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChatPage(idSala: idSala, nombreChat: adminName),
+              ),
+            );
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No se pudo iniciar la conversación.'),
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  String _absUrlHelper(String raw) {
+    if (raw.isEmpty || raw == 'null') return '';
+    if (raw.startsWith('http')) return raw;
+    return '${ApiHttp.baseUrl}${raw.startsWith('/') ? raw : '/$raw'}';
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -481,6 +546,48 @@ class _PerfilPageState extends State<PerfilPage> {
                           ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+
+                    // Soporte / Contactar admin
+                    SectionCard(
+                      title: 'Soporte',
+                      primary: _primary,
+                      icon: Icons.support_agent_rounded,
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: _primary.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.headset_mic_rounded,
+                              color: _primary,
+                              size: 20,
+                            ),
+                          ),
+                          title: const Text(
+                            'Contactar a un administrador',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                          subtitle: const Text(
+                            'Escríbele directamente a un admin',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          trailing: const Icon(
+                            Icons.chevron_right_rounded,
+                            color: _primary,
+                          ),
+                          onTap: _contactAdmin,
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 24),
 
                     // Logout button
@@ -503,6 +610,96 @@ class _PerfilPageState extends State<PerfilPage> {
                   ]),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Admin picker bottom sheet ─────────────────────────────────────────────────
+class AdminPickerSheet extends StatelessWidget {
+  const AdminPickerSheet({
+    required this.admins,
+    required this.absUrl,
+    required this.onPick,
+  });
+
+  final List<dynamic> admins;
+  final String Function(String) absUrl;
+  final void Function(int adminId, String adminName) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'Elige un administrador',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Selecciona con quién quieres hablar',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 12),
+            ...admins.map((a) {
+              final id = (a['id_usuario'] ?? 0) as int;
+              final nombre = '${a['nombre'] ?? ''} ${a['apellido'] ?? ''}'
+                  .trim();
+              final fotoRaw = (a['foto_perfil'] ?? '').toString();
+              final fotoAbs = absUrl(fotoRaw);
+              return ListTile(
+                contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                leading: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: const Color.fromRGBO(19, 67, 107, 0.12),
+                  backgroundImage: fotoAbs.isNotEmpty
+                      ? NetworkImage(fotoAbs)
+                      : null,
+                  child: fotoAbs.isEmpty
+                      ? Text(
+                          nombre.isNotEmpty ? nombre[0].toUpperCase() : 'A',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Color.fromRGBO(19, 67, 107, 1),
+                          ),
+                        )
+                      : null,
+                ),
+                title: Text(
+                  nombre.isNotEmpty ? nombre : 'Admin',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  (a['correo'] ?? '').toString(),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                trailing: const Icon(
+                  Icons.send_rounded,
+                  color: Color.fromRGBO(19, 67, 107, 1),
+                ),
+                onTap: () => onPick(id, nombre.isNotEmpty ? nombre : 'Admin'),
+              );
+            }),
+            const SizedBox(height: 8),
           ],
         ),
       ),

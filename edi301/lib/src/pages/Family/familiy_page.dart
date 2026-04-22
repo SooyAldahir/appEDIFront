@@ -369,8 +369,8 @@ class _FamilyPageState extends State<FamiliyPage> {
                               child: FamilyData(
                                 familyName: family.familyName,
                                 numChildres:
-                                    (family.householdChildren.length +
-                                            family.assignedStudents.length +
+                                    (family.assignedStudents.length +
+                                            family.hogarChildren.length +
                                             ((family.fatherEmployeeId != null &&
                                                     family.fatherEmployeeId !=
                                                         0)
@@ -537,7 +537,7 @@ class _FamilyPageState extends State<FamiliyPage> {
       );
     }
 
-    // ---- Hijos / hermanos ----
+    // ---- Hijos / hermanos (con cuenta) ----
     final hijos = <FamilyMember>[
       ...family.householdChildren,
       ...family.assignedStudents,
@@ -565,6 +565,22 @@ class _FamilyPageState extends State<FamiliyPage> {
                 )
               : null,
           onChat: isMe ? null : () => _startChat(h.idUsuario, h.fullName),
+        ),
+      );
+    }
+
+    // ---- Niños del hogar sin cuenta (mostrados como hijos sanguíneos) ----
+    for (final h in family.hogarChildren) {
+      widgets.add(
+        ProfileCard(
+          imageUrl: '',
+          name: h.fullName,
+          school: 'Niño del hogar',
+          phoneNumber: h.fechaNacimiento != null
+              ? 'Nac: ${h.fechaNacimiento}'
+              : null,
+          onTap: null,
+          onChat: null,
         ),
       );
     }
@@ -997,7 +1013,7 @@ class _FamilyPageState extends State<FamiliyPage> {
       );
     }
 
-    // Hijos y alumnos
+    // Hijos y alumnos (con cuenta)
     for (final m in [...family.householdChildren, ...family.assignedStudents]) {
       if (m.fechaNacimiento != null) {
         add(
@@ -1006,6 +1022,19 @@ class _FamilyPageState extends State<FamiliyPage> {
           m.fotoPerfil != null ? _absUrl(m.fotoPerfil!) : null,
           'Hijo',
           m.idUsuario,
+        );
+      }
+    }
+
+    // Niños del hogar sin cuenta
+    for (final h in family.hogarChildren) {
+      if (h.fechaNacimiento != null) {
+        add(
+          h.fullName,
+          h.fechaNacimiento,
+          null,
+          'Niño',
+          null,
         );
       }
     }

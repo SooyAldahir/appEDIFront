@@ -125,7 +125,9 @@ void main() async {
 
   // Foreground: mostrar notificación local cuando la app está abierta
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print('📬 Notificación foreground: ${message.notification?.title} | data: ${message.data}');
+    print(
+      '📬 Notificación foreground: ${message.notification?.title} | data: ${message.data}',
+    );
 
     final notification = message.notification;
     if (notification != null) {
@@ -140,8 +142,9 @@ void main() async {
       );
     } else {
       // Mensaje "data-only" (sin notification block): construir aviso manual
-      final title = message.data['title'] ?? message.data['titulo'] ?? 'Nuevo mensaje';
-      final body  = message.data['body']  ?? message.data['cuerpo'] ?? '';
+      final title =
+          message.data['title'] ?? message.data['titulo'] ?? 'Nuevo mensaje';
+      final body = message.data['body'] ?? message.data['cuerpo'] ?? '';
       if (body.isNotEmpty) {
         final int notifId = DateTime.now().millisecondsSinceEpoch & 0x7FFFFFFF;
         notiService.showNotification(
@@ -229,7 +232,7 @@ class MyApp extends StatelessWidget {
         'add_tutor': (BuildContext context) => const AddTutorPage(),
         'forgot_password': (BuildContext context) => const ForgotPasswordPage(),
         'assign_admin': (context) => const AssignAdminPage(),
-        'broadcast':    (context) => const BroadcastPage(),
+        'broadcast': (context) => const BroadcastPage(),
       },
     );
   }

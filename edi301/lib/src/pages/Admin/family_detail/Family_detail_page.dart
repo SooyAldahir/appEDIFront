@@ -204,6 +204,84 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
     }
   }
 
+  // ── Hogar children ───────────────────────────────────────────────────────────
+  Widget _buildHogarChildrenSection(Family fam) {
+    final kids = fam.hogarChildren;
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        leading: const Icon(Icons.child_care, color: Color(0xFF1A5276)),
+        title: const Text(
+          'Niños del hogar sin cuenta',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+        children: [
+          if (kids.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              child: Text(
+                'Sin niños sin cuenta registrados.',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          else
+            ...kids.map(
+              (h) => ListTile(
+                dense: true,
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFD6EAF8),
+                  child: Icon(
+                    Icons.child_care,
+                    color: Color(0xFF1A5276),
+                    size: 18,
+                  ),
+                ),
+                title: Text(h.fullName),
+                subtitle: h.fechaNacimiento != null
+                    ? Text('Nac: ${h.fechaNacimiento}')
+                    : null,
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: () => _handleDeleteHogarChild(h),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleDeleteHogarChild(HogarChild h) async {
+    final confirmed = await _showDeleteDialog(h.fullName);
+    if (!confirmed || !mounted) return;
+    try {
+      await _familiaApi.deleteHogarChild(h.idHijo!);
+      setState(() {
+        _family!.hogarChildren.removeWhere((c) => c.idHijo == h.idHijo);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Niño quitado.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyError(e)),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    }
+  }
+
   // ── URL helper ───────────────────────────────────────────────────────────────
   String _absUrl(String? raw) {
     if (raw == null || raw.isEmpty || raw == 'null') return '';
@@ -448,6 +526,8 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
             onPressed: () => _handleDeleteMember(child),
           ),
         ),
+        const SizedBox(height: 12),
+        _buildHogarChildrenSection(fam),
         const SizedBox(height: 12),
         _Section(
           title: 'Alumnos asignados',

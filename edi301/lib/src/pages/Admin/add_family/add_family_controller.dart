@@ -8,6 +8,21 @@ import 'package:edi301/services/members_api.dart';
 import 'package:edi301/core/api_error.dart';
 import 'package:flutter/foundation.dart';
 
+/// Modelo temporal para un niño del hogar sin cuenta (pre-guardado en RAM).
+class HogarChildDraft {
+  final String nombre;
+  final String apellido;
+  final String? fechaNacimiento; // "yyyy-MM-dd"
+
+  const HogarChildDraft({
+    required this.nombre,
+    required this.apellido,
+    this.fechaNacimiento,
+  });
+
+  String get fullName => '$nombre $apellido'.trim();
+}
+
 class AddFamilyController {
   static final ValueNotifier<List<Family>> familyList =
       ValueNotifier<List<Family>>([]);
@@ -41,6 +56,22 @@ class AddFamilyController {
   final ValueNotifier<bool> _loading = ValueNotifier<bool>(false);
   ValueListenable<bool> get loading => _loading;
 
+  // ── Hijos del hogar sin cuenta ──────────────────────────────────────────────
+  final ValueNotifier<List<HogarChildDraft>> hogarChildren =
+      ValueNotifier<List<HogarChildDraft>>([]);
+
+  void addHogarChild(HogarChildDraft child) {
+    hogarChildren.value = [...hogarChildren.value, child];
+  }
+
+  void removeHogarChild(int index) {
+    final list = [...hogarChildren.value];
+    if (index >= 0 && index < list.length) {
+      list.removeAt(index);
+      hogarChildren.value = list;
+    }
+  }
+
   final _searchApi = SearchApi();
   final _familiaApi = FamiliaApi();
   final _membersApi = MembersApi();
@@ -54,6 +85,7 @@ class AddFamilyController {
     motherResults.dispose();
     childResults.dispose();
     children.dispose();
+    hogarChildren.dispose();
     _familyName.dispose();
     _internalResidence.dispose();
     _loading.dispose();
@@ -242,6 +274,23 @@ class AddFamilyController {
         hijos: hijosIds,
       );
 
+      // ── Crear hijos del hogar sin cuenta ───────────────────────────────────
+      if (hogarChildren.value.isNotEmpty && created.id != null) {
+        for (final draft in hogarChildren.value) {
+          try {
+            await _familiaApi.createHogarChild(
+              idFamilia:        created.id!,
+              nombre:           draft.nombre,
+              apellido:         draft.apellido,
+              fechaNacimiento:  draft.fechaNacimiento,
+            );
+          } catch (e) {
+            // No cancelar el flujo si uno falla — seguir con los demás
+            debugPrint('Error creando hijo hogar: $e');
+          }
+        }
+      }
+
       final withNames = created.copyWith(
         fatherName: _pickedFather == null
             ? null
@@ -267,6 +316,7 @@ class AddFamilyController {
       motherCtrl.clear();
       addressCtrl.clear();
       children.value = [];
+      hogarChildren.value = [];
       _familyName.value = '';
       _internalResidence.value = true;
       fatherResults.value = [];

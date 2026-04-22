@@ -329,7 +329,10 @@ class ReporteFamiliaIndividualService {
       ...familia.householdChildren,
       ...familia.assignedStudents,
     ];
-    if (allMembers.isEmpty) return pw.SizedBox();
+    final hogarKids = familia.hogarChildren;
+
+    if (allMembers.isEmpty && hogarKids.isEmpty) return pw.SizedBox();
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -342,26 +345,44 @@ class ReporteFamiliaIndividualService {
         pw.Wrap(
           spacing: 8,
           runSpacing: 6,
-          children: allMembers
-              .map(
-                (m) => pw.Container(
-                  width: 120,
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: _navy, width: 0.5),
-                    borderRadius: pw.BorderRadius.circular(20),
-                  ),
-                  child: pw.Text(
-                    '${_sanitize(m.fullName)} (${_sanitize(m.tipoMiembro)})',
-                    style: pw.TextStyle(font: font, fontSize: 8),
-                    maxLines: 2,
-                  ),
+          children: [
+            ...allMembers.map(
+              (m) => pw.Container(
+                width: 120,
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
                 ),
-              )
-              .toList(),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: _navy, width: 0.5),
+                  borderRadius: pw.BorderRadius.circular(20),
+                ),
+                child: pw.Text(
+                  '${_sanitize(m.fullName)} (${_sanitize(m.tipoMiembro)})',
+                  style: pw.TextStyle(font: font, fontSize: 8),
+                  maxLines: 2,
+                ),
+              ),
+            ),
+            ...hogarKids.map(
+              (h) => pw.Container(
+                width: 120,
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: _gold, width: 0.5),
+                  borderRadius: pw.BorderRadius.circular(20),
+                ),
+                child: pw.Text(
+                  '${_sanitize(h.fullName)} (Niño del hogar)',
+                  style: pw.TextStyle(font: font, fontSize: 8),
+                  maxLines: 2,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

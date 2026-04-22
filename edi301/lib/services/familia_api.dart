@@ -216,6 +216,40 @@ class FamiliaApi {
     if (res.statusCode >= 400) throw Exception(parseHttpError(res));
   }
 
+  // ── Hijos del hogar sin cuenta ─────────────────────────────────────────────
+
+  /// Crea un hijo del hogar (sin cuenta) para la familia dada.
+  /// [fechaNacimiento] en formato "yyyy-MM-dd".
+  Future<HogarChild> createHogarChild({
+    required int idFamilia,
+    required String nombre,
+    required String apellido,
+    String? fechaNacimiento,
+  }) async {
+    final payload = <String, dynamic>{
+      'id_familia': idFamilia,
+      'nombre':     nombre.trim(),
+      'apellido':   apellido.trim(),
+      if (fechaNacimiento != null && fechaNacimiento.isNotEmpty)
+        'fecha_nacimiento': fechaNacimiento,
+    };
+    final res = await _http.postJson('/api/hijos-hogar', data: payload);
+    if (res.statusCode >= 400) throw Exception(parseHttpError(res));
+    final decoded = jsonDecode(res.body);
+    final data = decoded is Map && decoded['data'] is Map
+        ? Map<String, dynamic>.from(decoded['data'])
+        : Map<String, dynamic>.from(decoded as Map);
+    return HogarChild.fromJson(data);
+  }
+
+  /// Elimina (soft-delete) un hijo del hogar.
+  Future<void> deleteHogarChild(int idHijo) async {
+    final res = await _http.deleteJson('/api/hijos-hogar/$idHijo');
+    if (res.statusCode >= 400) throw Exception(parseHttpError(res));
+  }
+
+  // ── Familia permanente ──────────────────────────────────────────────────────
+
   /// Elimina permanentemente una familia y todos sus miembros
   Future<void> permanentDeleteFamily(int id) async {
     final res = await _http.deleteJson('/api/familias/$id/permanent');

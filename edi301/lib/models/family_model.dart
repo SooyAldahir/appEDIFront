@@ -1,3 +1,43 @@
+/// Hijo del hogar sin cuenta en el sistema (niños pequeños).
+class HogarChild {
+  final int? idHijo;
+  final String nombre;
+  final String apellido;
+  final String? fechaNacimiento; // formateada "dd/MM/yyyy"
+
+  String get fullName => '$nombre $apellido'.trim();
+
+  const HogarChild({
+    this.idHijo,
+    required this.nombre,
+    required this.apellido,
+    this.fechaNacimiento,
+  });
+
+  factory HogarChild.fromJson(Map<String, dynamic> j) {
+    String? parseDate(dynamic d) {
+      if (d == null) return null;
+      final s = d.toString().trim();
+      if (s.isEmpty) return null;
+      try {
+        final dt = DateTime.parse(s);
+        return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+      } catch (_) {
+        return s;
+      }
+    }
+
+    return HogarChild(
+      idHijo:          (j['id_hijo'] as num?)?.toInt(),
+      nombre:          (j['nombre'] ?? '').toString(),
+      apellido:        (j['apellido'] ?? '').toString(),
+      fechaNacimiento: parseDate(j['fecha_nacimiento']),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 class FamilyMember {
   final int idMiembro;
   final int idUsuario;
@@ -63,6 +103,7 @@ class Family {
   final String? fotoPerfilUrl;
   final List<FamilyMember> assignedStudents;
   final List<FamilyMember> householdChildren;
+  final List<HogarChild> hogarChildren;
   final int? fatherEmployeeId;
   final int? motherEmployeeId;
   final String? papaNumEmpleado;
@@ -86,6 +127,7 @@ class Family {
     this.fotoPerfilUrl,
     this.assignedStudents = const [],
     this.householdChildren = const [],
+    this.hogarChildren = const [],
     this.fatherEmployeeId,
     this.motherEmployeeId,
     this.papaNumEmpleado,
@@ -135,6 +177,15 @@ class Family {
       }
     }
 
+    final List<HogarChild> hogarChildren = [];
+    if (j['hijos_hogar'] is List) {
+      for (final h in (j['hijos_hogar'] as List)) {
+        if (h is Map<String, dynamic>) {
+          hogarChildren.add(HogarChild.fromJson(h));
+        }
+      }
+    }
+
     return Family(
       id: (j['id_familia'] ?? j['FamiliaID'] ?? j['id']) as int?,
       familyName:
@@ -161,6 +212,7 @@ class Family {
       fotoPerfilUrl: j['foto_perfil_url']?.toString(),
       householdChildren: householdChildren,
       assignedStudents: assignedStudents,
+      hogarChildren: hogarChildren,
       fatherEmployeeId:
           (j['papa_id'] ??
                   j['Papa_id'] ??

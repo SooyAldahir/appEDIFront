@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:edi301/services/chat_api.dart';
 import 'package:edi301/src/pages/Chat/chat_page.dart';
 import 'package:edi301/core/api_client_http.dart';
+import 'package:edi301/src/pages/Perfil/perfil_page.dart' show AdminPickerSheet;
 
 class MyChatsPage extends StatefulWidget {
   const MyChatsPage({super.key});
@@ -107,6 +108,59 @@ class _MyChatsPageState extends State<MyChatsPage> {
       return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     }
     return '${date.day}/${date.month}';
+  }
+
+  Future<void> _showAdminPicker() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    final admins = await _api.getAdmins();
+    if (!mounted) return;
+    Navigator.pop(context);
+
+    if (admins.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No hay administradores disponibles en este momento.'),
+        ),
+      );
+      return;
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (ctx) => AdminPickerSheet(
+        admins: admins,
+        absUrl: _absUrl,
+        onPick: (adminId, adminName) async {
+          Navigator.pop(ctx);
+          final idSala = await _api.initPrivateChat(adminId);
+          if (idSala != null && mounted) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChatPage(
+                  idSala: idSala,
+                  nombreChat: adminName,
+                ),
+              ),
+            );
+            _loadChats();
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('No se pudo iniciar la conversación.'),
+              ),
+            );
+          }
+        },
+      ),
+    );
   }
 
   void _goToChat(Map<String, dynamic> chat) async {
@@ -287,18 +341,17 @@ class _MyChatsPageState extends State<MyChatsPage> {
                     ),
                   ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         backgroundColor: _gold,
-        child: const Icon(Icons.info, color: Colors.black),
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Ve a la sección de Familias o Alumnos para iniciar un chat.',
-              ),
-            ),
-          );
-        },
+        icon: const Icon(Icons.support_agent_rounded, color: Colors.black),
+        label: const Text(
+          'Contactar admin',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        onPressed: _showAdminPicker,
       ),
     );
   }

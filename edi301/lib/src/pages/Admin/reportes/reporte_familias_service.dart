@@ -91,6 +91,7 @@ class ReporteFamiliasService {
 
     final hijosCasa = familia.householdChildren;
     final alumnosAsignados = familia.assignedStudents;
+    final ninos = familia.hogarChildren;
 
     pdf.addPage(
       pw.MultiPage(
@@ -106,6 +107,10 @@ class ReporteFamiliasService {
             'Hijos EDI (Alumnos Asignados)',
             alumnosAsignados,
           ),
+          if (ninos.isNotEmpty) ...[
+            pw.SizedBox(height: 20),
+            _buildTableNinosHogar(ninos),
+          ],
         ],
       ),
     );
@@ -154,20 +159,59 @@ class ReporteFamiliasService {
         )
         .toList();
 
-    return pw.Table.fromTextArray(
-      headers: headers,
-      data: data,
-      border: pw.TableBorder.all(color: PdfColors.grey600, width: 1),
-      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-      cellStyle: const pw.TextStyle(fontSize: 10),
-      headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
-      cellHeight: 30,
-      cellAlignments: {
-        0: pw.Alignment.centerLeft,
-        1: pw.Alignment.centerLeft,
-        2: pw.Alignment.center,
-        3: pw.Alignment.center,
-      },
+    final totalIntegrantes = familias.fold<int>(
+      0,
+      (sum, f) => sum + f.totalMiembros,
+    );
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Table.fromTextArray(
+          headers: headers,
+          data: data,
+          border: pw.TableBorder.all(color: PdfColors.grey600, width: 1),
+          headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          cellStyle: const pw.TextStyle(fontSize: 10),
+          headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          cellHeight: 30,
+          cellAlignments: {
+            0: pw.Alignment.centerLeft,
+            1: pw.Alignment.centerLeft,
+            2: pw.Alignment.center,
+            3: pw.Alignment.center,
+          },
+        ),
+        pw.SizedBox(height: 8),
+        pw.Container(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.grey300,
+              border: pw.Border.all(color: PdfColors.grey600, width: 1),
+              borderRadius: pw.BorderRadius.circular(4),
+            ),
+            child: pw.RichText(
+              text: pw.TextSpan(
+                children: [
+                  pw.TextSpan(
+                    text: 'Total de integrantes: ',
+                    style: const pw.TextStyle(fontSize: 11),
+                  ),
+                  pw.TextSpan(
+                    text: '$totalIntegrantes',
+                    style: pw.TextStyle(
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -223,6 +267,44 @@ class ReporteFamiliasService {
         pw.Padding(
           padding: const pw.EdgeInsets.all(5),
           child: pw.Text(idStr ?? 'N/A'),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildTableNinosHogar(List<HogarChild> ninos) {
+    final headers = ['Nombre', 'Apellido', 'Fecha de nacimiento'];
+
+    final data = ninos.map((h) => [
+      h.nombre,
+      h.apellido,
+      h.fechaNacimiento ?? 'N/A',
+    ]).toList();
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          'Niños del hogar sin cuenta',
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
+        ),
+        pw.SizedBox(height: 5),
+        pw.Table.fromTextArray(
+          headers: headers,
+          data: data,
+          border: pw.TableBorder.all(color: PdfColors.grey600, width: 1),
+          headerStyle: pw.TextStyle(
+            fontWeight: pw.FontWeight.bold,
+            fontSize: 9,
+          ),
+          cellStyle: const pw.TextStyle(fontSize: 8),
+          headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          cellHeight: 25,
+          cellAlignments: {
+            0: pw.Alignment.centerLeft,
+            1: pw.Alignment.centerLeft,
+            2: pw.Alignment.center,
+          },
         ),
       ],
     );

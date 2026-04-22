@@ -48,6 +48,15 @@ class ChatApi {
     } catch (_) {}
   }
 
+  /// Devuelve la lista de usuarios con rol Admin.
+  Future<List<dynamic>> getAdmins() async {
+    try {
+      final res = await _http.getJson('/api/usuarios/admins');
+      if (res.statusCode == 200) return jsonDecode(res.body);
+    } catch (_) {}
+    return [];
+  }
+
   /// Devuelve el total de mensajes no leídos en todos los chats del usuario.
   Future<int> totalUnread() async {
     try {

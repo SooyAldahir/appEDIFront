@@ -7,6 +7,7 @@ import 'package:edi301/services/familia_api.dart';
 import 'package:edi301/services/members_api.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/core/api_error.dart';
+import 'package:intl/intl.dart';
 
 class EditFamilyPage extends StatefulWidget {
   final Family family;
@@ -38,11 +39,14 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
   Timer? _papaDebounce;
   Timer? _mamaDebounce;
 
-  // Hijos en casa
+  // Hijos en casa (con cuenta)
   late List<FamilyMember> _hijos;
   final TextEditingController _hijoSearchCtrl = TextEditingController();
   List<Map<String, dynamic>> _hijoResults = [];
   Timer? _hijoDebounce;
+
+  // Hijos del hogar sin cuenta
+  late List<HogarChild> _hogarChildren;
 
   bool _saving = false;
 
@@ -72,6 +76,7 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
       _mamaSearchCtrl.text = f.motherName ?? '';
     }
     _hijos = List<FamilyMember>.from(f.householdChildren);
+    _hogarChildren = List<HogarChild>.from(f.hogarChildren);
   }
 
   @override
@@ -117,6 +122,21 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
       (u['IdUsuario'] ?? u['id_usuario'] ?? 0) as int;
 
   // ── Debounced search triggers ───────────────────────────────────────────────
+  /// Busca empleados Y tutores externos y fusiona resultados (sin duplicados).
+  Future<List<Map<String, dynamic>>> _searchParents(String q) async {
+    final results = await Future.wait([
+      _searchUsers(q, 'EMPLEADO'),
+      _searchUsers(q, 'EXTERNO'),
+    ]);
+    final merged = <int, Map<String, dynamic>>{};
+    for (final list in results) {
+      for (final u in list) {
+        merged[_userId(u)] = u;
+      }
+    }
+    return merged.values.toList();
+  }
+
   void _onPapaSearch(String q) {
     _papaDebounce?.cancel();
     if (q.trim().isEmpty) {
@@ -127,7 +147,7 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
       return;
     }
     _papaDebounce = Timer(const Duration(milliseconds: 400), () async {
-      final r = await _searchUsers(q, 'EMPLEADO');
+      final r = await _searchParents(q);
       if (mounted) setState(() => _papaResults = r);
     });
   }
@@ -142,7 +162,7 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
       return;
     }
     _mamaDebounce = Timer(const Duration(milliseconds: 400), () async {
-      final r = await _searchUsers(q, 'EMPLEADO');
+      final r = await _searchParents(q);
       if (mounted) setState(() => _mamaResults = r);
     });
   }
@@ -450,6 +470,55 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
                 ),
               ),
             ],
+            const SizedBox(height: 24),
+
+            // ── Niños del hogar sin cuenta ─────────────────────────────────────
+            Row(
+              children: [
+                const Icon(Icons.child_friendly, color: _navy, size: 18),
+                const SizedBox(width: 6),
+                Expanded(child: _sectionTitle('Niños del hogar sin cuenta')),
+                TextButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Agregar'),
+                  style: TextButton.styleFrom(foregroundColor: _navy),
+                  onPressed: () => _showHogarChildDialog(),
+                ),
+              ],
+            ),
+            Text(
+              'Niños pequeños sin cuenta en el sistema.',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
+            const SizedBox(height: 8),
+            if (_hogarChildren.isNotEmpty)
+              ..._hogarChildren.map(
+                (h) => Card(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  child: ListTile(
+                    dense: true,
+                    leading: const CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Color(0xFFD6EAF8),
+                      child: Icon(Icons.child_care,
+                          size: 16, color: _navy),
+                    ),
+                    title: Text(h.fullName,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
+                    subtitle: h.fechaNacimiento != null
+                        ? Text('Nac: ${h.fechaNacimiento}',
+                            style: const TextStyle(fontSize: 11))
+                        : null,
+                    trailing: IconButton(
+                      icon: const Icon(Icons.remove_circle_outline,
+                          color: Colors.red),
+                      onPressed: () => _removeHogarChild(h),
+                    ),
+                  ),
+                ),
+              ),
+
             const SizedBox(height: 32),
 
             // ── Guardar ───────────────────────────────────────────────────────
@@ -479,6 +548,193 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
         ),
       ),
     );
+  }
+
+  // ── Hijos del hogar sin cuenta ─────────────────────────────────────────────
+  Future<void> _showHogarChildDialog() async {
+    final nombreCtrl   = TextEditingController();
+    final apellidoCtrl = TextEditingController();
+    DateTime? selectedDate;
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18)),
+          title: const Row(
+            children: [
+              Icon(Icons.child_care, color: _navy),
+              SizedBox(width: 8),
+              Text('Agregar niño sin cuenta',
+                  style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nombreCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre(s) *',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty)
+                            ? 'Requerido'
+                            : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: apellidoCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Apellido(s) *',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty)
+                            ? 'Requerido'
+                            : null,
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        initialDate: DateTime.now()
+                            .subtract(const Duration(days: 365 * 5)),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) {
+                        setDlg(() => selectedDate = picked);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Fecha de nacimiento',
+                        prefixIcon: Icon(Icons.cake_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      child: Text(
+                        selectedDate != null
+                            ? DateFormat('dd/MM/yyyy')
+                                .format(selectedDate!)
+                            : 'Seleccionar (opcional)',
+                        style: TextStyle(
+                          color: selectedDate != null
+                              ? Colors.black87
+                              : Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancelar',
+                  style: TextStyle(color: Colors.grey.shade600)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _navy,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.pop(ctx);
+                await _saveHogarChild(
+                  nombre:          nombreCtrl.text.trim(),
+                  apellido:        apellidoCtrl.text.trim(),
+                  fechaNacimiento: selectedDate != null
+                      ? DateFormat('yyyy-MM-dd').format(selectedDate!)
+                      : null,
+                );
+              },
+              child: const Text('Agregar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveHogarChild({
+    required String nombre,
+    required String apellido,
+    String? fechaNacimiento,
+  }) async {
+    try {
+      final created = await _familiaApi.createHogarChild(
+        idFamilia:        widget.family.id!,
+        nombre:           nombre,
+        apellido:         apellido,
+        fechaNacimiento:  fechaNacimiento,
+      );
+      if (mounted) {
+        setState(() => _hogarChildren.add(created));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('${created.fullName} agregado.'),
+            backgroundColor: Colors.green));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(friendlyError(e)),
+            backgroundColor: Colors.red.shade700));
+      }
+    }
+  }
+
+  Future<void> _removeHogarChild(HogarChild h) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('¿Quitar niño?'),
+        content: Text('¿Quitar a ${h.fullName} de la familia?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      if (h.idHijo != null) await _familiaApi.deleteHogarChild(h.idHijo!);
+      setState(() => _hogarChildren.removeWhere(
+          (x) => x.idHijo == h.idHijo && x.fullName == h.fullName));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Quitado correctamente.'),
+            backgroundColor: Colors.orange));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(friendlyError(e)),
+            backgroundColor: Colors.red.shade700));
+      }
+    }
   }
 
   Widget _sectionTitle(String text) => Padding(

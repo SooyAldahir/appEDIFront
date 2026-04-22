@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:edi301/services/search_api.dart';
 import 'add_family_controller.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 
 class AddFamilyPage extends StatefulWidget {
   const AddFamilyPage({super.key});
@@ -152,6 +153,81 @@ class _AddFamilyPageState extends State<AddFamilyPage> {
                 ),
               ),
 
+              const Divider(height: 32),
+              // ── Niños sin cuenta ──────────────────────────────────────────
+              Row(
+                children: [
+                  const Icon(Icons.child_friendly, color: Color(0xFF1A5276), size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Niños del hogar sin cuenta',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Agregar'),
+                    onPressed: () => _showHogarChildDialog(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Para niños pequeños que aún no tienen cuenta en el sistema.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 8),
+              ValueListenableBuilder<List<HogarChildDraft>>(
+                valueListenable: c.hogarChildren,
+                builder: (_, kids, __) {
+                  if (kids.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'Ningún niño sin cuenta agregado.',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade500),
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: kids.asMap().entries.map((e) {
+                      final kid = e.value;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        child: ListTile(
+                          dense: true,
+                          leading: const CircleAvatar(
+                            radius: 16,
+                            backgroundColor: Color(0xFFD6EAF8),
+                            child: Icon(Icons.child_care,
+                                size: 16, color: Color(0xFF1A5276)),
+                          ),
+                          title: Text(kid.fullName,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13)),
+                          subtitle: kid.fechaNacimiento != null
+                              ? Text(
+                                  'Nac: ${kid.fechaNacimiento}',
+                                  style: const TextStyle(fontSize: 11),
+                                )
+                              : null,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.remove_circle_outline,
+                                color: Colors.red, size: 20),
+                            onPressed: () =>
+                                setState(() => c.removeHogarChild(e.key)),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+
               const SizedBox(height: 24),
               ValueListenableBuilder<bool>(
                 valueListenable: c.loading,
@@ -163,6 +239,130 @@ class _AddFamilyPageState extends State<AddFamilyPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Muestra un diálogo para capturar nombre, apellido y fecha de nacimiento
+  /// de un niño del hogar sin cuenta.
+  Future<void> _showHogarChildDialog(BuildContext context) async {
+    final nombreCtrl = TextEditingController();
+    final apellidoCtrl = TextEditingController();
+    DateTime? selectedDate;
+    final formKey = GlobalKey<FormState>();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Row(
+            children: [
+              Icon(Icons.child_care, color: Color(0xFF1A5276)),
+              SizedBox(width: 8),
+              Text('Agregar niño sin cuenta',
+                  style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nombreCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre(s) *',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'El nombre es requerido'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: apellidoCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Apellido(s) *',
+                      prefixIcon: Icon(Icons.person_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'El apellido es requerido'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  // Selector de fecha de nacimiento
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: ctx,
+                        initialDate: DateTime.now()
+                            .subtract(const Duration(days: 365 * 5)),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) {
+                        setDlg(() => selectedDate = picked);
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Fecha de nacimiento',
+                        prefixIcon: Icon(Icons.cake_outlined),
+                        border: OutlineInputBorder(),
+                      ),
+                      child: Text(
+                        selectedDate != null
+                            ? DateFormat('dd/MM/yyyy').format(selectedDate!)
+                            : 'Seleccionar (opcional)',
+                        style: TextStyle(
+                          color: selectedDate != null
+                              ? Colors.black87
+                              : Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancelar',
+                  style: TextStyle(color: Colors.grey.shade600)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1A5276),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                setState(() {
+                  c.addHogarChild(HogarChildDraft(
+                    nombre:   nombreCtrl.text.trim(),
+                    apellido: apellidoCtrl.text.trim(),
+                    fechaNacimiento: selectedDate != null
+                        ? DateFormat('yyyy-MM-dd').format(selectedDate!)
+                        : null,
+                  ));
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('Agregar'),
+            ),
+          ],
         ),
       ),
     );
