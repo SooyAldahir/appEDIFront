@@ -106,6 +106,7 @@ class Family {
   final List<FamilyMember> householdChildren;
   final List<HogarChild> hogarChildren;
   final List<FamilyMember> uncles;
+  List<FamilyMember> get ediChildren => [...assignedStudents, ...uncles];
   final int? fatherEmployeeId;
   final int? motherEmployeeId;
   final String? papaNumEmpleado;
@@ -180,15 +181,13 @@ class Family {
       for (final miembro in (j['miembros'] as List)) {
         if (miembro is Map<String, dynamic>) {
           final familyMember = FamilyMember.fromJson(miembro);
-          final rol = (miembro['nombre_rol'] ?? '').toString();
-          if (rol == 'HijoSanguineo' ||
-              (rol != 'HijoEDI' && familyMember.tipoMiembro == 'HIJO')) {
-            householdChildren.add(familyMember);
-          } else if (rol == 'HijoEDI' ||
-              familyMember.tipoMiembro == 'ALUMNO_ASIGNADO') {
-            assignedStudents.add(familyMember);
-          } else if (familyMember.tipoMiembro == 'TIO_EDI') {
-            uncles.add(familyMember);
+          switch (familyMember.tipoMiembro) {
+            case 'HIJO':
+              householdChildren.add(familyMember);
+            case 'ALUMNO_ASIGNADO':
+              assignedStudents.add(familyMember);
+            case 'TIO_EDI':
+              uncles.add(familyMember);
           }
         }
       }

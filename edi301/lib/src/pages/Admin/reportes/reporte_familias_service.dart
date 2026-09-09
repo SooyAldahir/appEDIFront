@@ -110,7 +110,7 @@ class ReporteFamiliasService {
     final theme = pw.ThemeData.withFont(base: font);
 
     final hijosCasa = familia.householdChildren;
-    final alumnosAsignados = familia.assignedStudents;
+    final hijosEdi = familia.ediChildren;
     final ninos = familia.hogarChildren;
 
     pdf.addPage(
@@ -123,10 +123,7 @@ class ReporteFamiliasService {
           pw.SizedBox(height: 20),
           _buildTableMiembros('Hijos en casa', hijosCasa),
           pw.SizedBox(height: 20),
-          _buildTableMiembros(
-            'Hijos EDI (Alumnos Asignados)',
-            alumnosAsignados,
-          ),
+          _buildTableMiembros('Hijos EDI', hijosEdi),
           if (ninos.isNotEmpty) ...[
             pw.SizedBox(height: 20),
             _buildTableNinosHogar(ninos),

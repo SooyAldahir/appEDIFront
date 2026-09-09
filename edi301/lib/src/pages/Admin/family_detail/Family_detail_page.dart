@@ -181,6 +181,8 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
           _family!.householdChildren.removeWhere(
             (m) => m.idMiembro == member.idMiembro,
           );
+        } else if (member.tipoMiembro == 'TIO_EDI') {
+          _family!.uncles.removeWhere((m) => m.idMiembro == member.idMiembro);
         } else {
           _family!.assignedStudents.removeWhere(
             (m) => m.idMiembro == member.idMiembro,
@@ -610,33 +612,9 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
         _buildHogarChildrenSection(fam),
         const SizedBox(height: 12),
         _Section(
-          title: 'Tíos EDI',
-          items: fam.uncles,
-          emptyText: 'Sin tíos EDI asignados.',
-          leadingIcon: Icons.family_restroom,
-          buildTrailing: (uncle) => Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.info_outline),
-                onPressed: () => Navigator.pushNamed(
-                  context,
-                  'student_detail',
-                  arguments: uncle.idUsuario,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _handleDeleteMember(uncle),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _Section(
-          title: 'Alumnos asignados',
-          items: fam.assignedStudents,
-          emptyText: 'Sin alumnos asignados.',
+          title: 'Hijos EDI',
+          items: fam.ediChildren,
+          emptyText: 'Sin alumnos ni tíos EDI asignados.',
           leadingIcon: Icons.school,
           buildTrailing: (student) => Row(
             mainAxisSize: MainAxisSize.min,
@@ -1045,6 +1023,13 @@ class _Section extends StatelessWidget {
                 dense: true,
                 leading: Icon(leadingIcon),
                 title: Text(e.fullName),
+                subtitle: Text(
+                  e.tipoMiembro == 'TIO_EDI'
+                      ? 'Tío EDI'
+                      : e.tipoMiembro == 'ALUMNO_ASIGNADO'
+                      ? 'Alumno asignado'
+                      : 'Hijo sanguíneo',
+                ),
                 trailing: buildTrailing(e),
               ),
             ),
