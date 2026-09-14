@@ -54,7 +54,8 @@ class AdminPage extends StatelessWidget {
     ),
   ];
 
-  // Fila inferior
+  // Fila inferior. Agenda y Encuestas viven aquí porque se quitaron de la
+  // barra de navegación del admin.
   static const _bottom = [
     _AdminItem(
       label: 'Agenda',
@@ -63,6 +64,14 @@ class AdminPage extends StatelessWidget {
       route: 'agenda',
       gradient: [Color(0xFFE65100), Color(0xFFBF360C)],
       accent: Color(0xFFFFCC80),
+    ),
+    _AdminItem(
+      label: 'Encuestas',
+      sub: 'Crear y ver',
+      icon: Icons.poll_rounded,
+      route: 'encuestas',
+      gradient: [Color(0xFF4527A0), Color(0xFF311B92)],
+      accent: Color(0xFFB39DDB),
     ),
     _AdminItem(
       label: 'Reportes PDF',
@@ -183,19 +192,12 @@ class AdminPage extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 sliver: SliverToBoxAdapter(
                   child: Row(
-                    children: _bottom
-                        .map(
-                          (item) => Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                left: item == _bottom.first ? 0 : 6,
-                                right: item == _bottom.last ? 0 : 6,
-                              ),
-                              child: _BottomCard(item: item),
-                            ),
-                          ),
-                        )
-                        .toList(),
+                    children: [
+                      for (int i = 0; i < _bottom.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 10),
+                        Expanded(child: _BottomCard(item: _bottom[i])),
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -439,7 +441,7 @@ class _BottomCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, item.route),
       child: Container(
-        height: 80,
+        height: 96,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: item.gradient,
@@ -455,32 +457,34 @@ class _BottomCard extends StatelessWidget {
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
+        // Layout vertical: con tres tarjetas en la fila no cabe el ícono
+        // al lado del texto en pantallas angostas.
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(item.icon, color: item.accent, size: 26),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    item.sub,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 7),
+            Text(
+              item.label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12.5,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              item.sub,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 10,
               ),
             ),
           ],

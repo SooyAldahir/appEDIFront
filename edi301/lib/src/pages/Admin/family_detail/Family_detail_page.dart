@@ -32,6 +32,14 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
 
   bool _realtimeSetup = false;
   int? _rtFamilyId;
+
+  /// Eventos de familia que obligan a recargar el detalle.
+  static const List<String> _realtimeEvents = [
+    'miembro_agregado',
+    'miembro_eliminado',
+    'miembros_actualizados',
+    'nuevos_alumnos_asignados',
+  ];
   Family? _family;
   bool _isLoading = true;
   String? _error;
@@ -52,8 +60,22 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
     _tabController = TabController(length: 3, vsync: this);
   }
 
+  void _onFamilyRealtimeEvent(dynamic _) {
+    final fid = _rtFamilyId;
+    if (mounted && fid != null) _fetchFamilyDetails(fid);
+  }
+
   @override
   void dispose() {
+    // Antes esta pantalla nunca soltaba la sala ni los listeners: la
+    // referencia a `familia_X` quedaba viva para siempre y el chat familiar
+    // ya no lograba salir de la sala al cerrarse.
+    for (final ev in _realtimeEvents) {
+      _socketService.off(ev, _onFamilyRealtimeEvent);
+    }
+    if (_rtFamilyId != null) {
+      _socketService.leaveRoom('familia_$_rtFamilyId');
+    }
     _tabController.dispose();
     super.dispose();
   }
@@ -72,18 +94,17 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
       if (familyId != null) {
         final int fid = familyId;
         if (!_realtimeSetup || _rtFamilyId != familyId) {
-          _socketService.initSocket();
+          // Si ya se estaba escuchando otra familia, soltamos esa sala.
+          if (_rtFamilyId != null && _rtFamilyId != fid) {
+            _socketService.leaveRoom('familia_$_rtFamilyId');
+          }
           _socketService.joinFamilyRoom(fid);
-          for (final ev in [
-            'miembro_agregado',
-            'miembro_eliminado',
-            'miembros_actualizados',
-            'nuevos_alumnos_asignados',
-          ]) {
-            _socketService.socket.off(ev);
-            _socketService.socket.on(ev, (_) {
-              if (mounted) _fetchFamilyDetails(fid);
-            });
+          // `_socketService.on` es seguro aunque el socket todavía no exista:
+          // la conexión se crea de forma asíncrona (hay que leer el token) y
+          // acceder a `.socket` directo lanzaba StateError.
+          for (final ev in _realtimeEvents) {
+            _socketService.off(ev, _onFamilyRealtimeEvent);
+            _socketService.on(ev, _onFamilyRealtimeEvent);
           }
           _realtimeSetup = true;
           _rtFamilyId = fid;
@@ -177,16 +198,32 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
     try {
       await _membersApi.removeMember(member.idMiembro);
       setState(() {
-        if (member.tipoMiembro == 'HIJO') {
-          _family!.householdChildren.removeWhere(
-            (m) => m.idMiembro == member.idMiembro,
-          );
-        } else if (member.tipoMiembro == 'TIO_EDI') {
-          _family!.uncles.removeWhere((m) => m.idMiembro == member.idMiembro);
-        } else {
-          _family!.assignedStudents.removeWhere(
-            (m) => m.idMiembro == member.idMiembro,
-          );
+        // Cada rol se quita de SU propia lista; antes cualquier tipo que no
+        // fuera HIJO ni TIO_EDI se borraba de los alumnos asignados.
+        switch (member.tipoMiembro) {
+          case MemberType.hijoSanguineo:
+            _family!.householdChildren.removeWhere(
+              (m) => m.idMiembro == member.idMiembro,
+            );
+            break;
+          case MemberType.tioEdi:
+            _family!.uncles.removeWhere((m) => m.idMiembro == member.idMiembro);
+            break;
+          case MemberType.alumnoEdi:
+            _family!.assignedStudents.removeWhere(
+              (m) => m.idMiembro == member.idMiembro,
+            );
+            break;
+          case MemberType.padre:
+          case MemberType.madre:
+            _family!.parentMembers.removeWhere(
+              (m) => m.idMiembro == member.idMiembro,
+            );
+            break;
+          default:
+            _family!.otherMembers.removeWhere(
+              (m) => m.idMiembro == member.idMiembro,
+            );
         }
       });
       if (mounted) {
@@ -520,11 +557,14 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
   }
 
   Future<void> _handleEdit() async {
-    final updated = await Navigator.push<bool>(
+    await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => EditFamilyPage(family: _family!)),
     );
-    if (updated == true && mounted) {
+    // Siempre recargamos: en la pantalla de edición, agregar o quitar
+    // integrantes se guarda al instante, aunque el admin salga sin pulsar
+    // "Guardar cambios". Sin esto, las secciones quedaban desactualizadas.
+    if (mounted) {
       setState(() => _isLoading = true);
       await _fetchFamilyDetails(_family!.id!);
     }
@@ -598,29 +638,83 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
       children: [
         _Header(f: fam),
         const SizedBox(height: 16),
+
+        // 1. Padres de familia
         _Section(
-          title: 'Hijos en casa',
+          title: 'Padres de familia',
+          items: fam.parents,
+          emptyText: 'Sin papá ni mamá asignados.',
+          leadingIcon: Icons.volunteer_activism,
+          accent: _primary,
+          buildTrailing: (padre) => padre.tieneCuenta
+              ? IconButton(
+                  icon: const Icon(Icons.info_outline),
+                  tooltip: 'Ver perfil',
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    'student_detail',
+                    arguments: padre.idUsuario,
+                  ),
+                )
+              : const Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Chip(
+                    label: Text(
+                      'Pendiente',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+        ),
+        const SizedBox(height: 12),
+
+        // 2. Hijos sanguíneos (con cuenta en la app)
+        _Section(
+          title: 'Hijos sanguíneos',
           items: fam.householdChildren,
-          emptyText: 'Sin hijos registrados.',
+          emptyText: 'Sin hijos sanguíneos registrados.',
           leadingIcon: Icons.family_restroom,
-          buildTrailing: (child) => IconButton(
-            icon: const Icon(Icons.delete, color: Colors.red),
-            onPressed: () => _handleDeleteMember(child),
+          accent: Colors.teal,
+          buildTrailing: (child) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.info_outline),
+                tooltip: 'Ver perfil',
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  'student_detail',
+                  arguments: child.idUsuario,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                tooltip: 'Quitar de la familia',
+                onPressed: () => _handleDeleteMember(child),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 12),
+
+        // 3. Hijos del hogar (sin cuenta)
         _buildHogarChildrenSection(fam),
         const SizedBox(height: 12),
+
+        // 4. Hijos EDI (alumnos asignados) — SIN tíos
         _Section(
           title: 'Hijos EDI',
-          items: fam.ediChildren,
-          emptyText: 'Sin alumnos ni tíos EDI asignados.',
+          items: fam.assignedStudents,
+          emptyText: 'Sin alumnos EDI asignados.',
           leadingIcon: Icons.school,
+          accent: _gold,
           buildTrailing: (student) => Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
                 icon: const Icon(Icons.info_outline),
+                tooltip: 'Ver perfil',
                 onPressed: () => Navigator.pushNamed(
                   context,
                   'student_detail',
@@ -629,11 +723,59 @@ class _FamilyDetailPageState extends State<FamilyDetailPage>
               ),
               IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),
+                tooltip: 'Quitar de la familia',
                 onPressed: () => _handleDeleteMember(student),
               ),
             ],
           ),
         ),
+        const SizedBox(height: 12),
+
+        // 5. Tíos EDI — su propia sección, ya no dentro de "Hijos EDI"
+        _Section(
+          title: 'Tíos EDI',
+          items: fam.uncles,
+          emptyText: 'Sin tíos EDI asignados.',
+          leadingIcon: Icons.handshake,
+          accent: Colors.indigo,
+          buildTrailing: (tio) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.info_outline),
+                tooltip: 'Ver perfil',
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  'student_detail',
+                  arguments: tio.idUsuario,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                tooltip: 'Quitar de la familia',
+                onPressed: () => _handleDeleteMember(tio),
+              ),
+            ],
+          ),
+        ),
+
+        // 6. Cualquier rol que la app no reconozca (no se oculta, se avisa)
+        if (fam.otherMembers.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _Section(
+            title: 'Otros integrantes',
+            items: fam.otherMembers,
+            emptyText: '',
+            leadingIcon: Icons.help_outline,
+            accent: Colors.blueGrey,
+            buildTrailing: (m) => IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              tooltip: 'Quitar de la familia',
+              onPressed: () => _handleDeleteMember(m),
+            ),
+          ),
+        ],
+
         const SizedBox(height: 24),
         ElevatedButton.icon(
           icon: const Icon(Icons.person_add),
@@ -992,12 +1134,14 @@ class _Section extends StatelessWidget {
     required this.emptyText,
     required this.buildTrailing,
     required this.leadingIcon,
+    this.accent = Colors.grey,
   });
   final String title;
   final List<FamilyMember> items;
   final String emptyText;
   final Widget Function(FamilyMember) buildTrailing;
   final IconData leadingIcon;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -1006,7 +1150,37 @@ class _Section extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
         initiallyExpanded: true,
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        leading: CircleAvatar(
+          radius: 16,
+          backgroundColor: accent.withValues(alpha: 0.15),
+          child: Icon(leadingIcon, size: 18, color: accent),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            // Contador por sección, para saber de un vistazo cuántos hay.
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${items.length}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: accent,
+                ),
+              ),
+            ),
+          ],
+        ),
         childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
         children: [
           if (items.isEmpty)
@@ -1021,14 +1195,14 @@ class _Section extends StatelessWidget {
             ...items.map(
               (e) => ListTile(
                 dense: true,
-                leading: Icon(leadingIcon),
+                leading: Icon(leadingIcon, color: accent),
                 title: Text(e.fullName),
+                // La etiqueta sale del propio tipo de miembro, así que un tío
+                // nunca puede aparecer rotulado como hijo.
                 subtitle: Text(
-                  e.tipoMiembro == 'TIO_EDI'
-                      ? 'Tío EDI'
-                      : e.tipoMiembro == 'ALUMNO_ASIGNADO'
-                      ? 'Alumno asignado'
-                      : 'Hijo sanguíneo',
+                  e.pendiente
+                      ? '${e.roleLabel} · sin cuenta vinculada'
+                      : e.roleLabel,
                 ),
                 trailing: buildTrailing(e),
               ),

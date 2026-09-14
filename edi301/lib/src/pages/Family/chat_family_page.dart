@@ -60,17 +60,48 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
     await _cargarMensajes(); // Carga inicial de mensajes
     await _socketService.joinFamilyRoom(widget.idFamilia);
     if (!mounted) return;
-    _socketService.socket.off('nuevo_mensaje_familia');
-    _socketService.socket.on('nuevo_mensaje_familia', (_) {
-      if (mounted) _cargarMensajes(quiet: true);
-    });
+    // Handler con nombre: así el `off` de dispose quita SOLO este listener.
+    // Con una función anónima había que borrar todos los del evento, y eso
+    // desconectaba también a cualquier otra pantalla que lo escuchara.
+    _socketService.on('nuevo_mensaje_familia', _onMensajeFamilia);
     _startPolling(); // ✅ Inicia el refresco automático
   }
 
-  // Respaldo por si el socket pierde conectividad temporalmente.
+  /// El evento ya trae el mensaje completo (id, texto, autor, foto y fecha),
+  /// así que se inserta directo en la lista. Antes esto disparaba una recarga
+  /// de los últimos 100 mensajes por CADA mensaje recibido y por cada persona
+  /// en la familia; con el chat activo eso multiplicaba la carga del servidor.
+  void _onMensajeFamilia(dynamic data) {
+    if (!mounted) return;
+
+    final msg = _asMessageMap(data);
+    if (msg == null) {
+      // Payload inesperado (backend viejo, por ejemplo): se cae al método
+      // anterior para no perder el mensaje.
+      _cargarMensajes(quiet: true);
+      return;
+    }
+
+    final merged = _mergeMessages(_mensajes, [msg]);
+    if (merged.length == _mensajes.length) return; // ya lo teníamos
+    setState(() => _mensajes = merged);
+    _scrollToBottom();
+  }
+
+  /// Normaliza el payload del socket y descarta lo que no sirva.
+  Map<String, dynamic>? _asMessageMap(dynamic data) {
+    if (data is! Map) return null;
+    final msg = Map<String, dynamic>.from(data);
+    if (int.tryParse('${msg['id_mensaje']}') == null) return null;
+    if (msg['mensaje'] == null) return null;
+    return msg;
+  }
+
+  // Respaldo por si el socket pierde conectividad. Ahora que los mensajes
+  // llegan y se insertan por socket, este intervalo puede ser amplio.
   void _startPolling() {
     _pollingTimer?.cancel();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       if (mounted) {
         _cargarMensajes(quiet: true); // Carga silenciosa en segundo plano
       }
@@ -80,9 +111,7 @@ class _ChatFamilyPageState extends State<ChatFamilyPage> {
   @override
   void dispose() {
     _pollingTimer?.cancel(); // ✅ Obligatorio: detener el timer al salir
-    if (_socketService.isReady) {
-      _socketService.socket.off('nuevo_mensaje_familia');
-    }
+    _socketService.off('nuevo_mensaje_familia', _onMensajeFamilia);
     _socketService.leaveRoom('familia_${widget.idFamilia}');
     _textController.dispose();
     _scrollController.dispose();

@@ -22,6 +22,22 @@ class _FamilyGalleryState extends State<FamilyGallery> {
   void initState() {
     super.initState();
     _cargarFotos();
+    _escucharFotosNuevas();
+  }
+
+  /// Antes este widget solo hacía `leaveRoom` en dispose SIN haber entrado
+  /// nunca a la sala: eso descontaba una referencia ajena y sacaba de
+  /// `familia_X` al chat familiar, que dejaba de recibir mensajes en vivo.
+  /// Ahora entra de verdad y además escucha el evento, que el backend ya
+  /// emitía desde fotos.controller.
+  Future<void> _escucharFotosNuevas() async {
+    await _socketService.joinFamilyRoom(widget.idFamilia);
+    if (!mounted) return;
+    _socketService.on('foto_agregada', _onFotoAgregada);
+  }
+
+  void _onFotoAgregada(dynamic _) {
+    if (mounted) _cargarFotos();
   }
 
   Future<void> _cargarFotos() async {
@@ -56,9 +72,8 @@ class _FamilyGalleryState extends State<FamilyGallery> {
 
   @override
   void dispose() {
-    if (_socketService.isReady) {
-      _socketService.socket.off('foto_agregada');
-    }
+    // Se quita SOLO este handler, no todos los del evento.
+    _socketService.off('foto_agregada', _onFotoAgregada);
     _socketService.leaveRoom('familia_${widget.idFamilia}');
     super.dispose();
   }

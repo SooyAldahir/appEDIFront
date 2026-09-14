@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:edi301/services/chat_api.dart';
 import 'package:edi301/src/pages/Chat/chat_page.dart';
 import 'package:edi301/core/api_client_http.dart';
+import 'package:edi301/services/socket_service.dart';
 import 'package:edi301/src/pages/Perfil/perfil_page.dart' show AdminPickerSheet;
 
 class MyChatsPage extends StatefulWidget {
@@ -20,25 +21,51 @@ class _MyChatsPageState extends State<MyChatsPage> {
   static const _gold = Color.fromRGBO(245, 188, 6, 1);
 
   final ChatApi _api = ChatApi();
+  final SocketService _socketService = SocketService();
   List<dynamic> _chats = [];
   bool _loading = true;
   Timer? _pollingTimer;
+  Timer? _refreshDebounce;
 
   @override
   void initState() {
     super.initState();
     _loadChats();
+    _escucharSocket();
     _startPolling();
   }
 
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _refreshDebounce?.cancel();
+    _socketService.off('chat_actualizado', _onChatActualizado);
     super.dispose();
   }
 
+  /// El backend mete a cada socket en su sala `user_<id>` al conectarse y
+  /// emite ahí `chat_actualizado` cuando llega un mensaje, aunque la persona
+  /// no tenga ese chat abierto. Eso mantiene el badge al día sin encuestar.
+  void _escucharSocket() {
+    _socketService.on('chat_actualizado', _onChatActualizado);
+  }
+
+  /// Rebote: en un grupo activo pueden llegar varios avisos por segundo y
+  /// cada uno recargaba la lista completa de chats. Se agrupan las ráfagas en
+  /// una sola petición.
+  void _onChatActualizado(dynamic _) {
+    if (!mounted) return;
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 800), () {
+      if (mounted) _refreshSilently();
+    });
+  }
+
+  /// Respaldo por si el socket está caído. Antes preguntaba cada 4 segundos,
+  /// lo que significa una petición HTTP por usuario cada 4 s de forma
+  /// indefinida; con el tiempo real funcionando basta un intervalo largo.
   void _startPolling() {
-    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 45), (_) {
       if (mounted) _refreshSilently();
     });
   }

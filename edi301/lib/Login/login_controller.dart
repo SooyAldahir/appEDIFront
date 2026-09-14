@@ -8,6 +8,7 @@ import '../core/api_client_http.dart';
 import '../core/api_error.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:edi301/services/users_api.dart';
+import 'package:edi301/services/socket_service.dart';
 import 'package:edi301/src/pages/Family/family_match_modal.dart';
 
 class LoginController {
@@ -92,6 +93,11 @@ class LoginController {
       // ApiHttp usa SharedPreferences para adjuntar Authorization. Guardarlo
       // antes de cualquier petición autenticada evita el fallo del primer login.
       await prefs.setString('session_token', token);
+
+      // El socket se autentica con ese mismo token. Al arrancar la app sin
+      // sesión no se conectó, así que aquí se levanta con las credenciales
+      // recién obtenidas.
+      await SocketService().reconnectWithAuth();
 
       // Cargar datos extra (familia) si aplica
       final idUsuario = data['id_usuario'] ?? data['IdUsuario'];

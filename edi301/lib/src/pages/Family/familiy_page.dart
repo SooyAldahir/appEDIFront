@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/models/family_model.dart';
 import 'package:edi301/services/familia_api.dart';
+import 'package:edi301/services/socket_service.dart';
 import 'package:edi301/src/pages/Family/family_controller.dart';
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:edi301/src/widgets/family_gallery.dart';
@@ -43,7 +44,10 @@ class _FamilyPageState extends State<FamiliyPage> {
   ); // posición inicial (ajusta si quieres)
   bool _chatFabReady = false;
 
+  final SocketService _socketService = SocketService();
   Timer? _unreadTimer;
+  Timer? _unreadDebounce;
+  int? _unreadFamilyId;
 
   int _asInt(dynamic value, {int fallback = 7}) {
     if (value is int) return value;
@@ -87,10 +91,32 @@ class _FamilyPageState extends State<FamiliyPage> {
     int? _userId;
   }
 
+  /// Badge de mensajes de familia sin leer.
+  ///
+  /// Antes esto preguntaba al servidor cada 10 segundos, de forma indefinida y
+  /// para todos los usuarios conectados (esta pantalla vive dentro del
+  /// PageView, así que el timer nunca se detenía). Ahora escucha el mismo
+  /// evento que el chat familiar y solo consulta cuando de verdad llegó algo;
+  /// el timer queda como respaldo espaciado por si el socket está caído.
   void _startUnreadPolling(int idFamilia) {
+    _unreadFamilyId = idFamilia;
     _checkFamilyUnread(idFamilia);
+
+    _socketService.joinFamilyRoom(idFamilia);
+    _socketService.on('nuevo_mensaje_familia', _onMensajeFamiliaParaBadge);
+
     _unreadTimer?.cancel();
-    _unreadTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    _unreadTimer = Timer.periodic(const Duration(seconds: 90), (_) {
+      if (mounted) _checkFamilyUnread(idFamilia);
+    });
+  }
+
+  /// Se agrupan las ráfagas: varios mensajes seguidos hacen una sola consulta.
+  void _onMensajeFamiliaParaBadge(dynamic _) {
+    final idFamilia = _unreadFamilyId;
+    if (!mounted || idFamilia == null) return;
+    _unreadDebounce?.cancel();
+    _unreadDebounce = Timer(const Duration(milliseconds: 800), () {
       if (mounted) _checkFamilyUnread(idFamilia);
     });
   }
@@ -109,6 +135,11 @@ class _FamilyPageState extends State<FamiliyPage> {
   @override
   void dispose() {
     _unreadTimer?.cancel();
+    _unreadDebounce?.cancel();
+    _socketService.off('nuevo_mensaje_familia', _onMensajeFamiliaParaBadge);
+    if (_unreadFamilyId != null) {
+      _socketService.leaveRoom('familia_$_unreadFamilyId');
+    }
     super.dispose();
   }
 
@@ -387,20 +418,10 @@ class _FamilyPageState extends State<FamiliyPage> {
                               ),
                               child: FamilyData(
                                 familyName: family.familyName,
-                                numChildres:
-                                    (family.assignedStudents.length +
-                                            family.hogarChildren.length +
-                                            ((family.fatherEmployeeId != null &&
-                                                    family.fatherEmployeeId !=
-                                                        0)
-                                                ? 1
-                                                : 0) +
-                                            ((family.motherEmployeeId != null &&
-                                                    family.motherEmployeeId !=
-                                                        0)
-                                                ? 1
-                                                : 0))
-                                        .toString(),
+                                // Cuenta TODOS los roles: padres, hijos
+                                // sanguíneos, hijos del hogar, hijos EDI
+                                // y tíos EDI.
+                                numChildres: family.totalIntegrantes.toString(),
                                 text: 'Integrantes',
                                 description:
                                     family.descripcion ??
@@ -498,131 +519,155 @@ class _FamilyPageState extends State<FamiliyPage> {
   // =========================
   //  LISTA INTEGRANTES (PADRES + HIJOS) + RESTRICCIÓN
   // =========================
+  /// Encabezado de un grupo de integrantes ("Padres de familia", "Hijos EDI"…).
+  Widget _grupoHeader(String titulo, int cantidad, IconData icono, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 8),
+      child: Row(
+        children: [
+          Icon(icono, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(
+            titulo,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '$cantidad',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Divider(color: color.withValues(alpha: 0.25))),
+        ],
+      ),
+    );
+  }
+
   Widget _buildIntegrantesCards({required Family family}) {
     final widgets = <Widget>[];
 
     final bool isChild = _isChildRole;
     final int? myId = _userId;
 
-    // ---- Padres ----
-    final papaId = family.fatherEmployeeId;
-    final mamaId = family.motherEmployeeId;
-
-    if (papaId != null && papaId != 0) {
-      final papaNombre = (family.fatherName ?? '').trim();
-      final papaFotoAbs = _absUrl((family.papaFotoPerfilUrl ?? '').toString());
-
-      final bool isMe = (myId != null && papaId == myId);
-
-      widgets.add(
-        ProfileCard(
-          imageUrl: papaFotoAbs,
-          name: papaNombre.isNotEmpty ? papaNombre : 'Padre',
-          school: 'Padre',
-          phoneNumber: family.papaTelefono,
-          onTap: () =>
-              Navigator.pushNamed(context, 'student_detail', arguments: papaId),
-          onChat: isMe
-              ? null
-              : () => _startChat(
-                  papaId,
-                  papaNombre.isNotEmpty ? papaNombre : 'Padre',
-                ),
-        ),
+    /// Construye la tarjeta de un miembro con cuenta.
+    /// [restringible] = true aplica la regla "si soy hijo solo me veo a mí".
+    ProfileCard tarjeta(FamilyMember m, {required bool restringible}) {
+      final bool isMe = (myId != null && m.idUsuario == myId);
+      final bool puedeAbrir =
+          m.tieneCuenta && (!restringible || !isChild || isMe);
+      return ProfileCard(
+        imageUrl: _absUrl((m.fotoPerfil ?? '').toString()),
+        // El subtítulo siempre dice el rol real; para los alumnos EDI se
+        // prefiere la carrera cuando existe.
+        school: (m.tipoMiembro == MemberType.alumnoEdi &&
+                (m.carrera ?? '').trim().isNotEmpty)
+            ? m.carrera
+            : (m.pendiente ? '${m.roleLabel} · sin cuenta' : m.roleLabel),
+        name: m.fullName,
+        phoneNumber: m.telefono,
+        onTap: puedeAbrir
+            ? () => Navigator.pushNamed(
+                context,
+                'student_detail',
+                arguments: m.idUsuario,
+              )
+            : null,
+        onChat: (isMe || !m.tieneCuenta)
+            ? null
+            : () => _startChat(m.idUsuario, m.fullName),
       );
     }
 
-    if (mamaId != null && mamaId != 0) {
-      final mamaNombre = (family.motherName ?? '').trim();
-      final mamaFotoAbs = _absUrl((family.mamaFotoPerfilUrl ?? '').toString());
-
-      final bool isMe = (myId != null && mamaId == myId);
-
-      widgets.add(
-        ProfileCard(
-          imageUrl: mamaFotoAbs,
-          name: mamaNombre.isNotEmpty ? mamaNombre : 'Madre',
-          school: 'Madre',
-          phoneNumber: family.mamaTelefono,
-          onTap: () =>
-              Navigator.pushNamed(context, 'student_detail', arguments: mamaId),
-          onChat: isMe
-              ? null
-              : () => _startChat(
-                  mamaId,
-                  mamaNombre.isNotEmpty ? mamaNombre : 'Madre',
-                ),
-        ),
-      );
+    /// Agrega un grupo completo (encabezado + tarjetas) si no está vacío.
+    void grupo(
+      String titulo,
+      List<FamilyMember> miembros,
+      IconData icono,
+      Color color, {
+      bool restringible = false,
+    }) {
+      if (miembros.isEmpty) return;
+      widgets.add(_grupoHeader(titulo, miembros.length, icono, color));
+      for (final m in miembros) {
+        widgets.add(tarjeta(m, restringible: restringible));
+      }
     }
 
-    // ---- Hijos / hermanos (con cuenta) ----
-    final hijos = <FamilyMember>[
-      ...family.householdChildren,
-      ...family.assignedStudents,
-    ];
+    // 1. Padres de familia (papá y mamá, en ese orden)
+    grupo(
+      'Padres de familia',
+      family.parents,
+      Icons.volunteer_activism,
+      const Color(0xFF0B2C4D),
+    );
 
-    for (final h in hijos) {
-      final bool isMe = (myId != null && h.idUsuario == myId);
+    // 2. Hijos sanguíneos
+    grupo(
+      'Hijos sanguíneos',
+      family.householdChildren,
+      Icons.family_restroom,
+      Colors.teal.shade700,
+      restringible: true,
+    );
 
-      // Restricción: si soy hijo/alumno, solo puedo abrir detalle de mí mismo
-      final bool canOpenDetail = !isChild || isMe;
-
-      final fotoAbs = _absUrl((h.fotoPerfil ?? '').toString());
-
+    // 3. Hijos del hogar (sin cuenta en la app)
+    if (family.hogarChildren.isNotEmpty) {
       widgets.add(
-        ProfileCard(
-          imageUrl: fotoAbs,
-          name: h.fullName,
-          school: h.carrera,
-          phoneNumber: h.telefono,
-          onTap: canOpenDetail
-              ? () => Navigator.pushNamed(
-                  context,
-                  'student_detail',
-                  arguments: h.idUsuario,
-                )
-              : null,
-          onChat: isMe ? null : () => _startChat(h.idUsuario, h.fullName),
+        _grupoHeader(
+          'Hijos del hogar',
+          family.hogarChildren.length,
+          Icons.child_care,
+          Colors.brown.shade600,
         ),
       );
-    }
-
-    // ---- Tíos EDI ----
-    for (final tio in family.uncles) {
-      final isMe = myId != null && tio.idUsuario == myId;
-      final fotoAbs = _absUrl((tio.fotoPerfil ?? '').toString());
-      widgets.add(
-        ProfileCard(
-          imageUrl: fotoAbs,
-          name: tio.fullName,
-          school: 'Tío EDI',
-          phoneNumber: tio.telefono,
-          onTap: () => Navigator.pushNamed(
-            context,
-            'student_detail',
-            arguments: tio.idUsuario,
+      for (final h in family.hogarChildren) {
+        widgets.add(
+          ProfileCard(
+            imageUrl: '',
+            name: h.fullName,
+            school: 'Hijo del hogar · sin cuenta',
+            fechaNacimiento: h.fechaNacimiento,
+            onTap: null,
+            onChat: null,
           ),
-          onChat: isMe ? null : () => _startChat(tio.idUsuario, tio.fullName),
-        ),
-      );
+        );
+      }
     }
 
-    // ---- Niños del hogar sin cuenta (mostrados como hijos sanguíneos) ----
-    for (final h in family.hogarChildren) {
-      widgets.add(
-        ProfileCard(
-          imageUrl: '',
-          name: h.fullName,
-          school: 'Niño del hogar',
-          phoneNumber: h.fechaNacimiento != null
-              ? 'Nac: ${h.fechaNacimiento}'
-              : null,
-          onTap: null,
-          onChat: null,
-        ),
-      );
-    }
+    // 4. Hijos EDI (alumnos asignados)
+    grupo(
+      'Hijos EDI',
+      family.assignedStudents,
+      Icons.school,
+      const Color(0xFFB88A00),
+      restringible: true,
+    );
+
+    // 5. Tíos EDI — sección propia, ya no revueltos con los hijos EDI
+    grupo('Tíos EDI', family.uncles, Icons.handshake, Colors.indigo.shade600);
+
+    // 6. Roles no reconocidos: se muestran, no se ocultan
+    grupo(
+      'Otros integrantes',
+      family.otherMembers,
+      Icons.help_outline,
+      Colors.blueGrey,
+    );
 
     if (widgets.isEmpty) {
       return const Center(
@@ -1094,37 +1139,16 @@ class _FamilyPageState extends State<FamiliyPage> {
       );
     }
 
-    // Padres
-    if ((family.fatherName ?? '').isNotEmpty &&
-        family.papaFechaNacimiento != null) {
-      add(
-        family.fatherName!,
-        family.papaFechaNacimiento,
-        _absUrl(family.papaFotoPerfilUrl ?? ''),
-        'Padre',
-        family.fatherEmployeeId,
-      );
-    }
-    if ((family.motherName ?? '').isNotEmpty &&
-        family.mamaFechaNacimiento != null) {
-      add(
-        family.motherName!,
-        family.mamaFechaNacimiento,
-        _absUrl(family.mamaFotoPerfilUrl ?? ''),
-        'Madre',
-        family.motherEmployeeId,
-      );
-    }
-
-    // Hijos y alumnos (con cuenta)
-    for (final m in [...family.householdChildren, ...family.assignedStudents]) {
+    // Todos los miembros con cuenta (padres, hijos sanguíneos, hijos EDI y
+    // tíos EDI), cada uno con la etiqueta de SU rol.
+    for (final m in family.allMembersOrdered) {
       if (m.fechaNacimiento != null) {
         add(
           m.fullName,
           m.fechaNacimiento,
           m.fotoPerfil != null ? _absUrl(m.fotoPerfil!) : null,
-          'Hijo',
-          m.idUsuario,
+          m.roleLabel,
+          m.tieneCuenta ? m.idUsuario : null,
         );
       }
     }
@@ -1132,7 +1156,7 @@ class _FamilyPageState extends State<FamiliyPage> {
     // Niños del hogar sin cuenta
     for (final h in family.hogarChildren) {
       if (h.fechaNacimiento != null) {
-        add(h.fullName, h.fechaNacimiento, null, 'Niño', null);
+        add(h.fullName, h.fechaNacimiento, null, 'Hijo del hogar', null);
       }
     }
 
@@ -1678,11 +1702,18 @@ class ProfileCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      school ?? 'Escuela no registrada',
+                      school ?? 'Sin información',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 14, color: Colors.grey[800]),
                     ),
+                    if (fechaNacimiento != null)
+                      Text(
+                        'Nac: $fechaNacimiento',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                      ),
                     if (phoneNumber != null)
                       Text(
                         'Tel: $phoneNumber',

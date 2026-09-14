@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/src/pages/Perfil/perfil_widgets.dart';
 import 'package:edi301/auth/token_storage.dart';
+import 'package:edi301/services/socket_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -489,6 +490,13 @@ class _PerfilPageState extends State<PerfilPage> {
     await _storage.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user');
+    // El token vive en dos lugares: el almacenamiento seguro y las prefs (de
+    // donde lo leen ApiHttp y el socket). Si no se borra aquí, la app sigue
+    // mandando credenciales de una sesión ya cerrada.
+    await prefs.remove('session_token');
+    // Cortar el tiempo real: si no, el socket queda conectado con la sesión
+    // anterior hasta que el servidor lo tire.
+    SocketService().disconnect();
     if (mounted) {
       Navigator.of(context).pushNamedAndRemoveUntil('login', (_) => false);
     }

@@ -12,6 +12,7 @@ import 'package:edi301/src/pages/Admin/agenda/agenda_page.dart';
 import 'package:edi301/src/pages/Chat/my_chats_page.dart';
 import 'package:edi301/src/pages/Family/chat_family_page.dart';
 import 'package:edi301/src/pages/Encuestas/encuestas_page.dart';
+import 'package:edi301/src/widgets/liquid_glass_nav.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,6 +27,13 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   String _userRole = '';
   List<Map<String, dynamic>> _menuOptions = [];
+
+  /// La barra inferior se encoge al bajar por el contenido (estilo Instagram).
+  bool _navCollapsed = false;
+
+  /// Desplazamiento acumulado en la dirección actual. Sirve de umbral para
+  /// que un movimiento mínimo del dedo no haga parpadear la barra.
+  double _scrollAccum = 0;
 
   @override
   void initState() {
@@ -170,7 +178,13 @@ class _HomePageState extends State<HomePage> {
       {'ruta': 'perfil', 'icon': Icons.person, 'label': 'Perfil'},
     ];
 
-    if (rol == 'Admin') return all;
+    // El admin ya NO lleva Agenda ni Encuestas en la barra de navegación:
+    // ambas viven dentro del Panel de Control para no saturar la barra.
+    if (rol == 'Admin') {
+      return all
+          .where((op) => !['agenda', 'encuestas'].contains(op['ruta']))
+          .toList();
+    }
 
     if ([
       'Padre',
@@ -193,9 +207,60 @@ class _HomePageState extends State<HomePage> {
     return [];
   }
 
+  // ── Encoger / expandir la barra según el scroll ──────────────────────────
+  /// Escucha el scroll de CUALQUIER lista dentro del PageView: las
+  /// notificaciones burbujean hacia arriba, así que no hay que tocar cada
+  /// pantalla. Solo se atiende el eje vertical (el PageView es horizontal y
+  /// los carruseles internos también).
+  bool _handleScroll(ScrollNotification n) {
+    if (n.metrics.axis != Axis.vertical) return false;
+
+    if (n is ScrollUpdateNotification) {
+      // Pegado al tope siempre se ve completa.
+      if (n.metrics.pixels <= 8) {
+        _scrollAccum = 0;
+        _setNavCollapsed(false);
+        return false;
+      }
+
+      final double delta = n.scrollDelta ?? 0;
+      if (delta == 0) return false;
+
+      // Si cambia la dirección, se reinicia el acumulado.
+      _scrollAccum = (_scrollAccum.sign == delta.sign)
+          ? _scrollAccum + delta
+          : delta;
+
+      if (_scrollAccum > 15) _setNavCollapsed(true);
+      if (_scrollAccum < -28) _setNavCollapsed(false);
+    }
+    return false;
+  }
+
+  void _setNavCollapsed(bool value) {
+    if (_navCollapsed == value || !mounted) return;
+    // Si la notificación llegó mientras el framework construye o hace layout,
+    // un setState directo revienta. En ese caso se difiere al siguiente frame.
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _navCollapsed != value) {
+          setState(() => _navCollapsed = value);
+        }
+      });
+      return;
+    }
+    setState(() => _navCollapsed = value);
+  }
+
   // ── Navigation: keeps PageView and BottomNav in sync ─────────────────────
   void _onNavTap(int index) {
-    setState(() => _selectedIndex = index);
+    _scrollAccum = 0;
+    setState(() {
+      _selectedIndex = index;
+      // Al cambiar de sección la barra vuelve a su tamaño completo.
+      _navCollapsed = false;
+    });
     _pageCtrl.animateToPage(
       index,
       duration: const Duration(milliseconds: 300),
@@ -204,41 +269,45 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onPageChanged(int index) {
-    setState(() => _selectedIndex = index);
+    _scrollAccum = 0;
+    setState(() {
+      _selectedIndex = index;
+      _navCollapsed = false;
+    });
   }
 
-  /// Ícono con punto dorado si hay mensajes no leídos (chat privado o familiar).
-  Widget _buildNavIcon(
-    String ruta,
-    IconData icon,
-    int unreadChats,
-    int unreadFamily,
-  ) {
-    final hasUnread =
-        (ruta == 'chat' && unreadChats > 0) ||
-        (ruta == 'family' && unreadFamily > 0);
-    if (!hasUnread) return Icon(icon);
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Icon(icon),
-        Positioned(
-          right: -3,
-          top: -3,
-          child: Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: const Color.fromRGBO(245, 188, 6, 1),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color.fromRGBO(19, 67, 107, 1),
-                width: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
+  /// Convierte las opciones del menú en destinos para la navegación de vidrio,
+  /// marcando con punto dorado las que tienen mensajes sin leer.
+  List<GlassNavItem> _buildNavItems(int unreadChats, int unreadFamily) {
+    return _menuOptions.map((op) {
+      final ruta = op['ruta'] as String;
+      final hasUnread =
+          (ruta == 'chat' && unreadChats > 0) ||
+          (ruta == 'family' && unreadFamily > 0);
+      return GlassNavItem(
+        icon: op['icon'] as IconData,
+        label: op['label'] as String,
+        showDot: hasUnread,
+      );
+    }).toList();
+  }
+
+  /// Reserva el alto de la barra flotante para el contenido de las páginas.
+  ///
+  /// IMPORTANTE: el `context` debe venir de DENTRO del SafeArea. El SafeArea
+  /// ya consumió el padding superior y lo puso en cero para sus hijos; si se
+  /// toma el MediaQuery de afuera se reinyecta ese padding y los AppBar de
+  /// cada página quedan separados del borde por el alto de la barra de estado
+  /// dos veces.
+  Widget _withNavInset(BuildContext innerContext, Widget child) {
+    final mq = MediaQuery.of(innerContext);
+    final inset = LiquidGlassNavBar.heightWithInsets(innerContext);
+    return MediaQuery(
+      data: mq.copyWith(
+        padding: mq.padding.copyWith(bottom: inset),
+        viewPadding: mq.viewPadding.copyWith(bottom: inset),
+      ),
+      child: child,
     );
   }
 
@@ -257,44 +326,46 @@ class _HomePageState extends State<HomePage> {
           builder: (context, unreadFamily, _) {
             return LayoutBuilder(
               builder: (context, constraints) {
-                // ── Mobile: PageView + BottomNavigationBar ────────────────
+                // ── Móvil: PageView + barra de vidrio flotante ────────────
                 if (constraints.maxWidth < 640) {
                   return Scaffold(
+                    // extendBody: el contenido pasa por debajo de la barra,
+                    // que es justo lo que el desenfoque necesita para verse
+                    // como vidrio.
+                    extendBody: true,
                     body: SafeArea(
-                      child: PageView(
-                        controller: _pageCtrl,
-                        onPageChanged: _onPageChanged,
-                        children: _menuOptions
-                            .map(
-                              (op) => _getPageFromRoute(op['ruta'] as String),
-                            )
-                            .toList(),
+                      bottom: false,
+                      // Builder para leer el MediaQuery YA recortado por el
+                      // SafeArea; si no, se duplica el espacio de arriba.
+                      child: Builder(
+                        builder: (innerContext) => _withNavInset(
+                          innerContext,
+                          NotificationListener<ScrollNotification>(
+                            onNotification: _handleScroll,
+                            child: PageView(
+                              controller: _pageCtrl,
+                              onPageChanged: _onPageChanged,
+                              children: _menuOptions
+                                  .map(
+                                    (op) =>
+                                        _getPageFromRoute(op['ruta'] as String),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    bottomNavigationBar: BottomNavigationBar(
-                      type: BottomNavigationBarType.fixed,
-                      backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-                      selectedItemColor: const Color.fromRGBO(245, 188, 6, 1),
-                      unselectedItemColor: Colors.white,
+                    bottomNavigationBar: LiquidGlassNavBar(
+                      items: _buildNavItems(unreadChats, unreadFamily),
                       currentIndex: _selectedIndex,
+                      collapsed: _navCollapsed,
                       onTap: _onNavTap,
-                      items: _menuOptions.map((op) {
-                        final ruta = op['ruta'] as String;
-                        return BottomNavigationBarItem(
-                          icon: _buildNavIcon(
-                            ruta,
-                            op['icon'] as IconData,
-                            unreadChats,
-                            unreadFamily,
-                          ),
-                          label: op['label'] as String,
-                        );
-                      }).toList(),
                     ),
                   );
                 }
 
-                // ── Tablet/Desktop: NavigationRail ────────────────────────
+                // ── Tablet/Escritorio: riel lateral de vidrio ─────────────
                 final currentPage = _getPageFromRoute(
                   _menuOptions[_selectedIndex]['ruta'] as String,
                 );
@@ -302,35 +373,10 @@ class _HomePageState extends State<HomePage> {
                 return Scaffold(
                   body: Row(
                     children: [
-                      NavigationRail(
-                        backgroundColor: const Color.fromRGBO(19, 67, 107, 1),
-                        selectedIndex: _selectedIndex,
-                        onDestinationSelected: _onNavTap,
-                        labelType: NavigationRailLabelType.all,
-                        selectedLabelTextStyle: const TextStyle(
-                          color: Color.fromRGBO(245, 188, 6, 1),
-                        ),
-                        unselectedLabelTextStyle: const TextStyle(
-                          color: Colors.white,
-                        ),
-                        selectedIconTheme: const IconThemeData(
-                          color: Color.fromRGBO(245, 188, 6, 1),
-                        ),
-                        unselectedIconTheme: const IconThemeData(
-                          color: Colors.white,
-                        ),
-                        destinations: _menuOptions.map((op) {
-                          final ruta = op['ruta'] as String;
-                          return NavigationRailDestination(
-                            icon: _buildNavIcon(
-                              ruta,
-                              op['icon'] as IconData,
-                              unreadChats,
-                              unreadFamily,
-                            ),
-                            label: Text(op['label'] as String),
-                          );
-                        }).toList(),
+                      LiquidGlassNavRail(
+                        items: _buildNavItems(unreadChats, unreadFamily),
+                        currentIndex: _selectedIndex,
+                        onTap: _onNavTap,
                       ),
                       Expanded(child: currentPage),
                     ],

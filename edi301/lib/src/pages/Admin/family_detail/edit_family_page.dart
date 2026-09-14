@@ -39,11 +39,18 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
   Timer? _papaDebounce;
   Timer? _mamaDebounce;
 
-  // Hijos en casa (con cuenta)
+  // Hijos sanguíneos (tipo_miembro = HIJO)
   late List<FamilyMember> _hijos;
   final TextEditingController _hijoSearchCtrl = TextEditingController();
   List<Map<String, dynamic>> _hijoResults = [];
   Timer? _hijoDebounce;
+
+  // Hijos EDI / alumnos asignados (tipo_miembro = ALUMNO_ASIGNADO).
+  // Son los únicos que ocupan cupo según el límite configurado.
+  late List<FamilyMember> _alumnos;
+  final TextEditingController _alumnoSearchCtrl = TextEditingController();
+  List<Map<String, dynamic>> _alumnoResults = [];
+  Timer? _alumnoDebounce;
 
   // Tíos EDI (empleados o alumnos; no cuentan como hijos)
   late List<FamilyMember> _tios;
@@ -80,7 +87,9 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
       };
       _mamaSearchCtrl.text = f.motherName ?? '';
     }
+    // Cada rol arranca de SU propia lista del modelo.
     _hijos = List<FamilyMember>.from(f.householdChildren);
+    _alumnos = List<FamilyMember>.from(f.assignedStudents);
     _tios = List<FamilyMember>.from(f.uncles);
     _hogarChildren = List<HogarChild>.from(f.hogarChildren);
   }
@@ -92,10 +101,12 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
     _papaSearchCtrl.dispose();
     _mamaSearchCtrl.dispose();
     _hijoSearchCtrl.dispose();
+    _alumnoSearchCtrl.dispose();
     _tioSearchCtrl.dispose();
     _papaDebounce?.cancel();
     _mamaDebounce?.cancel();
     _hijoDebounce?.cancel();
+    _alumnoDebounce?.cancel();
     _tioDebounce?.cancel();
     super.dispose();
   }
@@ -125,8 +136,18 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
       '${u['Nombre'] ?? u['nombre'] ?? ''} ${u['Apellido'] ?? u['apellido'] ?? ''}'
           .trim();
 
-  int _userId(Map<String, dynamic> u) =>
-      (u['IdUsuario'] ?? u['id_usuario'] ?? 0) as int;
+  int _userId(Map<String, dynamic> u) {
+    final raw = u['IdUsuario'] ?? u['id_usuario'] ?? 0;
+    if (raw is num) return raw.toInt();
+    return int.tryParse(raw.toString()) ?? 0;
+  }
+
+  int? _userMatricula(Map<String, dynamic> u) {
+    final raw = u['Matricula'] ?? u['matricula'];
+    if (raw == null) return null;
+    if (raw is num) return raw.toInt();
+    return int.tryParse(raw.toString().trim());
+  }
 
   // ── Debounced search triggers ───────────────────────────────────────────────
   /// Busca empleados Y tutores externos y fusiona resultados (sin duplicados).
@@ -174,6 +195,23 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
     });
   }
 
+  /// Busca en los tipos indicados y descarta a quien ya es miembro de esta
+  /// familia con cualquier rol, para no ofrecer duplicados.
+  Future<List<Map<String, dynamic>>> _searchDisponibles(
+    String q,
+    List<String> tipos,
+  ) async {
+    final results = await Future.wait(tipos.map((t) => _searchUsers(q, t)));
+    final merged = <int, Map<String, dynamic>>{};
+    for (final list in results) {
+      for (final user in list) {
+        final id = _userId(user);
+        if (id != 0 && _rolExistente(id) == null) merged[id] = user;
+      }
+    }
+    return merged.values.toList();
+  }
+
   void _onHijoSearch(String q) {
     _hijoDebounce?.cancel();
     if (q.trim().isEmpty) {
@@ -181,25 +219,21 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
       return;
     }
     _hijoDebounce = Timer(const Duration(milliseconds: 400), () async {
-      final r = await _searchUsers(q, 'ALUMNO');
+      final r = await _searchDisponibles(q, const ['ALUMNO']);
       if (mounted) setState(() => _hijoResults = r);
     });
   }
 
-  Future<List<Map<String, dynamic>>> _searchUncles(String q) async {
-    final results = await Future.wait([
-      _searchUsers(q, 'ALUMNO'),
-      _searchUsers(q, 'EMPLEADO'),
-    ]);
-    final merged = <int, Map<String, dynamic>>{};
-    for (final list in results) {
-      for (final user in list) {
-        if (!_tios.any((tio) => tio.idUsuario == _userId(user))) {
-          merged[_userId(user)] = user;
-        }
-      }
+  void _onAlumnoSearch(String q) {
+    _alumnoDebounce?.cancel();
+    if (q.trim().isEmpty) {
+      setState(() => _alumnoResults = []);
+      return;
     }
-    return merged.values.toList();
+    _alumnoDebounce = Timer(const Duration(milliseconds: 400), () async {
+      final r = await _searchDisponibles(q, const ['ALUMNO']);
+      if (mounted) setState(() => _alumnoResults = r);
+    });
   }
 
   void _onTioSearch(String q) {
@@ -209,59 +243,94 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
       return;
     }
     _tioDebounce = Timer(const Duration(milliseconds: 400), () async {
-      final results = await _searchUncles(q);
+      final results = await _searchDisponibles(q, const [
+        'ALUMNO',
+        'EMPLEADO',
+      ]);
       if (mounted) setState(() => _tioResults = results);
     });
   }
 
-  // ── Add / remove hijo ───────────────────────────────────────────────────────
-  Future<void> _addHijo(Map<String, dynamic> user) async {
+  // ── Alta / baja de miembros ────────────────────────────────────────────────
+  /// Una persona solo puede ocupar UN rol dentro de la misma familia
+  /// (la BD tiene un índice único sobre id_familia + id_usuario).
+  FamilyMember? _rolExistente(int idUsuario) {
+    for (final lista in [_hijos, _alumnos, _tios]) {
+      for (final m in lista) {
+        if (m.idUsuario == idUsuario) return m;
+      }
+    }
+    return null;
+  }
+
+  void _toast(String mensaje, Color color) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(mensaje), backgroundColor: color));
+  }
+
+  /// Alta genérica: sirve para hijo sanguíneo, hijo EDI y tío EDI.
+  Future<void> _addMiembro({
+    required Map<String, dynamic> user,
+    required String tipo,
+    required List<FamilyMember> destino,
+    required TextEditingController searchCtrl,
+    required void Function() limpiarResultados,
+  }) async {
     final id = _userId(user);
-    if (_hijos.any((h) => h.idUsuario == id)) return;
+    if (id == 0) return;
+
+    final yaEsta = _rolExistente(id);
+    if (yaEsta != null) {
+      _toast(
+        '${yaEsta.fullName} ya está en esta familia como ${yaEsta.roleLabel}.',
+        Colors.orange.shade800,
+      );
+      return;
+    }
+
+    final nombre = _userName(user);
     try {
-      await _membersApi.addMember(
+      final idMiembro = await _membersApi.addMember(
         idFamilia: widget.family.id!,
         idUsuario: id,
-        tipoMiembro: 'HIJO',
+        tipoMiembro: tipo,
       );
-      final nombre = _userName(user);
-      if (mounted) {
-        setState(() {
-          _hijos.add(
-            FamilyMember(
-              idMiembro: 0,
-              idUsuario: id,
-              fullName: nombre,
-              tipoMiembro: 'HIJO',
-            ),
-          );
-          _hijoSearchCtrl.clear();
-          _hijoResults = [];
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$nombre agregado.'),
-            backgroundColor: Colors.green,
+      if (!mounted) return;
+      setState(() {
+        destino.add(
+          FamilyMember(
+            // Guardamos el id real para poder quitarlo sin recargar.
+            idMiembro: idMiembro ?? 0,
+            idUsuario: id,
+            fullName: nombre,
+            tipoMiembro: tipo,
+            matricula: _userMatricula(user),
           ),
         );
-      }
+        destino.sort(
+          (a, b) =>
+              a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()),
+        );
+        searchCtrl.clear();
+        limpiarResultados();
+      });
+      _toast('$nombre agregado como ${MemberType.label(tipo)}.', Colors.green);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(friendlyError(e)),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
-      }
+      _toast(friendlyError(e), Colors.red.shade700);
     }
   }
 
-  Future<void> _removeHijo(FamilyMember m) async {
+  /// Baja genérica, con confirmación y el rol correcto en el mensaje.
+  Future<void> _removeMiembro(
+    FamilyMember m,
+    List<FamilyMember> origen,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('¿Quitar hijo?'),
+        title: Text('¿Quitar ${m.roleLabel.toLowerCase()}?'),
         content: Text('¿Quitar a ${m.fullName} de la familia?'),
         actions: [
           TextButton(
@@ -277,83 +346,24 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    try {
-      if (m.idMiembro != 0) await _membersApi.removeMember(m.idMiembro);
-      setState(() => _hijos.removeWhere((h) => h.idUsuario == m.idUsuario));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Quitado correctamente.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(friendlyError(e)),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
-      }
-    }
-  }
 
-  Future<void> _addTio(Map<String, dynamic> user) async {
-    final id = _userId(user);
-    if (_tios.any((tio) => tio.idUsuario == id)) return;
-    try {
-      await _membersApi.addMember(
-        idFamilia: widget.family.id!,
-        idUsuario: id,
-        tipoMiembro: 'TIO_EDI',
+    // Sin id_miembro no podemos borrar en el servidor: avisamos en vez de
+    // quitarlo solo de la pantalla y dejar la BD desincronizada.
+    if (m.idMiembro == 0) {
+      _toast(
+        'No se pudo identificar el registro. Recarga la familia e inténtalo de nuevo.',
+        Colors.red.shade700,
       );
-      if (mounted) {
-        setState(() {
-          _tios.add(
-            FamilyMember(
-              idMiembro: 0,
-              idUsuario: id,
-              fullName: _userName(user),
-              tipoMiembro: 'TIO_EDI',
-            ),
-          );
-          _tioSearchCtrl.clear();
-          _tioResults = [];
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tío EDI agregado.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(friendlyError(e)),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
+      return;
     }
-  }
 
-  Future<void> _removeTio(FamilyMember tio) async {
-    if (tio.idMiembro == 0) return;
     try {
-      await _membersApi.removeMember(tio.idMiembro);
-      if (mounted)
-        setState(() => _tios.removeWhere((x) => x.idUsuario == tio.idUsuario));
+      await _membersApi.removeMember(m.idMiembro);
+      if (!mounted) return;
+      setState(() => origen.removeWhere((x) => x.idUsuario == m.idUsuario));
+      _toast('${m.fullName} quitado de la familia.', Colors.orange);
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(friendlyError(e)),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
+      _toast(friendlyError(e), Colors.red.shade700);
     }
   }
 
@@ -477,8 +487,17 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
             ),
             const SizedBox(height: 24),
 
-            // ── Padre ────────────────────────────────────────────────────────
-            _sectionTitle('Padre'),
+            // ── 1. Padres de familia ─────────────────────────────────────────
+            _roleHeader(
+              'Padres de familia',
+              _padresAsignados,
+              Icons.volunteer_activism,
+              _navy,
+            ),
+            _sectionHint('Papá y mamá EDI titulares de la familia.'),
+            const SizedBox(height: 8),
+
+            _sectionTitle('Papá EDI'),
             _buildPersonSearch(
               controller: _papaSearchCtrl,
               results: _papaResults,
@@ -502,8 +521,8 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
             ),
             const SizedBox(height: 20),
 
-            // ── Madre ────────────────────────────────────────────────────────
-            _sectionTitle('Madre'),
+            // Mamá
+            _sectionTitle('Mamá EDI'),
             _buildPersonSearch(
               controller: _mamaSearchCtrl,
               results: _mamaResults,
@@ -527,161 +546,47 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
             ),
             const SizedBox(height: 24),
 
-            // ── Hijos en casa ─────────────────────────────────────────────────
-            _sectionTitle('Hijos en casa / sanguíneos'),
-            if (_hijos.isNotEmpty)
-              ..._hijos.map(
-                (h) => Card(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  child: ListTile(
-                    dense: true,
-                    leading: const CircleAvatar(
-                      radius: 16,
-                      child: Icon(Icons.child_care, size: 16),
-                    ),
-                    title: Text(h.fullName),
-                    trailing: IconButton(
-                      icon: const Icon(
-                        Icons.remove_circle_outline,
-                        color: Colors.red,
-                      ),
-                      onPressed: () => _removeHijo(h),
-                    ),
-                  ),
-                ),
+            // ── 2. Hijos sanguíneos ──────────────────────────────────────────
+            ..._memberSection(
+              titulo: 'Hijos sanguíneos',
+              hint: 'Hijos propios del papá y la mamá EDI, con cuenta en la app.',
+              icono: Icons.family_restroom,
+              color: Colors.teal.shade700,
+              miembros: _hijos,
+              emptyText: 'Sin hijos sanguíneos registrados.',
+              searchCtrl: _hijoSearchCtrl,
+              resultados: _hijoResults,
+              onSearch: _onHijoSearch,
+              searchHint: 'Agregar hijo sanguíneo por nombre o matrícula',
+              onAdd: (u) => _addMiembro(
+                user: u,
+                tipo: MemberType.hijoSanguineo,
+                destino: _hijos,
+                searchCtrl: _hijoSearchCtrl,
+                limpiarResultados: () => _hijoResults = [],
               ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _hijoSearchCtrl,
-              onChanged: _onHijoSearch,
-              decoration: _inputDeco(
-                'Agregar hijo por nombre o matrícula',
-                Icons.person_add,
-              ),
+              onRemove: (m) => _removeMiembro(m, _hijos),
             ),
-            if (_hijoResults.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Card(
-                elevation: 3,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _hijoResults.length,
-                    itemBuilder: (_, i) {
-                      final u = _hijoResults[i];
-                      final mat = u['Matricula'] ?? u['matricula'];
-                      return ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.school),
-                        title: Text(_userName(u)),
-                        subtitle: mat != null
-                            ? Text(
-                                'Matrícula: $mat',
-                                style: const TextStyle(fontSize: 11),
-                              )
-                            : null,
-                        trailing: IconButton(
-                          icon: const Icon(
-                            Icons.add_circle_outline,
-                            color: Colors.green,
-                          ),
-                          onPressed: () => _addHijo(u),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
             const SizedBox(height: 24),
 
-            // ── Tíos EDI ────────────────────────────────────────────────────
-            _sectionTitle('Tíos EDI'),
-            Text(
-              'Alumnos o empleados que apoyan a la familia. No ocupan cupo de hijos.',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            // ── 3. Hijos del hogar (sin cuenta) ──────────────────────────────
+            _roleHeader(
+              'Hijos del hogar',
+              _hogarChildren.length,
+              Icons.child_care,
+              Colors.brown.shade600,
+              trailing: TextButton.icon(
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Agregar'),
+                style: TextButton.styleFrom(foregroundColor: _navy),
+                onPressed: () => _showHogarChildDialog(),
+              ),
             ),
+            _sectionHint('Niños pequeños que viven en la casa y todavía no tienen cuenta en el sistema.'),
             const SizedBox(height: 8),
-            if (_tios.isNotEmpty)
-              ..._tios.map(
-                (tio) => Card(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  child: ListTile(
-                    dense: true,
-                    leading: const CircleAvatar(
-                      radius: 16,
-                      child: Icon(Icons.family_restroom, size: 16),
-                    ),
-                    title: Text(tio.fullName),
-                    trailing: IconButton(
-                      icon: const Icon(
-                        Icons.remove_circle_outline,
-                        color: Colors.red,
-                      ),
-                      onPressed: () => _removeTio(tio),
-                    ),
-                  ),
-                ),
-              ),
-            TextField(
-              controller: _tioSearchCtrl,
-              onChanged: _onTioSearch,
-              decoration: _inputDeco(
-                'Agregar tío por nombre, matrícula o No. empleado',
-                Icons.person_add,
-              ),
-            ),
-            if (_tioResults.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Card(
-                elevation: 3,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _tioResults.length,
-                    itemBuilder: (_, i) {
-                      final user = _tioResults[i];
-                      return ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.person),
-                        title: Text(_userName(user)),
-                        trailing: IconButton(
-                          icon: const Icon(
-                            Icons.add_circle_outline,
-                            color: Colors.green,
-                          ),
-                          onPressed: () => _addTio(user),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-
-            // ── Niños del hogar sin cuenta ─────────────────────────────────────
-            Row(
-              children: [
-                const Icon(Icons.child_friendly, color: _navy, size: 18),
-                const SizedBox(width: 6),
-                Expanded(child: _sectionTitle('Niños del hogar sin cuenta')),
-                TextButton.icon(
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Agregar'),
-                  style: TextButton.styleFrom(foregroundColor: _navy),
-                  onPressed: () => _showHogarChildDialog(),
-                ),
-              ],
-            ),
-            Text(
-              'Niños pequeños sin cuenta en el sistema.',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-            ),
-            const SizedBox(height: 8),
-            if (_hogarChildren.isNotEmpty)
+            if (_hogarChildren.isEmpty)
+              _emptyRow('Sin niños del hogar registrados.')
+            else
               ..._hogarChildren.map(
                 (h) => Card(
                   margin: const EdgeInsets.only(bottom: 6),
@@ -715,6 +620,52 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
                   ),
                 ),
               ),
+            const SizedBox(height: 24),
+
+            // ── 4. Hijos EDI (alumnos asignados) ─────────────────────────────
+            ..._memberSection(
+              titulo: 'Hijos EDI',
+              hint: 'Alumnos asignados a la familia. Son los únicos que ocupan cupo según el límite configurado.',
+              icono: Icons.school,
+              color: const Color(0xFFB88A00),
+              miembros: _alumnos,
+              emptyText: 'Sin alumnos EDI asignados.',
+              searchCtrl: _alumnoSearchCtrl,
+              resultados: _alumnoResults,
+              onSearch: _onAlumnoSearch,
+              searchHint: 'Agregar hijo EDI por nombre o matrícula',
+              onAdd: (u) => _addMiembro(
+                user: u,
+                tipo: MemberType.alumnoEdi,
+                destino: _alumnos,
+                searchCtrl: _alumnoSearchCtrl,
+                limpiarResultados: () => _alumnoResults = [],
+              ),
+              onRemove: (m) => _removeMiembro(m, _alumnos),
+            ),
+            const SizedBox(height: 24),
+
+            // ── 5. Tíos EDI ──────────────────────────────────────────────────
+            ..._memberSection(
+              titulo: 'Tíos EDI',
+              hint: 'Alumnos o empleados que apoyan a la familia. No ocupan cupo de hijos EDI.',
+              icono: Icons.handshake,
+              color: Colors.indigo.shade600,
+              miembros: _tios,
+              emptyText: 'Sin tíos EDI asignados.',
+              searchCtrl: _tioSearchCtrl,
+              resultados: _tioResults,
+              onSearch: _onTioSearch,
+              searchHint: 'Agregar tío por nombre, matrícula o No. empleado',
+              onAdd: (u) => _addMiembro(
+                user: u,
+                tipo: MemberType.tioEdi,
+                destino: _tios,
+                searchCtrl: _tioSearchCtrl,
+                limpiarResultados: () => _tioResults = [],
+              ),
+              onRemove: (m) => _removeMiembro(m, _tios),
+            ),
 
             const SizedBox(height: 32),
 
@@ -964,6 +915,177 @@ class _EditFamilyPageState extends State<EditFamilyPage> {
       ),
     ),
   );
+
+  /// Cuántos padres titulares tiene la familia ahora mismo (0, 1 o 2).
+  int get _padresAsignados =>
+      (_selectedPapa != null ? 1 : 0) + (_selectedMama != null ? 1 : 0);
+
+  /// Encabezado de rol: mismo estilo que el detalle de familia y "Mi familia".
+  Widget _roleHeader(
+    String titulo,
+    int cantidad,
+    IconData icono,
+    Color color, {
+    Widget? trailing,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: color.withValues(alpha: 0.15),
+            child: Icon(icono, size: 16, color: color),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              titulo,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: color,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '$cantidad',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ),
+          if (trailing != null) trailing,
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionHint(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 2),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+    ),
+  );
+
+  Widget _emptyRow(String text) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Text(text, style: const TextStyle(color: Colors.grey)),
+  );
+
+  /// Bloque completo de un rol: encabezado + lista actual + buscador para
+  /// agregar. Se usa igual para hijos sanguíneos, hijos EDI y tíos EDI, así
+  /// que las tres secciones se ven y se comportan idéntico.
+  List<Widget> _memberSection({
+    required String titulo,
+    required String hint,
+    required IconData icono,
+    required Color color,
+    required List<FamilyMember> miembros,
+    required String emptyText,
+    required TextEditingController searchCtrl,
+    required List<Map<String, dynamic>> resultados,
+    required ValueChanged<String> onSearch,
+    required String searchHint,
+    required ValueChanged<Map<String, dynamic>> onAdd,
+    required ValueChanged<FamilyMember> onRemove,
+  }) {
+    return [
+      _roleHeader(titulo, miembros.length, icono, color),
+      _sectionHint(hint),
+      const SizedBox(height: 8),
+      if (miembros.isEmpty)
+        _emptyRow(emptyText)
+      else
+        ...miembros.map(
+          (m) => Card(
+            margin: const EdgeInsets.only(bottom: 6),
+            child: ListTile(
+              dense: true,
+              leading: CircleAvatar(
+                radius: 16,
+                backgroundColor: color.withValues(alpha: 0.15),
+                child: Icon(icono, size: 16, color: color),
+              ),
+              title: Text(
+                m.fullName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              // El rol siempre visible, para que no haya duda de en qué
+              // sección está cada persona.
+              subtitle: Text(
+                m.matricula != null
+                    ? '${m.roleLabel} · Matrícula ${m.matricula}'
+                    : m.roleLabel,
+                style: const TextStyle(fontSize: 11),
+              ),
+              trailing: IconButton(
+                icon: const Icon(
+                  Icons.remove_circle_outline,
+                  color: Colors.red,
+                ),
+                tooltip: 'Quitar de la familia',
+                onPressed: () => onRemove(m),
+              ),
+            ),
+          ),
+        ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: searchCtrl,
+        onChanged: onSearch,
+        decoration: _inputDeco(searchHint, Icons.person_add),
+      ),
+      if (resultados.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Card(
+          elevation: 3,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: resultados.length,
+              itemBuilder: (_, i) {
+                final u = resultados[i];
+                final mat = u['Matricula'] ?? u['matricula'];
+                final emp = u['NumEmpleado'] ?? u['num_empleado'];
+                final sub = mat != null
+                    ? 'Matrícula: $mat'
+                    : (emp != null ? 'No. empleado: $emp' : null);
+                return ListTile(
+                  dense: true,
+                  leading: Icon(icono, color: color),
+                  title: Text(_userName(u)),
+                  subtitle: sub != null
+                      ? Text(sub, style: const TextStyle(fontSize: 11))
+                      : null,
+                  trailing: IconButton(
+                    icon: const Icon(
+                      Icons.add_circle_outline,
+                      color: Colors.green,
+                    ),
+                    onPressed: () => onAdd(u),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    ];
+  }
 
   InputDecoration _inputDeco(String label, IconData icon) => InputDecoration(
     labelText: label,

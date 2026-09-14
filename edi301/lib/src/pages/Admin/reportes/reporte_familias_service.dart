@@ -109,8 +109,11 @@ class ReporteFamiliasService {
     final font = await _getFont();
     final theme = pw.ThemeData.withFont(base: font);
 
+    // Una tabla por rol. Antes "Hijos EDI" traía revueltos alumnos y tíos.
     final hijosCasa = familia.householdChildren;
-    final hijosEdi = familia.ediChildren;
+    final hijosEdi = familia.assignedStudents;
+    final tiosEdi = familia.uncles;
+    final otros = familia.otherMembers;
     final ninos = familia.hogarChildren;
 
     pdf.addPage(
@@ -121,12 +124,18 @@ class ReporteFamiliasService {
           _buildHeader(familia.familyName),
           _buildTablePadres(familia),
           pw.SizedBox(height: 20),
-          _buildTableMiembros('Hijos en casa', hijosCasa),
-          pw.SizedBox(height: 20),
-          _buildTableMiembros('Hijos EDI', hijosEdi),
+          _buildTableMiembros('Hijos sanguineos', hijosCasa),
           if (ninos.isNotEmpty) ...[
             pw.SizedBox(height: 20),
             _buildTableNinosHogar(ninos),
+          ],
+          pw.SizedBox(height: 20),
+          _buildTableMiembros('Hijos EDI', hijosEdi),
+          pw.SizedBox(height: 20),
+          _buildTableMiembros('Tios EDI', tiosEdi),
+          if (otros.isNotEmpty) ...[
+            pw.SizedBox(height: 20),
+            _buildTableMiembros('Otros integrantes', otros),
           ],
         ],
       ),
@@ -352,30 +361,39 @@ class ReporteFamiliasService {
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text(
-          title,
+          '$title (${miembros.length})',
           style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14),
         ),
         pw.SizedBox(height: 5),
-        pw.Table.fromTextArray(
-          headers: headers,
-          data: data,
-          border: pw.TableBorder.all(color: PdfColors.grey600, width: 1),
-          headerStyle: pw.TextStyle(
-            fontWeight: pw.FontWeight.bold,
-            fontSize: 9,
+        if (miembros.isEmpty)
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 4),
+            child: pw.Text(
+              'Sin registros.',
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          )
+        else
+          pw.Table.fromTextArray(
+            headers: headers,
+            data: data,
+            border: pw.TableBorder.all(color: PdfColors.grey600, width: 1),
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 9,
+            ),
+            cellStyle: const pw.TextStyle(fontSize: 8),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellHeight: 25,
+            cellAlignments: {
+              0: pw.Alignment.centerLeft,
+              1: pw.Alignment.centerLeft,
+              2: pw.Alignment.centerLeft,
+              3: pw.Alignment.center,
+              4: pw.Alignment.center,
+              5: pw.Alignment.centerLeft,
+            },
           ),
-          cellStyle: const pw.TextStyle(fontSize: 8),
-          headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
-          cellHeight: 25,
-          cellAlignments: {
-            0: pw.Alignment.centerLeft,
-            1: pw.Alignment.centerLeft,
-            2: pw.Alignment.centerLeft,
-            3: pw.Alignment.center,
-            4: pw.Alignment.center,
-            5: pw.Alignment.centerLeft,
-          },
-        ),
       ],
     );
   }

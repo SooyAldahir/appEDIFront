@@ -324,66 +324,85 @@ class ReporteFamiliaIndividualService {
     );
   }
 
-  pw.Widget _membersSection(Family familia, pw.Font font, pw.Font bold) {
-    final allMembers = [
-      ...familia.householdChildren,
-      ...familia.assignedStudents,
-    ];
-    final hogarKids = familia.hogarChildren;
+  /// Una "píldora" con el nombre de un integrante.
+  pw.Widget _memberChip(String texto, pw.Font font, PdfColor color) {
+    return pw.Container(
+      width: 120,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: color, width: 0.5),
+        borderRadius: pw.BorderRadius.circular(20),
+      ),
+      child: pw.Text(
+        _sanitize(texto),
+        style: pw.TextStyle(font: font, fontSize: 8),
+        maxLines: 2,
+      ),
+    );
+  }
 
-    if (allMembers.isEmpty && hogarKids.isEmpty) return pw.SizedBox();
+  /// Un bloque con título propio por cada rol.
+  pw.Widget _memberGroup(
+    String titulo,
+    List<String> nombres,
+    pw.Font font,
+    pw.Font bold,
+    PdfColor color,
+  ) {
+    if (nombres.isEmpty) return pw.SizedBox();
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.SizedBox(height: 6),
+        pw.Text(
+          '$titulo (${nombres.length})',
+          style: pw.TextStyle(font: bold, fontSize: 9, color: color),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: nombres.map((n) => _memberChip(n, font, color)).toList(),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _membersSection(Family familia, pw.Font font, pw.Font bold) {
+    // Cada rol se lista en su propio bloque, con su etiqueta en español.
+    // Antes los tíos EDI no aparecían y los alumnos salían como
+    // "ALUMNO_ASIGNADO".
+    final hijosSanguineos = familia.householdChildren
+        .map((m) => m.fullName)
+        .toList();
+    final hijosEdi = familia.assignedStudents.map((m) => m.fullName).toList();
+    final tiosEdi = familia.uncles.map((m) => m.fullName).toList();
+    final otros = familia.otherMembers
+        .map((m) => '${m.fullName} (${m.roleLabel})')
+        .toList();
+    final hogarKids = familia.hogarChildren.map((h) => h.fullName).toList();
+
+    final total =
+        hijosSanguineos.length +
+        hijosEdi.length +
+        tiosEdi.length +
+        otros.length +
+        hogarKids.length;
+    if (total == 0) return pw.SizedBox();
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
         pw.Text(
-          'Integrantes',
+          'Integrantes ($total)',
           style: pw.TextStyle(font: bold, fontSize: 12, color: _navy),
         ),
         pw.Divider(color: _navy, thickness: 0.5),
-        pw.SizedBox(height: 6),
-        pw.Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: [
-            ...allMembers.map(
-              (m) => pw.Container(
-                width: 120,
-                padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: _navy, width: 0.5),
-                  borderRadius: pw.BorderRadius.circular(20),
-                ),
-                child: pw.Text(
-                  '${_sanitize(m.fullName)} (${_sanitize(m.tipoMiembro)})',
-                  style: pw.TextStyle(font: font, fontSize: 8),
-                  maxLines: 2,
-                ),
-              ),
-            ),
-            ...hogarKids.map(
-              (h) => pw.Container(
-                width: 120,
-                padding: const pw.EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: _gold, width: 0.5),
-                  borderRadius: pw.BorderRadius.circular(20),
-                ),
-                child: pw.Text(
-                  '${_sanitize(h.fullName)} (Niño del hogar)',
-                  style: pw.TextStyle(font: font, fontSize: 8),
-                  maxLines: 2,
-                ),
-              ),
-            ),
-          ],
-        ),
+        _memberGroup('Hijos sanguineos', hijosSanguineos, font, bold, _navy),
+        _memberGroup('Hijos del hogar (sin cuenta)', hogarKids, font, bold, _gold),
+        _memberGroup('Hijos EDI', hijosEdi, font, bold, _gold),
+        _memberGroup('Tios EDI', tiosEdi, font, bold, _navy),
+        _memberGroup('Otros integrantes', otros, font, bold, _grey),
       ],
     );
   }

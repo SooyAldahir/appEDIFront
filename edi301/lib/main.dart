@@ -145,7 +145,10 @@ void main() async {
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  SocketService().initSocket();
+  // initSocket ahora es asíncrono: lee el session_token guardado para
+  // autenticar el handshake. Si todavía no hay sesión, no conecta y se
+  // levantará después del login.
+  await SocketService().initSocket();
 
   final notiService = NotificationService();
   await notiService.init();

@@ -43,20 +43,50 @@ class _ChatPageState extends State<ChatPage> {
     await _loadMessages(); // Carga inicial
     await _socketService.joinChatRoom(widget.idSala);
     if (!mounted) return;
-    _socketService.socket.off('nuevo_mensaje');
-    _socketService.socket.on('nuevo_mensaje', (_) {
-      if (mounted) _loadMessages(isPolling: true);
-    });
+    // Handler con nombre para poder quitar solo este listener en dispose.
+    _socketService.on('nuevo_mensaje', _onNuevoMensaje);
     _api.markAsRead(
       widget.idSala,
     ); // Marcar sala como leída al entrar (fire & forget)
     _startPolling(); // ✅ Inicia el refresco automático
   }
 
-  // Respaldo por si el socket pierde conectividad temporalmente.
+  /// El evento trae el mensaje completo, así que se agrega a la lista en vez
+  /// de volver a pedir los últimos 100 al servidor. Antes cada mensaje de una
+  /// sala provocaba una consulta por cada participante conectado.
+  void _onNuevoMensaje(dynamic data) {
+    if (!mounted) return;
+
+    if (data is! Map) {
+      _loadMessages(isPolling: true);
+      return;
+    }
+
+    final msg = Map<String, dynamic>.from(data);
+
+    // Solo nos interesan los mensajes de ESTA sala: el listener es global.
+    final idSala = int.tryParse('${msg['id_sala']}');
+    if (idSala != null && idSala != widget.idSala) return;
+
+    if (int.tryParse('${msg['id_mensaje']}') == null || msg['mensaje'] == null) {
+      _loadMessages(isPolling: true);
+      return;
+    }
+
+    final senderId = int.tryParse('${msg['id_usuario']}');
+    msg['es_mio'] = (_myId != null && senderId == _myId) ? 1 : 0;
+
+    final merged = _mergeMessages(_mensajes, [msg]);
+    if (merged.length == _mensajes.length) return; // ya lo teníamos
+    setState(() => _mensajes = merged);
+    _scrollToBottom();
+  }
+
+  // Respaldo por si el socket pierde conectividad. Ahora que los mensajes
+  // llegan y se insertan por socket, este intervalo puede ser amplio.
   void _startPolling() {
     _pollingTimer?.cancel(); // Limpia cualquier timer previo
-    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
       if (mounted) {
         _loadMessages(isPolling: true);
       }
@@ -77,9 +107,7 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _pollingTimer
         ?.cancel(); // ✅ Obligatorio: detener el timer al salir de la página
-    if (_socketService.isReady) {
-      _socketService.socket.off('nuevo_mensaje');
-    }
+    _socketService.off('nuevo_mensaje', _onNuevoMensaje);
     _socketService.leaveRoom('sala_${widget.idSala}');
     _msgCtrl.dispose();
     _scrollCtrl.dispose();

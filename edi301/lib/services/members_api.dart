@@ -1,18 +1,27 @@
 // lib/services/members_api.dart
+import 'dart:convert';
+
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/core/api_error.dart';
+import 'package:edi301/models/family_model.dart';
 
 class MembersApi {
   final ApiHttp _http = ApiHttp();
 
-  Future<void> addMember({
+  /// Agrega un miembro y devuelve el `id_miembro` recién creado (o `null` si
+  /// el backend no lo regresó). Ese id es necesario para poder quitarlo
+  /// después sin tener que recargar toda la familia.
+  Future<int?> addMember({
     required int idFamilia,
     required int idUsuario,
     required String tipoMiembro,
   }) async {
-    final type = tipoMiembro.trim().toUpperCase();
-    const allowed = {'PADRE', 'MADRE', 'HIJO', 'TIO_EDI'};
-    if (!allowed.contains(type)) {
+    // Se normaliza contra MemberType para que el valor enviado siempre coincida
+    // con lo que acepta el backend (PADRE, MADRE, HIJO, ALUMNO_ASIGNADO,
+    // TIO_EDI). Antes ALUMNO_ASIGNADO se rechazaba aquí aunque el API sí lo
+    // acepta.
+    final type = MemberType.normalize(tipoMiembro);
+    if (type == MemberType.desconocido) {
       throw Exception('Tipo de miembro inválido: "$tipoMiembro".');
     }
     final payload = {
@@ -24,6 +33,21 @@ class MembersApi {
     if (res.statusCode >= 400) {
       throw Exception(parseHttpError(res));
     }
+    try {
+      final decoded = jsonDecode(res.body);
+      if (decoded is Map) {
+        final raw =
+            decoded['id_miembro'] ??
+            (decoded['data'] is Map
+                ? (decoded['data'] as Map)['id_miembro']
+                : null);
+        if (raw is num) return raw.toInt();
+        if (raw != null) return int.tryParse(raw.toString());
+      }
+    } catch (_) {
+      // El cuerpo no era JSON: el alta sí ocurrió, solo no tenemos el id.
+    }
+    return null;
   }
 
   Future<void> addMembersBulk({
