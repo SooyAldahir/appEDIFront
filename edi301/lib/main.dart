@@ -13,6 +13,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/src/pages/Admin/agenda/agenda_detail_page.dart';
 import 'package:edi301/Login/login_page.dart';
+import 'package:edi301/Login/unlock_page.dart';
+import 'package:edi301/auth/token_storage.dart';
+import 'package:edi301/services/biometric_service.dart';
 import 'package:edi301/Register/register_page.dart';
 import 'package:edi301/src/pages/Home/home_page.dart';
 import 'package:edi301/src/pages/News/news_page.dart';
@@ -39,6 +42,7 @@ import 'package:edi301/src/pages/Perfil/renovaciones/mis_renovaciones_page.dart'
 import 'package:edi301/services/socket_service.dart';
 import 'package:edi301/services/users_api.dart';
 import 'package:edi301/src/pages/Encuestas/encuestas_page.dart';
+import 'package:edi301/src/pages/Admin/poblacion/poblacion_page.dart';
 import 'package:edi301/services/encuestas_api.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
@@ -194,16 +198,30 @@ void main() async {
     }
   });
 
+  // El token pasó de SharedPreferences (texto plano) al almacén seguro. Esto
+  // mueve el de las instalaciones anteriores; sin ello, al actualizar, todos
+  // los usuarios con sesión abierta quedarían deslogueados de golpe.
+  // Va ANTES de cualquier llamada autenticada.
+  await TokenStorage().migrateLegacyToken();
+
   // ✅ Importante: sincronizar token si ya está logueado (entra directo a home)
   await _syncFcmIfLoggedIn();
   await _listenFcmRefresh();
 
   final prefs = await SharedPreferences.getInstance();
   final userJson = prefs.getString('user');
+  final hasSession = userJson != null && userJson.isNotEmpty;
 
-  final String initialRoute = (userJson != null && userJson.isNotEmpty)
-      ? 'home'
-      : 'login';
+  // Con sesión guardada y desbloqueo biométrico activo, se entra por la
+  // pantalla de bloqueo en vez de ir directo a home.
+  final bool bloquear =
+      hasSession &&
+      await BiometricService().isEnabled() &&
+      await BiometricService().isAvailable();
+
+  final String initialRoute = !hasSession
+      ? 'login'
+      : (bloquear ? 'unlock' : 'home');
 
   HttpOverrides.global = MyHttpOverrides();
 
@@ -246,6 +264,7 @@ class MyApp extends StatelessWidget {
       initialRoute: initialRoute,
       routes: <String, WidgetBuilder>{
         'login': (context) => const LoginPage(),
+        'unlock': (context) => const UnlockPage(),
         'register': (context) => const RegisterPage(),
         'home': (context) => const HomePage(),
         'family': (context) => const FamiliyPage(),
@@ -275,6 +294,7 @@ class MyApp extends StatelessWidget {
         },
         'agenda_detail': (context) => const AgendaDetailPage(),
         'reportes': (context) => const ReportesPage(),
+        'poblacion': (context) => const PoblacionPage(),
         'notifications': (_) => const NotificationsPage(),
         'notificaciones_historial': (_) => const NotificacionesHistorialPage(),
         'cumpleaños': (context) => const BirthdaysPage(),

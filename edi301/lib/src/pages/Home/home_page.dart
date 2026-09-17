@@ -13,6 +13,7 @@ import 'package:edi301/src/pages/Chat/my_chats_page.dart';
 import 'package:edi301/src/pages/Family/chat_family_page.dart';
 import 'package:edi301/src/pages/Encuestas/encuestas_page.dart';
 import 'package:edi301/src/widgets/liquid_glass_nav.dart';
+import 'package:edi301/services/biometric_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -41,7 +42,89 @@ class _HomePageState extends State<HomePage> {
     _loadUserRole();
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _controller.init(context);
+      _ofrecerBiometricoUnaVez();
     });
+  }
+
+  /// Se ofrece el desbloqueo biométrico UNA sola vez, la primera vez que se
+  /// llega a home con sesión iniciada. Si dice que no, no se vuelve a insistir:
+  /// queda el interruptor en Perfil.
+  Future<void> _ofrecerBiometricoUnaVez() async {
+    final bio = BiometricService();
+    if (await bio.wasPromptShown()) return;
+    if (await bio.isEnabled()) return;
+    if (!await bio.isAvailable()) return;
+
+    // Un respiro para no encimarse con otros diálogos de arranque.
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+
+    final nombre = await bio.friendlyName();
+    if (!mounted) return;
+    await bio.markPromptShown();
+
+    final aceptar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            Icon(
+              nombre == 'Face ID'
+                  ? Icons.face_retouching_natural
+                  : Icons.fingerprint,
+              color: const Color.fromRGBO(19, 67, 107, 1),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Text('Entrar con $nombre')),
+          ],
+        ),
+        content: Text(
+          'Puedes abrir EDI 301 con tu $nombre en lugar de escribir tu '
+          'contraseña cada vez. Podrás desactivarlo cuando quieras desde tu perfil.',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Ahora no',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color.fromRGBO(245, 188, 6, 1),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Activar'),
+          ),
+        ],
+      ),
+    );
+
+    if (aceptar != true || !mounted) return;
+
+    // Se exige pasar el biométrico una vez antes de darlo por activado.
+    final resultado = await bio.authenticate(
+      reason: 'Confirma tu $nombre para activar el acceso rápido',
+    );
+    if (!mounted) return;
+
+    if (resultado == BiometricResult.success) {
+      await bio.setEnabled(true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Listo: la próxima vez entras con tu $nombre.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   @override
@@ -231,7 +314,7 @@ class _HomePageState extends State<HomePage> {
           ? _scrollAccum + delta
           : delta;
 
-      if (_scrollAccum > 15) _setNavCollapsed(true);
+      if (_scrollAccum > 28) _setNavCollapsed(true);
       if (_scrollAccum < -28) _setNavCollapsed(false);
     }
     return false;
@@ -261,11 +344,18 @@ class _HomePageState extends State<HomePage> {
       // Al cambiar de sección la barra vuelve a su tamaño completo.
       _navCollapsed = false;
     });
-    _pageCtrl.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+
+    // En tablet y escritorio NO se construye el PageView: ese layout usa el
+    // riel lateral y pinta la página seleccionada directamente. El controlador
+    // no está adjunto a nada, y animateToPage revienta con
+    // "PageController is not attached to a PageView".
+    if (_pageCtrl.hasClients) {
+      _pageCtrl.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   void _onPageChanged(int index) {
@@ -347,8 +437,9 @@ class _HomePageState extends State<HomePage> {
                               onPageChanged: _onPageChanged,
                               children: _menuOptions
                                   .map(
-                                    (op) =>
-                                        _getPageFromRoute(op['ruta'] as String),
+                                    (op) => _getPageFromRoute(
+                                      op['ruta'] as String,
+                                    ),
                                   )
                                   .toList(),
                             ),

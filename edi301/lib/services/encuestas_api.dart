@@ -44,4 +44,27 @@ class EncuestasApi {
     if (r.statusCode >= 400) throw Exception(parseHttpError(r));
     return Map<String, dynamic>.from(jsonDecode(r.body) as Map);
   }
+
+  // ── Muestreo (solo Admin) ────────────────────────────────────────────────
+
+  /// Sortea quiénes podrán responder. El cuerpo lleva `tamano` o `cuotas`,
+  /// más `incluir_colivi`, `semilla` y `reemplazar` opcionales.
+  Future<Map<String, dynamic>> sortearMuestra(
+      int id, Map<String, dynamic> cuerpo) async {
+    final r = await _http.postJson('/api/encuestas/$id/muestra', data: cuerpo);
+    if (r.statusCode >= 400) throw Exception(parseHttpError(r));
+    return Map<String, dynamic>.from(jsonDecode(r.body) as Map);
+  }
+
+  Future<Map<String, dynamic>> verMuestra(int id) async {
+    final r = await _http.getJson('/api/encuestas/$id/muestra');
+    if (r.statusCode >= 400) throw Exception(parseHttpError(r));
+    return Map<String, dynamic>.from(jsonDecode(r.body) as Map);
+  }
+
+  /// Borra la muestra: la encuesta vuelve a estar abierta a todos.
+  Future<void> quitarMuestra(int id) async {
+    final r = await _http.deleteJson('/api/encuestas/$id/muestra');
+    if (r.statusCode >= 400) throw Exception(parseHttpError(r));
+  }
 }

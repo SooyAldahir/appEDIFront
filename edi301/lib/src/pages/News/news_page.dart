@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:ui';
 import 'package:edi301/core/api_client_http.dart';
+import 'package:edi301/core/api_error.dart';
 import 'package:edi301/services/notificaciones_api.dart';
 import 'package:edi301/services/publicaciones_api.dart';
+import 'package:edi301/services/encuestas_api.dart';
+import 'package:edi301/src/pages/Encuestas/encuestas_page.dart';
 import 'package:edi301/src/pages/Admin/agenda/crear_evento_page.dart';
 import 'package:edi301/src/pages/Notifications/notificaciones_historial_page.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +30,13 @@ class _NewsPageState extends State<NewsPage> {
   final HomeController _controller = HomeController();
   final PublicacionesApi _api = PublicacionesApi();
   final ApiHttp _http = ApiHttp();
+  final EncuestasApi _encuestasApi = EncuestasApi();
+
+  /// Encuesta abierta que este usuario todavia no responde. Es el unico
+  /// camino a la encuesta para los roles de familia: su barra de navegacion
+  /// solo tiene Noticias, Mensajes, Familia y Perfil, asi que sin esta
+  /// tarjeta la encuesta solo se alcanza tocando la notificacion push.
+  Map<String, dynamic>? _encuestaPendiente;
 
   final NotificacionesApi _notiApi = NotificacionesApi();
   int _unreadCount = 0;
@@ -222,6 +232,59 @@ class _NewsPageState extends State<NewsPage> {
     _setupRealtime();
     await _loadFeed();
     _loadUnreadCount();
+    _cargarEncuestaPendiente();
+  }
+
+  /// Nunca debe romper el feed: si falla, simplemente no se muestra la
+  /// tarjeta.
+  Future<void> _cargarEncuestaPendiente() async {
+    try {
+      final lista = await _encuestasApi.list();
+      final pendiente = lista
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          // puede_responder lo calcula el backend: es true solo si la
+          // encuesta esta abierta, no la has contestado y ademas te toca
+          // (audiencia TODOS, o estas en la muestra sorteada). Filtrar aqui
+          // por 'abierta' a secas haria que el Admin viera el aviso de
+          // encuestas por muestreo en las que no fue sorteado.
+          .where((e) => e['puede_responder'] == true)
+          .toList();
+      if (mounted) {
+        setState(() {
+          _encuestaPendiente = pendiente.isEmpty ? null : pendiente.first;
+        });
+      }
+    } catch (e) {
+      debugPrint('No se pudo consultar encuestas pendientes: $e');
+    }
+  }
+
+  Future<void> _abrirEncuesta(Map<String, dynamic> resumen) async {
+    final id = (resumen['id_encuesta'] as num?)?.toInt();
+    if (id == null) return;
+    try {
+      // La lista solo trae la cabecera; las preguntas vienen en el detalle.
+      final completa = await _encuestasApi.get(id);
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ResponderEncuestaPage(encuesta: completa),
+        ),
+      );
+      // Al volver se vuelve a preguntar: si ya la contesto, la tarjeta se va.
+      _cargarEncuestaPendiente();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(friendlyError(e)),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
   }
 
   Future<void> _loadUnreadCount() async {
@@ -459,9 +522,127 @@ class _NewsPageState extends State<NewsPage> {
     }
   }
 
+  // ── Avisos del feed ────────────────────────────────────────
+
+  Widget _bannerSinFamilia() => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.orange[100],
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: const Row(
+      children: [
+        Icon(Icons.info_outline),
+        SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            "Para crear publicaciones necesitas tener una familia asignada.",
+          ),
+        ),
+      ],
+    ),
+  );
+
+  /// Tarjeta de encuesta pendiente. Desaparece sola en cuanto la responde,
+  /// porque el backend devuelve `respondida` por usuario.
+  Widget _bannerEncuesta(Map<String, dynamic> encuesta) {
+    final titulo = (encuesta['titulo'] ?? 'Encuesta').toString();
+    final limite = encuesta['fecha_limite']?.toString();
+    final cierra = _textoCierre(limite);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _abrirEncuesta(encuesta),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  color: Color.fromRGBO(19, 67, 107, 1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.poll, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Tienes una encuesta pendiente',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color.fromRGBO(19, 67, 107, 1),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      titulo,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (cierra != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        cierra,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right, color: Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// "Cierra hoy" / "Cierra en 3 dias" / null si no tiene fecha limite.
+  String? _textoCierre(String? iso) {
+    if (iso == null || iso.isEmpty) return null;
+    final limite = DateTime.tryParse(iso);
+    if (limite == null) return null;
+
+    final ahora = DateTime.now();
+    final dias = DateTime(limite.year, limite.month, limite.day)
+        .difference(DateTime(ahora.year, ahora.month, ahora.day))
+        .inDays;
+
+    if (dias < 0) return null;
+    if (dias == 0) return 'Cierra hoy';
+    if (dias == 1) return 'Cierra mañana';
+    return 'Cierra en $dias días';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bannerOffset = ((_isAlumnoRole && !_hasFamiliaAsignada) ? 1 : 0);
+    // Los avisos que van arriba del feed. Se arman como lista para que el
+    // indice del ListView no dependa de cuantos haya.
+    final banners = <Widget>[
+      if (_isAlumnoRole && !_hasFamiliaAsignada) _bannerSinFamilia(),
+      if (_encuestaPendiente != null) _bannerEncuesta(_encuestaPendiente!),
+    ];
+    final bannerOffset = banners.length;
     final showLoaderItem = _hasMore && _posts.isNotEmpty;
 
     return Scaffold(
@@ -545,30 +726,7 @@ class _NewsPageState extends State<NewsPage> {
                     bannerOffset +
                     (showLoaderItem ? 1 : 0),
                 itemBuilder: (context, index) {
-                  if ((_isAlumnoRole && !_hasFamiliaAsignada) && index == 0) {
-                    return Container(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[100],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.info_outline),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              "Para crear publicaciones necesitas tener una familia asignada.",
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                  if (index < bannerOffset) return banners[index];
 
                   if (_posts.isEmpty) return _buildEmptyState();
 
@@ -1025,9 +1183,7 @@ class _NewsPageState extends State<NewsPage> {
                         ? Icon(theme.trailingIcon, color: theme.iconColor)
                         : null),
             ),
-            if (urlImagen != null &&
-                urlImagen.toString().isNotEmpty &&
-                urlImagen != 'null')
+            if (_fixUrl(urlImagen?.toString()).isNotEmpty)
               GestureDetector(
                 onTap: () {
                   final imageUrl = _fixUrl(urlImagen);
@@ -1062,27 +1218,14 @@ class _NewsPageState extends State<NewsPage> {
                         child: const Center(child: CircularProgressIndicator()),
                       );
                     },
+                    // Si la imagen no carga, la publicacion se queda solo
+                    // con su texto. Antes salia un recuadro gris con
+                    // "Imagen no disponible", que en las felicitaciones de
+                    // cumpleanos era lo unico que se veia cuando la URL
+                    // configurada se habia perdido.
                     errorBuilder: (context, error, stackTrace) {
-                      print("Error cargando imagen: $error");
-                      return Container(
-                        height: 150,
-                        width: double.infinity,
-                        color: Colors.grey[200],
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.broken_image,
-                              color: Colors.grey,
-                              size: 50,
-                            ),
-                            Text(
-                              "Imagen no disponible",
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      );
+                      debugPrint('Imagen de publicacion no disponible: $error');
+                      return const SizedBox.shrink();
                     },
                   ),
                 ),

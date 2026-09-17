@@ -7,6 +7,7 @@ import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/src/pages/Perfil/perfil_widgets.dart';
 import 'package:edi301/auth/token_storage.dart';
 import 'package:edi301/services/socket_service.dart';
+import 'package:edi301/services/biometric_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -55,10 +56,104 @@ class _PerfilPageState extends State<PerfilPage> {
 
   bool _loading = true;
 
+  // ── Desbloqueo biométrico ──────────────────────────────────────────────────
+  final BiometricService _biometrics = BiometricService();
+  bool _bioDisponible = false;
+  bool _bioActivo = false;
+  String _bioNombre = 'biometría';
+
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _cargarEstadoBiometrico();
+  }
+
+  Future<void> _cargarEstadoBiometrico() async {
+    final disponible = await _biometrics.isAvailable();
+    final activo = await _biometrics.isEnabled();
+    final nombre = await _biometrics.friendlyName();
+    if (!mounted) return;
+    setState(() {
+      _bioDisponible = disponible;
+      _bioActivo = activo && disponible;
+      _bioNombre = nombre;
+    });
+  }
+
+  /// Activar exige pasar el biométrico una vez: así se confirma que funciona
+  /// antes de que el usuario dependa de él para entrar.
+  Future<void> _cambiarBiometrico(bool valor) async {
+    if (!valor) {
+      await _biometrics.setEnabled(false);
+      if (mounted) setState(() => _bioActivo = false);
+      return;
+    }
+
+    final resultado = await _biometrics.authenticate(
+      reason: 'Confirma tu $_bioNombre para activar el acceso rápido',
+    );
+    if (!mounted) return;
+
+    if (resultado == BiometricResult.success) {
+      await _biometrics.setEnabled(true);
+      if (!mounted) return;
+      setState(() => _bioActivo = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Listo: la próxima vez entras con tu $_bioNombre.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _bioActivo = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          resultado == BiometricResult.unavailable
+              ? 'Tu equipo no tiene biometría registrada. Agrégala en los ajustes del sistema.'
+              : 'No se pudo verificar tu $_bioNombre. No se activó nada.',
+        ),
+        backgroundColor: Colors.orange.shade800,
+      ),
+    );
+  }
+
+  Widget _buildBiometricTile() {
+    if (!_bioDisponible) return const SizedBox.shrink();
+
+    return SwitchListTile(
+      value: _bioActivo,
+      onChanged: _cambiarBiometrico,
+      activeColor: _primary,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      tileColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      secondary: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: _primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          _bioNombre == 'Face ID' ? Icons.face_retouching_natural : Icons.fingerprint,
+          color: _primary,
+        ),
+      ),
+      title: Text(
+        _bioNombre == 'Face ID' ? 'Entrar con Face ID' : 'Entrar con $_bioNombre',
+        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+      ),
+      subtitle: const Text(
+        'Abre la app sin escribir tu contraseña',
+        style: TextStyle(fontSize: 12),
+      ),
+    );
   }
 
   String _formatFecha(String? raw) {
@@ -487,13 +582,13 @@ class _PerfilPageState extends State<PerfilPage> {
     try {
       await _http.postJson('/api/auth/logout');
     } catch (_) {}
+    // clear() borra el token del almacén seguro y también cualquier resto de
+    // la copia vieja en SharedPreferences.
     await _storage.clear();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user');
-    // El token vive en dos lugares: el almacenamiento seguro y las prefs (de
-    // donde lo leen ApiHttp y el socket). Si no se borra aquí, la app sigue
-    // mandando credenciales de una sesión ya cerrada.
-    await prefs.remove('session_token');
+    // Apagar el desbloqueo biométrico: ya no hay sesión que desbloquear.
+    await BiometricService().setEnabled(false);
     // Cortar el tiempo real: si no, el socket queda conectado con la sesión
     // anterior hasta que el servidor lo tire.
     SocketService().disconnect();
@@ -899,6 +994,11 @@ class _PerfilPageState extends State<PerfilPage> {
                         );
                       },
                     ),
+
+                    const SizedBox(height: 12),
+
+                    // Desbloqueo con huella / Face ID
+                    _buildBiometricTile(),
 
                     const SizedBox(height: 16),
 

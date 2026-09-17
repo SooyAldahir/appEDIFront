@@ -49,8 +49,14 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                   _loginText(),
-                  _textFieldUser(),
-                  _textFieldPassword(),
+                  // AutofillGroup agrupa correo y contraseña como un solo
+                  // "formulario de acceso". Sin esto el Llavero de iCloud y el
+                  // Gestor de Google no ofrecen guardar ni rellenar nada.
+                  AutofillGroup(
+                    child: Column(
+                      children: [_textFieldUser(), _textFieldPassword()],
+                    ),
+                  ),
                   _buttonLogin(),
                   _textForgotPassword(),
                   _textDontHaveAccount(),
@@ -112,6 +118,10 @@ class _LoginPageState extends State<LoginPage> {
       child: TextField(
         controller: _controller.emailCtrl,
         keyboardType: TextInputType.emailAddress,
+        // username + email: así el sistema reconoce el campo y ofrece las
+        // credenciales guardadas para este dominio.
+        autofillHints: const [AutofillHints.username, AutofillHints.email],
+        textInputAction: TextInputAction.next,
         style: const TextStyle(color: Colors.white),
         decoration: const InputDecoration(
           hintText: 'Correo institucional',
@@ -135,6 +145,13 @@ class _LoginPageState extends State<LoginPage> {
       child: TextField(
         controller: _controller.passCtrl,
         obscureText: _obscure,
+        autofillHints: const [AutofillHints.password],
+        textInputAction: TextInputAction.done,
+        // Enter en el teclado equivale a pulsar INGRESAR: el autocompletado
+        // rellena ambos campos y la gente espera poder enviar desde ahí.
+        onSubmitted: (_) {
+          if (!_controller.loading.value) _controller.goToHomePage();
+        },
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'Contraseña',

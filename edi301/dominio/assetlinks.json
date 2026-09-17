@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.aldahirballina.FamiliasEDI301",
+      "sha256_cert_fingerprints": [
+        "46:88:45:28:01:79:25:FB:88:B8:D9:15:3B:44:4A:B1:A3:F4:1A:E8:EB:6F:7C:D1:02:D9:D9:B1:A1:E2:F1:44",
+        "07:9F:92:E5:64:BB:D8:5D:CD:0D:C2:14:83:F1:0E:27:DA:95:E3:CC:1B:9B:03:91:D4:4A:B7:A7:FE:25:2A:25"
+      ]
+    }
+  }
+]

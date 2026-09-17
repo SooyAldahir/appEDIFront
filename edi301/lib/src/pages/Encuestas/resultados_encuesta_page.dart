@@ -1,5 +1,6 @@
 import 'package:edi301/core/api_error.dart';
 import 'package:edi301/services/encuestas_api.dart';
+import 'package:edi301/src/pages/Encuestas/exportar_encuesta_service.dart';
 import 'package:flutter/material.dart';
 
 class ResultadosEncuestaPage extends StatefulWidget {
@@ -12,10 +13,32 @@ class ResultadosEncuestaPage extends StatefulWidget {
 class _ResultadosEncuestaPageState extends State<ResultadosEncuestaPage> {
   final api = EncuestasApi();
   late Future<Map<String, dynamic>> future;
+  bool _exportando = false;
+
   @override
   void initState() {
     super.initState();
     future = api.results(widget.idEncuesta);
+  }
+
+  /// Genera el .xlsx y lo abre con la app que el sistema tenga asociada.
+  Future<void> _exportar() async {
+    setState(() => _exportando = true);
+    try {
+      await ExportarEncuestaService().exportar(widget.idEncuesta);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyError(e)),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _exportando = false);
+    }
   }
 
   @override
@@ -24,6 +47,28 @@ class _ResultadosEncuestaPageState extends State<ResultadosEncuestaPage> {
       title: const Text('Resultados'),
       backgroundColor: const Color(0xFF13436B),
       foregroundColor: Colors.white,
+      actions: [
+        if (_exportando)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 18),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              ),
+            ),
+          )
+        else
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            tooltip: 'Exportar a Excel',
+            onPressed: _exportar,
+          ),
+      ],
     ),
     body: FutureBuilder<Map<String, dynamic>>(
       future: future,

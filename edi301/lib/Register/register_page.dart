@@ -191,6 +191,10 @@ class _RegisterPageState extends State<RegisterPage> {
               hint: 'Correo completo',
               icon: Icons.mail_outline,
               keyboard: TextInputType.emailAddress,
+              autofillHints: const [
+                AutofillHints.username,
+                AutofillHints.email,
+              ],
             ),
             _buttonAction(
               text: 'Verificar Correo y Enviar Código',
@@ -254,6 +258,9 @@ class _RegisterPageState extends State<RegisterPage> {
           hint: 'Contraseña',
           icon: Icons.key_outlined,
           obscure: _obscurePass,
+          // newPassword: le dice al sistema que es una contraseña que se está
+          // creando, para que ofrezca generarla y guardarla.
+          autofillHints: const [AutofillHints.newPassword],
           suffixIcon: IconButton(
             icon: Icon(
               _obscurePass ? Icons.visibility : Icons.visibility_off,
@@ -272,6 +279,7 @@ class _RegisterPageState extends State<RegisterPage> {
           hint: 'Confirmar contraseña',
           icon: Icons.key_outlined,
           obscure: _obscureConfirm,
+          autofillHints: const [AutofillHints.newPassword],
           suffixIcon: IconButton(
             icon: Icon(
               _obscureConfirm ? Icons.visibility : Icons.visibility_off,
@@ -372,6 +380,7 @@ class _RegisterPageState extends State<RegisterPage> {
     bool obscure = false,
     TextInputType keyboard = TextInputType.text,
     Widget? suffixIcon,
+    List<String>? autofillHints,
   }) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -382,6 +391,7 @@ class _RegisterPageState extends State<RegisterPage> {
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboard,
+        autofillHints: autofillHints,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: hint,

@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
+import 'package:edi301/auth/token_storage.dart';
 import 'package:edi301/core/api_client_http.dart';
 
 /// Conexión de tiempo real con el backend.
@@ -48,10 +48,11 @@ class SocketService {
   /// que hace falta volver a iniciar sesión.
   bool get isUnauthorized => _unauthorized;
 
+  final TokenStorage _tokenStorage = TokenStorage();
+
   Future<String?> _readToken() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('session_token');
+      final token = await _tokenStorage.read();
       return (token != null && token.isNotEmpty) ? token : null;
     } catch (_) {
       return null;

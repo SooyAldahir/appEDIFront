@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:edi301/core/api_error.dart';
 import 'package:edi301/services/encuestas_api.dart';
 import 'package:edi301/src/pages/Encuestas/resultados_encuesta_page.dart';
+import 'package:edi301/src/pages/Encuestas/muestra_page.dart';
+import 'package:edi301/services/poblacion_api.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -110,16 +113,90 @@ class _EncuestasPageState extends State<EncuestasPage> {
                     color: const Color(0xFF13436B),
                   ),
                   title: Text(x['titulo']),
-                  subtitle: Text(
-                    x['respondida'] == true
-                        ? 'Respuesta enviada'
-                        : canAnswer
-                        ? 'Disponible para responder'
-                        : x['estado'] == 'BORRADOR'
-                        ? 'Borrador'
-                        : 'Cerrada',
+                  subtitle: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          x['respondida'] == true
+                              ? 'Respuesta enviada'
+                              : canAnswer
+                              ? 'Disponible para responder'
+                              : x['estado'] == 'BORRADOR'
+                              ? 'Borrador'
+                              : 'Cerrada',
+                        ),
+                      ),
+                      if (x['audiencia'] == 'MUESTRA') ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF13436B),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Text(
+                            'MUESTRA',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  // Para el admin hay dos destinos por encuesta (resultados
+                  // y muestra), asi que el chevron se cambia por un menu.
+                  trailing: admin
+                      ? PopupMenuButton<String>(
+                          icon: const Icon(Icons.more_vert),
+                          onSelected: (opcion) {
+                            final id = x['id_encuesta'] as int;
+                            if (opcion == 'resultados') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      ResultadosEncuestaPage(idEncuesta: id),
+                                ),
+                              );
+                            } else {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => MuestraEncuestaPage(
+                                    idEncuesta: id,
+                                    titulo: '${x['titulo']}',
+                                  ),
+                                ),
+                              ).then((_) => load());
+                            }
+                          },
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(
+                              value: 'resultados',
+                              child: ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                leading: Icon(Icons.bar_chart),
+                                title: Text('Ver resultados'),
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'muestra',
+                              child: ListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                leading: Icon(Icons.shuffle),
+                                title: Text('Muestra aleatoria'),
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Icon(Icons.chevron_right),
                   onTap: admin
                       ? () => Navigator.push(
                           context,
@@ -159,14 +236,60 @@ class CrearEncuestaPage extends StatefulWidget {
 
 class _CrearEncuestaPageState extends State<CrearEncuestaPage> {
   final api = EncuestasApi();
+  final poblacionApi = PoblacionApi();
   final title = TextEditingController();
   final description = TextEditingController();
   final questions = <_DraftQuestion>[_DraftQuestion()];
   bool publish = true, saving = false;
+
+  // ── Audiencia ─────────────────────────────────────────────────
+  // Se decide aqui y no despues: la encuesta se crea ya restringida, asi
+  // que nunca llega a estar visible para quien no fue sorteado.
+  bool porMuestra = false;
+  bool porCuotas = false;
+  bool incluirColivi = false;
+  final tamanoCtrl = TextEditingController(text: '100');
+  final cuotaPadresCtrl = TextEditingController();
+  final cuotaHijosCtrl = TextEditingController();
+
+  int padresDisponibles = 0;
+  int hijosDisponibles = 0;
+  bool cargandoPoblacion = false;
+
+  int get elegibles => padresDisponibles + hijosDisponibles;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarPoblacion();
+  }
+
+  /// El conteo es solo informativo: si falla, el formulario sigue sirviendo y
+  /// el servidor valida las cantidades de todos modos.
+  Future<void> _cargarPoblacion() async {
+    setState(() => cargandoPoblacion = true);
+    try {
+      final censo = await poblacionApi.resumen();
+      final totales = Map<String, dynamic>.from(censo['totales'] as Map);
+      if (!mounted) return;
+      setState(() {
+        padresDisponibles = (totales['padres'] as num?)?.toInt() ?? 0;
+        hijosDisponibles = (totales['hijos'] as num?)?.toInt() ?? 0;
+      });
+    } catch (_) {
+      // Silencioso a proposito.
+    } finally {
+      if (mounted) setState(() => cargandoPoblacion = false);
+    }
+  }
+
   @override
   void dispose() {
     title.dispose();
     description.dispose();
+    tamanoCtrl.dispose();
+    cuotaPadresCtrl.dispose();
+    cuotaHijosCtrl.dispose();
     for (final q in questions) {
       q.dispose();
     }
@@ -193,12 +316,39 @@ class _CrearEncuestaPageState extends State<CrearEncuestaPage> {
         return;
       }
     }
+    Map<String, dynamic>? muestra;
+    if (porMuestra) {
+      if (porCuotas) {
+        final p = int.tryParse(cuotaPadresCtrl.text.trim()) ?? 0;
+        final h = int.tryParse(cuotaHijosCtrl.text.trim()) ?? 0;
+        if (p + h == 0) {
+          _error('Indica cuantos padres y cuantos hijos quieres en la muestra.');
+          return;
+        }
+        if (p > padresDisponibles || h > hijosDisponibles) {
+          _error('No hay tantas personas disponibles en alguno de los grupos.');
+          return;
+        }
+        muestra = {'cuotas': {'PADRES': p, 'HIJOS': h}};
+      } else {
+        final n = int.tryParse(tamanoCtrl.text.trim()) ?? 0;
+        if (n <= 0) {
+          _error('Indica el tamano de la muestra.');
+          return;
+        }
+        muestra = {'tamano': n};
+      }
+      muestra['incluir_colivi'] = incluirColivi;
+    }
+
     setState(() => saving = true);
     try {
       await api.create({
         'titulo': title.text.trim(),
         'descripcion': description.text.trim(),
         'estado': publish ? 'PUBLICADA' : 'BORRADOR',
+        'audiencia': porMuestra ? 'MUESTRA' : 'TODOS',
+        if (muestra != null) 'muestra': muestra,
         'preguntas': questions
             .map(
               (q) => {
@@ -261,7 +411,9 @@ class _CrearEncuestaPageState extends State<CrearEncuestaPage> {
           subtitle: const Text('Si no, quedará como borrador.'),
           contentPadding: EdgeInsets.zero,
         ),
-        const Divider(),
+        const SizedBox(height: 8),
+        _bloqueAudiencia(),
+        const Divider(height: 28),
         ...questions.asMap().entries.map((e) => _questionCard(e.key, e.value)),
         if (questions.length < 50)
           OutlinedButton.icon(
@@ -286,7 +438,7 @@ class _CrearEncuestaPageState extends State<CrearEncuestaPage> {
             saving
                 ? 'Guardando...'
                 : publish
-                ? 'Publicar encuesta'
+                ? (porMuestra ? 'Sortear y publicar' : 'Publicar encuesta')
                 : 'Guardar borrador',
           ),
           style: ElevatedButton.styleFrom(
@@ -298,6 +450,150 @@ class _CrearEncuestaPageState extends State<CrearEncuestaPage> {
       ],
     ),
   );
+  // ── Para quien es la encuesta ──────────────────────────────────
+
+  Widget _bloqueAudiencia() => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade50,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.grey.shade300),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Para quién es',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF13436B)),
+        ),
+        const SizedBox(height: 10),
+        RadioListTile<bool>(
+          value: false,
+          groupValue: porMuestra,
+          onChanged: (v) => setState(() => porMuestra = v ?? false),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          title: const Text('Todos los usuarios'),
+          subtitle: const Text(
+            'Cualquiera con cuenta activa puede responderla.',
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
+        RadioListTile<bool>(
+          value: true,
+          groupValue: porMuestra,
+          onChanged: (v) => setState(() => porMuestra = v ?? false),
+          contentPadding: EdgeInsets.zero,
+          dense: true,
+          title: const Text('Una muestra aleatoria'),
+          subtitle: const Text(
+            'Solo las personas sorteadas la verán y podrán responderla.',
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
+        if (porMuestra) ...[
+          const SizedBox(height: 6),
+          if (cargandoPoblacion)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: LinearProgressIndicator(minHeight: 2),
+            )
+          else
+            Text(
+              elegibles == 0
+                  ? 'No se pudo consultar la población. Puedes continuar: el '
+                        'servidor validará las cantidades.'
+                  : 'Disponibles: $padresDisponibles padres y $hijosDisponibles '
+                        'hijos (${elegibles} en total)'
+                        '${incluirColivi ? "" : ", sin COLIVI"}.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+          const SizedBox(height: 12),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('Por total')),
+              ButtonSegment(value: true, label: Text('Por cuotas')),
+            ],
+            selected: {porCuotas},
+            onSelectionChanged: (x) => setState(() => porCuotas = x.first),
+          ),
+          const SizedBox(height: 12),
+          if (!porCuotas) ...[
+            TextField(
+              controller: tamanoCtrl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(
+                labelText: 'Cuántas personas',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _previewReparto(),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: cuotaPadresCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'Padres',
+                      helperText: 'máx. $padresDisponibles',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: cuotaHijosCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'Hijos',
+                      helperText: 'máx. $hijosDisponibles',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          SwitchListTile(
+            value: incluirColivi,
+            onChanged: (v) => setState(() => incluirColivi = v),
+            title: const Text(
+              'Incluir alumnos de COLIVI',
+              style: TextStyle(fontSize: 14),
+            ),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            activeThumbColor: const Color(0xFF13436B),
+          ),
+        ],
+      ],
+    ),
+  );
+
+  /// Reparto proporcional aproximado, solo para que se vea antes de guardar.
+  /// El cálculo bueno lo hace el servidor (restos mayores).
+  String _previewReparto() {
+    final n = int.tryParse(tamanoCtrl.text.trim()) ?? 0;
+    if (n <= 0 || elegibles == 0) return '';
+    if (n >= elegibles) return 'Se invitaría a toda la población elegible.';
+    final padres = (padresDisponibles * n / elegibles).round();
+    return 'Aproximadamente $padres padres y ${n - padres} hijos, '
+        'respetando la proporción real.';
+  }
+
   Widget _questionCard(int i, _DraftQuestion q) => Card(
     child: Padding(
       padding: const EdgeInsets.all(12),

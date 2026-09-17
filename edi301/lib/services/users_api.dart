@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../auth/token_storage.dart';
 import '../core/api_client_http.dart';
 import '../core/api_error.dart';
 import '../models/user.dart';
@@ -224,8 +225,10 @@ class UsersApi {
 
     final token = (data['session_token'] ?? data['token'] ?? '').toString();
     if (token.isNotEmpty) {
+      // El token va SOLO al almacén seguro; en prefs queda nada más el perfil,
+      // que no es un secreto. Antes también se escribía aquí en texto plano.
+      await TokenStorage().save(token);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('session_token', token);
       await prefs.setString('user', jsonEncode(data));
     }
     return user;

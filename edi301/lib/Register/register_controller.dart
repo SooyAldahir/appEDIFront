@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/models/institutional_user.dart';
@@ -305,6 +306,10 @@ class RegisterController {
         // No bloquear el registro si esto falla
         print('No se pudieron procesar familia_candidatos: $e');
       }
+
+      // Cuenta creada: se cierra el contexto de autocompletado para que el
+      // sistema ofrezca guardar la contraseña recién creada.
+      TextInput.finishAutofillContext();
 
       _snack('Registro exitoso. Ahora puedes iniciar sesión.', isError: false);
       goToLoginPage();

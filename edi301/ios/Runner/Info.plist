@@ -32,6 +32,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Necesitamos acceso a la cámara para tomar fotos para publicaciones y perfiles.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Usamos Face ID para que puedas entrar a EDI 301 sin escribir tu contraseña.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Necesitamos acceso a tus fotos para seleccionar imágenes en publicaciones y perfiles.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

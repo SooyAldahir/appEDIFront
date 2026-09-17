@@ -377,6 +377,13 @@ class _IconWithDot extends StatelessWidget {
 
 // ── Riel lateral (tablet / escritorio) ───────────────────────────────────────
 
+/// Riel de navegación como PÍLDORA FLOTANTE, no como barra de borde a borde.
+///
+/// Antes esto envolvía un `NavigationRail`, que por diseño ocupa todo el alto
+/// de la pantalla: en una tablet se veía como un muro pegado al costado y el
+/// redondeo de las esquinas ni se notaba. Ahora la superficie se ajusta al
+/// contenido, va centrada verticalmente y queda separada de los bordes, igual
+/// que la barra inferior del teléfono.
 class LiquidGlassNavRail extends StatelessWidget {
   const LiquidGlassNavRail({
     super.key,
@@ -393,124 +400,174 @@ class LiquidGlassNavRail extends StatelessWidget {
   final Color base;
   final Color dotColor;
 
+  static const double _width = 78;
+  static const double _radius = 30;
+  static const double _margin = 14;
+
+  /// Ancho total que el riel ocupa en la fila, márgenes incluidos.
+  static double widthWithMargins() => _width + _margin * 2;
+
   @override
   Widget build(BuildContext context) {
-    // NavigationRail exige al menos dos destinos.
-    if (items.length < 2) return const SizedBox.shrink();
+    if (items.isEmpty) return const SizedBox.shrink();
 
+    final safe = MediaQuery.of(context).viewPadding;
     final index = currentIndex < 0
         ? 0
         : (currentIndex >= items.length ? items.length - 1 : currentIndex);
-    final unselected = Colors.white.withValues(alpha: 0.62);
 
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        topRight: Radius.circular(28),
-        bottomRight: Radius.circular(28),
+    return Padding(
+      padding: EdgeInsets.only(
+        left: _margin + safe.left,
+        right: _margin,
+        top: _margin + safe.top,
+        bottom: _margin + safe.bottom,
       ),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                base.withValues(alpha: 0.86),
-                base.withValues(alpha: 0.64),
-              ],
-            ),
-            border: Border(
-              right: BorderSide(
-                color: Colors.white.withValues(alpha: 0.18),
-                width: 1,
+      // Center + mainAxisSize.min: la píldora mide lo que miden sus botones y
+      // se queda a media altura, en vez de estirarse de arriba a abajo.
+      child: Center(
+        child: SizedBox(
+          width: _width,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(_radius),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(_radius),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      base.withValues(alpha: 0.82),
+                      base.withValues(alpha: 0.60),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                // Si la pantalla es muy baja (un teléfono acostado) los botones
+                // se desplazan en vez de desbordar.
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (int i = 0; i < items.length; i++)
+                          _GlassRailButton(
+                            item: items[i],
+                            selected: i == index,
+                            dotColor: dotColor,
+                            onTap: () => onTap(i),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-          // NavigationRail apila sus destinos en una Column que NO hace
-          // scroll: en un viewport bajo (un teléfono acostado, por ejemplo)
-          // los seis íconos no caben y reventaba con "RenderFlex overflowed".
-          //
-          // Este envoltorio es el patrón recomendado: el ConstrainedBox con
-          // minHeight igual al alto disponible deja que el riel se estire y
-          // centre sus botones cuando sobra espacio, y el SingleChildScrollView
-          // lo vuelve desplazable cuando falta. IntrinsicHeight es necesario
-          // porque dentro de un scroll el alto es ilimitado y el riel usa
-          // Expanded internamente para alinear el grupo.
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight.isFinite
-                        ? constraints.maxHeight
-                        : 0,
-                  ),
-                  child: IntrinsicHeight(child: _buildRail(index, unselected)),
-                ),
-              );
-            },
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildRail(int index, Color unselected) {
-    return NavigationRail(
-      backgroundColor: Colors.transparent,
-      selectedIndex: index,
-      onDestinationSelected: onTap,
-      // 0.0 = grupo centrado verticalmente. Por defecto es -1.0, que los
-      // pegaba todos arriba y en tabletas se veía desbalanceado.
-      groupAlignment: 0.0,
-      labelType: NavigationRailLabelType.all,
-      selectedLabelTextStyle: const TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.w700,
-        fontSize: 12,
-      ),
-      unselectedLabelTextStyle: TextStyle(color: unselected, fontSize: 12),
-      destinations: [
-        for (final item in items)
-          NavigationRailDestination(
-            icon: _IconWithDot(
-              icon: item.icon,
-              color: unselected,
-              showDot: item.showDot,
-              dotColor: dotColor,
-              size: 24,
-            ),
-            // El ítem activo va dentro de su propia píldora de vidrio,
-            // igual que en la barra inferior.
-            selectedIcon: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.white.withValues(alpha: 0.30),
-                    Colors.white.withValues(alpha: 0.12),
-                  ],
-                ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.42),
-                  width: 1,
-                ),
+class _GlassRailButton extends StatelessWidget {
+  const _GlassRailButton({
+    required this.item,
+    required this.selected,
+    required this.dotColor,
+    required this.onTap,
+  });
+
+  final GlassNavItem item;
+  final bool selected;
+  final Color dotColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected
+        ? Colors.white
+        : Colors.white.withValues(alpha: 0.62);
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: item.label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              // Mismo vidrio esmerilado que marca el ítem activo abajo.
+              gradient: selected
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.30),
+                        Colors.white.withValues(alpha: 0.12),
+                      ],
+                    )
+                  : null,
+              border: Border.all(
+                color: selected
+                    ? Colors.white.withValues(alpha: 0.42)
+                    : Colors.transparent,
+                width: 1,
               ),
-              child: _IconWithDot(
-                icon: item.icon,
-                color: Colors.white,
-                showDot: item.showDot,
-                dotColor: dotColor,
-                size: 24,
-              ),
             ),
-            label: Text(item.label),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedScale(
+                  scale: selected ? 1.12 : 1.0,
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOut,
+                  child: _IconWithDot(
+                    icon: item.icon,
+                    color: color,
+                    showDot: item.showDot,
+                    dotColor: dotColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
           ),
-      ],
+        ),
+      ),
     );
   }
 }

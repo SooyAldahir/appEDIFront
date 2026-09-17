@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:edi301/auth/token_storage.dart';
 
 class ApiHttp extends http.BaseClient {
   ApiHttp._internal();
@@ -10,7 +11,7 @@ class ApiHttp extends http.BaseClient {
   factory ApiHttp() => _i;
 
   /// Se puede reemplazar por ambiente al compilar:
-  /// flutter run --dart-define=API_BASE_URL=http://192.168.1.10:3000
+  /// flutter run --dart-define=API_BASE_URL=http://192.168.100.7:3000
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://edi301.apps.isdapps.uk',
@@ -24,9 +25,13 @@ class ApiHttp extends http.BaseClient {
     'Accept': 'application/json',
   };
 
+  final TokenStorage _tokenStorage = TokenStorage();
+
+  /// El token sale del almacén seguro (Keychain / Keystore), no de
+  /// SharedPreferences. TokenStorage lo cachea en memoria, así que esto no
+  /// cuesta un acceso al sistema en cada petición.
   Future<String?> _readToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    final t = prefs.getString('session_token');
+    final t = await _tokenStorage.read();
     return (t != null && t.isNotEmpty) ? t : null;
   }
 

@@ -81,6 +81,15 @@ class AdminPage extends StatelessWidget {
       gradient: [Color(0xFF37474F), Color(0xFF263238)],
       accent: Color(0xFFB0BEC5),
     ),
+    // Censo de usuarios: insumo para dimensionar muestras de encuestas.
+    _AdminItem(
+      label: 'Población',
+      sub: 'Conteo de usuarios',
+      icon: Icons.groups_rounded,
+      route: 'poblacion',
+      gradient: [Color(0xFF00695C), Color(0xFF004D40)],
+      accent: Color(0xFF80CBC4),
+    ),
   ];
 
   // Card de Gestionar Admins (ancho completo, debajo del grid)

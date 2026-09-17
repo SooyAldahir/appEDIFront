@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/token_storage.dart';
 import '../core/api_client_http.dart';
@@ -89,10 +90,10 @@ class LoginController {
       final token = (data['session_token'] ?? data['token'] ?? '').toString();
       if (token.isEmpty) throw Exception('No se recibió session_token');
 
+      // Única escritura del token: queda en el almacén seguro del sistema.
+      // Guardarlo antes de cualquier petición autenticada evita el fallo del
+      // primer login, porque ApiHttp lo lee de aquí.
       await _tokenStorage.save(token);
-      // ApiHttp usa SharedPreferences para adjuntar Authorization. Guardarlo
-      // antes de cualquier petición autenticada evita el fallo del primer login.
-      await prefs.setString('session_token', token);
 
       // El socket se autentica con ese mismo token. Al arrancar la app sin
       // sesión no se conectó, así que aquí se levanta con las credenciales
@@ -150,6 +151,13 @@ class LoginController {
 
       if (!_ctx.mounted) return;
       FocusScope.of(_ctx).unfocus();
+
+      // Cierra el contexto de autocompletado indicando que las credenciales
+      // SÍ sirvieron. Esto es lo que hace que iOS muestre "¿Guardar esta
+      // contraseña en el Llavero?" y que Android ofrezca guardarla en el
+      // Gestor de Google. Va solo en la ruta de éxito: si el login falla, no
+      // hay que ofrecer guardar nada.
+      TextInput.finishAutofillContext();
 
       // ── Modal "Elige tu familia" (familias manuales pendientes) ──────────
       // Si el registro previo dejó candidatos pendientes en SharedPreferences,
