@@ -4,5 +4,21 @@
 <dict>
 	<key>aps-environment</key>
 	<string>development</string>
+
+	<!-- Llavero de iOS: sin esto, el sistema nunca ofrece guardar ni
+	     autocompletar la contraseña de EDI 301.
+
+	     Va emparejado con el archivo que sirve el backend en
+	     https://edi301.apps.isdapps.uk/.well-known/apple-app-site-association
+	     cuyo contenido es:
+	       { "webcredentials": { "apps": ["BR8MSB248A.com.aldahirballina.FamiliasEDI301"] } }
+
+	     iOS descarga ese archivo al instalar la app y comprueba que el
+	     equipo + bundle id coincidan. Si cambia el dominio, hay que cambiarlo
+	     en los dos sitios. -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>webcredentials:edi301.apps.isdapps.uk</string>
+	</array>
 </dict>
 </plist>
