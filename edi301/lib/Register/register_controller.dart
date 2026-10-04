@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/models/institutional_user.dart';
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/core/api_error.dart';
-import 'package:edi301/services/otp_service.dart';
+import 'package:edi301/services/users_api.dart';
 
 class RegisterController {
   BuildContext? context;
@@ -20,7 +20,7 @@ class RegisterController {
   final foundUser = ValueNotifier<InstitutionalUser?>(null);
   final String _institutionalApiUrl =
       'https://ulv-api.apps.isdapps.uk/api/datos/';
-  final OtpService _otpService = OtpService();
+  final UsersApi _usersApi = UsersApi();
 
   Future? init(BuildContext context) {
     this.context = context;
@@ -151,10 +151,14 @@ class RegisterController {
   Future<void> _sendVerificationCode(String email) async {
     loading.value = true;
     try {
-      await _otpService.sendOtp(email);
-
-      _snack('Código enviado a tu correo.', isError: false);
-      registrationStep.value = 2; // Avanza si todo salió bien
+      // Lo manda el SERVIDOR. Antes lo mandaba la app, con las credenciales
+      // del servicio escritas en el código y, por tanto, dentro del APK.
+      final mensaje = await _usersApi.enviarCodigoVerificacion(
+        email,
+        proposito: 'REGISTRO',
+      );
+      _snack(mensaje, isError: false);
+      registrationStep.value = 2; // Avanza solo si el envío salió bien
     } catch (e) {
       _snack('No se pudo enviar el código. ${friendlyError(e)}');
     } finally {
@@ -162,31 +166,39 @@ class RegisterController {
     }
   }
 
+  /// Pide otro código sin perder lo que ya escribió.
+  ///
+  /// Hace falta porque el código se usa ahora más tarde: al crear la cuenta,
+  /// después de elegir contraseña y demás. Si caduca por el camino, esto lo
+  /// resuelve sin volver al principio.
+  Future<void> reenviarCodigo() async {
+    final email = foundUser.value?.correoInstitucional;
+    if (email == null || email.isEmpty) return;
+
+    loading.value = true;
+    try {
+      await _usersApi.enviarCodigoVerificacion(email, proposito: 'REGISTRO');
+      _snack('Te enviamos un código nuevo.', isError: false);
+    } catch (e) {
+      _snack(friendlyError(e));
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /// Solo avanza de paso.
+  ///
+  /// El código NO se comprueba aquí: se guarda y viaja con la creación de la
+  /// cuenta, donde el servidor lo verifica. Eso es justo lo que impide
+  /// saltarse el paso llamando directo a la API.
   Future<void> verifyCode() async {
     final code = verificationCodeCtrl.text.trim();
-    final email = foundUser.value?.correoInstitucional;
 
     if (code.length != 4) {
       _snack('Ingresa el código completo.');
       return;
     }
-
-    loading.value = true;
-
-    try {
-      final isValid = await _otpService.verifyOtp(email!, code);
-
-      if (isValid) {
-        _snack('Código correcto', isError: false);
-        registrationStep.value = 3;
-      } else {
-        _snack('El código es incorrecto o ha expirado.');
-      }
-    } catch (e) {
-      _snack('Error al validar: $e');
-    } finally {
-      loading.value = false;
-    }
+    registrationStep.value = 3;
   }
 
   bool _validatePassword(String password) {
@@ -266,9 +278,27 @@ class RegisterController {
         'telefono': user.celular,
         'fecha_nacimiento': fechaNacimientoEnvio,
         'carrera': user.leNombreEscuelaOficial,
+        // Aquí está la diferencia: el código va con el alta. El servidor
+        // verifica y crea en la misma operación, o no hace ninguna de las dos.
+        'codigo': verificationCodeCtrl.text.trim(),
       };
 
       final res = await _http.postJson('/api/usuarios', data: payload);
+
+      // Si el código caducó mientras llenaba el formulario, se vuelve al paso
+      // del código en vez de dejarlo atascado sin saber qué pasó.
+      if (res.statusCode == 400 || res.statusCode == 503) {
+        String? motivo;
+        try {
+          final b = jsonDecode(res.body);
+          if (b is Map) motivo = b['motivo']?.toString();
+        } catch (_) {}
+        if (motivo == 'codigo') {
+          verificationCodeCtrl.clear();
+          registrationStep.value = 2;
+          throw Exception(parseHttpError(res));
+        }
+      }
       if (res.statusCode == 409) {
         throw Exception('Ya existe una cuenta vinculada a ese correo o matrícula. Si olvidaste tu contraseña, usa la opción de recuperación.');
       }

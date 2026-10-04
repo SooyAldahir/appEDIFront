@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+29
+version: 1.0.0+32
 
 environment:
   sdk: ^3.9.2
@@ -60,6 +60,11 @@ dependencies:
 
   # Exportacion de resultados de encuestas a .xlsx
   excel: ^4.0.6
+
+  # Lee la version instalada para compararla con la publicada en las tiendas.
+  # Rango amplio a proposito: las versiones nuevas exigen Dart >= 3.10 y el
+  # proyecto declara ^3.9.2, asi pub elige la que encaje con tu SDK.
+  package_info_plus: '>=8.0.0 <11.0.0'
 
 
 dev_dependencies:

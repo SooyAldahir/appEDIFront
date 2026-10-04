@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:edi301/services/otp_service.dart';
 import 'package:edi301/services/users_api.dart';
 import 'package:edi301/auth/token_storage.dart';
 
@@ -10,10 +9,11 @@ import 'package:edi301/auth/token_storage.dart';
 ///   0 → Explicación de la consecuencia + botón para enviar el código.
 ///   1 → Captura del OTP de 4 dígitos enviado al correo del usuario.
 ///
-/// Tras verificar el código se llama al endpoint DELETE /api/usuarios/me,
-/// se borra la sesión local y se redirige a la pantalla de login.
+/// El código ya no se comprueba aquí: viaja con la petición de baja y lo
+/// verifica el servidor en la misma operación. Antes la app decidía sola si
+/// el código era bueno, así que llamar directo a DELETE /api/usuarios/me
+/// saltaba el paso entero.
 class DeleteAccountController {
-  final OtpService _otpService = OtpService();
   final UsersApi _usersApi = UsersApi();
   final TokenStorage _storage = TokenStorage();
 
@@ -59,7 +59,7 @@ class DeleteAccountController {
     }
     loading.value = true;
     try {
-      await _otpService.sendOtp(_email);
+      await _usersApi.enviarCodigoVerificacion(_email, proposito: 'BAJA');
       step.value = 1;
       if (context.mounted) {
         _snack(
@@ -89,14 +89,9 @@ class DeleteAccountController {
 
     loading.value = true;
     try {
-      final valid = await _otpService.verifyOtp(_email, code);
-      if (!valid) {
-        _snack(context, 'Código incorrecto.');
-        return false;
-      }
-
-      // OTP correcto: desactivar cuenta en el backend.
-      await _usersApi.deleteMyAccount();
+      // El código se manda con la baja. Si no es válido, el servidor rechaza
+      // y aquí lanza: la cuenta sigue intacta.
+      await _usersApi.deleteMyAccount(code);
 
       // Limpiar sesión local.
       await _storage.clear();

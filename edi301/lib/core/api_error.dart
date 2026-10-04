@@ -36,7 +36,9 @@ String _parse(int statusCode, String body) {
     case 400:
       return 'Datos inválidos. Verifica la información ingresada.';
     case 401:
-      return 'Correo o contraseña incorrectos.';
+      // El login trata su propio 401 antes de llegar aquí, así que este
+      // mensaje es para el resto de la app: sesión caducada, no credenciales.
+      return 'Tu sesión expiró. Vuelve a iniciar sesión.';
     case 403:
       return 'No tienes permisos para realizar esta acción.';
     case 404:

@@ -1,123 +1,26 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-
-class OtpService {
-  final String _baseUrl = 'https://api-otp.apps.isdapps.uk/api/v1';
-
-  final String _serviceEmail = 'waldir.ozuna@ulv.edu.mx';
-  final String _servicePassword = 'wozuna123456.';
-
-  Future<String> _authenticate() async {
-    final url = Uri.parse('$_baseUrl/user/login');
-    print('Autenticando servicio OTP...');
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': _serviceEmail,
-          'password': _servicePassword,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        final token = body['token'].toString();
-        print('Token obtenido (Longitud: ${token.length})');
-        return token;
-      } else {
-        print('Error Auth: ${response.body}');
-        throw Exception('Fallo la autenticación del servicio OTP.');
-      }
-    } catch (e) {
-      print('Error Conexión Auth: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> sendOtp(String userEmail) async {
-    try {
-      final token = await _authenticate();
-      final url = Uri.parse('$_baseUrl/otp_app/');
-
-      print('Enviando OTP a: $userEmail');
-
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-        'x-access-token': token,
-        'token': token,
-      };
-
-      final response = await http.post(
-        url,
-        headers: headers,
-        body: jsonEncode({
-          'email': userEmail,
-          'subject': 'Verificacion de Email',
-          'message': 'Verifica tu email con el codigo de abajo',
-          'duration': 1,
-        }),
-      );
-
-      print('Estatus SendOTP: ${response.statusCode}');
-
-      if (response.statusCode >= 400) {
-        print('Error SendOTP Body: ${response.body}');
-        try {
-          final body = jsonDecode(response.body);
-          throw Exception(body['message'] ?? 'Error (${response.statusCode})');
-        } catch (_) {
-          throw Exception(
-            'Error al enviar (${response.statusCode}): ${response.body}',
-          );
-        }
-      }
-
-      print('OTP Enviado con éxito');
-    } catch (e) {
-      print('Excepción en sendOtp: $e');
-      rethrow;
-    }
-  }
-
-  Future<bool> verifyOtp(String userEmail, String otpCode) async {
-    try {
-      final token = await _authenticate();
-
-      final url = Uri.parse('$_baseUrl/email_verification/verifyOTP');
-
-      print('Verificando OTP...');
-
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-        'x-access-token': token,
-        'token': token,
-      };
-
-      final response = await http.post(
-        url,
-        headers: headers,
-        body: jsonEncode({'email': userEmail, 'otp': otpCode}),
-      );
-
-      if (response.statusCode == 200) {
-        print('Código verificado. Body: ${response.body}');
-        try {
-          final body = jsonDecode(response.body);
-          if (body['verified'] == true) return true;
-        } catch (_) {}
-
-        return true;
-      }
-
-      print('Código incorrecto o error: ${response.body}');
-      return false;
-    } catch (e) {
-      print('Error VerifyOTP: $e');
-      return false;
-    }
-  }
-}
+// Este archivo ya no contiene nada.
+//
+// Aquí vivía `OtpService`, que hablaba directamente con el servicio de
+// verificación por correo desde el teléfono. Tenía dos problemas graves:
+//
+//   1. Las credenciales de la cuenta de servicio estaban escritas en el
+//      código, así que viajaban dentro de cada APK y de cada IPA. Cualquiera
+//      que descomprimiera la app las leía.
+//
+//   2. Comprobaba el código en el cliente. `verifyOtp` devolvía `true` ante
+//      cualquier respuesta 200, incluso cuando el cuerpo decía
+//      `verified: false`. Y aunque hubiera estado bien escrita, el servidor
+//      nunca se enteraba de que existía un código: bastaba con llamar a la
+//      API sin pasar por la app.
+//
+// Ahora el envío y la verificación los hace el backend, y la verificación
+// ocurre en la misma petición que la acción que protege (crear la cuenta,
+// cambiar la contraseña, dar de baja). Ver:
+//
+//   backend  src/services/otpService.js
+//   app      UsersApi.enviarCodigoVerificacion
+//
+// IMPORTANTE: quitar el archivo no deshace la exposición. Esa contraseña
+// sigue dentro de todas las apps ya instaladas y en el historial de git.
+// Hay que rotarla en el servicio; una vez rotada, el valor nuevo vive solo
+// en OTP_PASSWORD del servidor y no vuelve a salir de ahí.

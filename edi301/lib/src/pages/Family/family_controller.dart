@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:edi301/services/familia_api.dart';
 import 'package:edi301/services/users_api.dart';
 
 class FamilyController {
   BuildContext? context;
   final UsersApi _usersApi = UsersApi();
+  final FamiliaApi _familiaApi = FamiliaApi();
 
   Future? init(BuildContext context) {
     this.context = context;
@@ -34,19 +36,32 @@ class FamilyController {
     Navigator.pushNamed(context, 'edit', arguments: id);
   }
 
+  /// La familia del usuario, preguntada al servidor.
+  ///
+  /// Antes esto leía primero la copia del usuario guardada en el teléfono y,
+  /// si traía un `id_familia`, se quedaba con ese. Pero esa copia es una foto
+  /// del momento del login: cuando a alguien lo sacaban de la familia seguía
+  /// diciendo que pertenecía, así que la pantalla le mostraba los miembros de
+  /// una familia que ya no era suya, en vez del listado de familias
+  /// disponibles.
+  ///
+  /// Ahora manda el servidor. La copia local solo se usa si la petición falla
+  /// (sin conexión), donde mostrar lo último conocido es lo razonable.
   Future<int?> _resolveFamilyId() async {
-    final cachedId = await _readFamilyIdFromSession();
-    if (cachedId != null && cachedId > 0) {
-      debugPrint(
-        'FamilyController: ID encontrado en sesión local -> $cachedId',
-      );
-      return cachedId;
+    try {
+      final idServidor = await _familiaApi.miFamilia();
+      debugPrint('FamilyController: familia según el servidor -> $idServidor');
+      // `null` es una respuesta legítima: no está en ninguna familia. Se
+      // devuelve tal cual, SIN caer al valor local, que es justo el que está
+      // desactualizado en ese caso.
+      return idServidor;
+    } catch (e) {
+      debugPrint('FamilyController: no se pudo preguntar al servidor ($e); '
+          'se usa lo último conocido.');
+      final cachedId = await _readFamilyIdFromSession();
+      if (cachedId != null && cachedId > 0) return cachedId;
+      return _fetchFamilyIdByDocument();
     }
-
-    debugPrint(
-      'FamilyController: ID no encontrado en sesión, consultando API...',
-    );
-    return _fetchFamilyIdByDocument();
   }
 
   Future<int?> _readFamilyIdFromSession() async {

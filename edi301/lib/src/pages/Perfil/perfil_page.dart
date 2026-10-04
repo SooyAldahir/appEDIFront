@@ -906,6 +906,57 @@ class _PerfilPageState extends State<PerfilPage> {
                     ),
                     const SizedBox(height: 16),
 
+                    // "Ya tengo matrícula".
+                    //
+                    // Solo le aparece a quien entró en periodo de prueba: un
+                    // alumno al que todavía no le asignan matrícula. En cuanto
+                    // la completa, esta opción desaparece sola.
+                    if (_isAlumno &&
+                        (data['matricula']?.toString() ?? '—') == '—') ...[
+                      ListTile(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(color: Colors.amber.shade300),
+                        ),
+                        tileColor: Colors.amber.shade50,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 4,
+                        ),
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.hourglass_top_rounded,
+                            color: Colors.amber.shade900,
+                          ),
+                        ),
+                        title: const Text(
+                          'Ya tengo matrícula',
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Completa tu cuenta con tu correo institucional',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        trailing: const Icon(
+                          Icons.chevron_right_rounded,
+                          color: _primary,
+                        ),
+                        onTap: () async {
+                          await Navigator.pushNamed(context, 'promover_cuenta');
+                          if (mounted) _loadProfile();
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
                     // Renovación de ciclo (alumno: solicitar / padre: pendientes)
                     ListTile(
                       shape: RoundedRectangleBorder(

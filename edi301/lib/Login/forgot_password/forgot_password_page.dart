@@ -141,10 +141,29 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
                       const SizedBox(height: 20),
                       const SizedBox(height: 20),
+                      // "Continuar" y no "Verificar": el codigo se
+                      // comprueba en el servidor al guardar la contraseña,
+                      // junto con el cambio. Este boton solo avanza.
                       _buildButton(
-                        'Verificar',
+                        'Continuar',
                         secondaryColor,
                         () => c.verifyOtp(context),
+                      ),
+                      const SizedBox(height: 8),
+                      // El codigo caduca, y ahora se usa mas tarde que antes
+                      // (al guardar), asi que hace falta poder pedir otro sin
+                      // salir de aqui.
+                      ValueListenableBuilder<bool>(
+                        valueListenable: c.loading,
+                        builder: (context, loading, _) => TextButton(
+                          onPressed: loading
+                              ? null
+                              : () => c.reenviarCodigo(context),
+                          child: const Text(
+                            'Reenviar código',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ),
                       ),
                     ],
 

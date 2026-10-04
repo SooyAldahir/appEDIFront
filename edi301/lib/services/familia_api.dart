@@ -187,6 +187,22 @@ class FamiliaApi {
     }
   }
 
+  /// En qué familia está el usuario de la sesión, AHORA MISMO.
+  ///
+  /// Devuelve `null` cuando no está en ninguna, que es una respuesta válida.
+  /// Lanza si la petición falla, para que quien llama pueda distinguir "no
+  /// tiene familia" de "no pude preguntar".
+  Future<int?> miFamilia() async {
+    final res = await _http.getJson('/api/familias/mia');
+    if (res.statusCode >= 400) throw Exception(parseHttpError(res));
+    final body = jsonDecode(res.body);
+    if (body is Map && body['id_familia'] != null) {
+      final v = body['id_familia'];
+      return v is int ? v : int.tryParse(v.toString());
+    }
+    return null;
+  }
+
   Future<List<dynamic>?> getAvailable() async {
     try {
       final res = await _http.getJson(

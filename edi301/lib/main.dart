@@ -39,13 +39,22 @@ import 'package:edi301/src/pages/Admin/broadcast/broadcast_page.dart';
 import 'package:edi301/src/pages/Admin/renovaciones/renovaciones_admin_page.dart';
 import 'package:edi301/src/pages/Admin/configuracion/limite_hijos_edi_page.dart';
 import 'package:edi301/src/pages/Perfil/renovaciones/mis_renovaciones_page.dart';
+import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/services/socket_service.dart';
 import 'package:edi301/services/users_api.dart';
+import 'package:edi301/services/fcm_registro.dart';
 import 'package:edi301/src/pages/Encuestas/encuestas_page.dart';
 import 'package:edi301/src/pages/Admin/poblacion/poblacion_page.dart';
+import 'package:edi301/services/update_service.dart';
+import 'package:edi301/src/pages/Admin/version/version_app_page.dart';
+import 'package:edi301/src/pages/Admin/alumnos_prueba/alumnos_prueba_page.dart';
+import 'package:edi301/src/pages/Perfil/promover_cuenta/promover_cuenta_page.dart';
 import 'package:edi301/services/encuestas_api.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+
+/// Servicio de aviso de actualizaciones. Se crea en main().
+late final UpdateService updateService;
 
 Future<void> _openSurveyFromNotification(Map<String, dynamic> data) async {
   if (data['tipo'] != 'ENCUESTA') return;
@@ -66,82 +75,55 @@ Future<void> _openSurveyFromNotification(Map<String, dynamic> data) async {
   }
 }
 
+/// Cierra la sesion local y lleva al login. La dispara ApiHttp cuando el
+/// servidor responde 401 a una peticion que SI llevaba token.
+///
+/// Se ejecuta una sola vez aunque fallen varias peticiones a la vez: ApiHttp
+/// ya tiene su propio cerrojo, y aqui ademas se comprueba que no estemos ya
+/// en el login para no apilar navegaciones.
+Future<void> _cerrarSesionPorTokenInvalido() async {
+  try {
+    SocketService().disconnect();
+  } catch (_) {}
+
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user');
+    await prefs.remove('last_fcm_token_sent');
+  } catch (_) {}
+
+  final context = appNavigatorKey.currentContext;
+  if (context == null || !context.mounted) return;
+
+  final rutaActual = ModalRoute.of(context)?.settings.name;
+  if (rutaActual == 'login') return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Tu sesión se cerró. Vuelve a iniciar sesión.'),
+      behavior: SnackBarBehavior.floating,
+    ),
+  );
+
+  await appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+    'login',
+    (_) => false,
+  );
+}
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print("Notificación en Background recibida: ${message.messageId}");
 }
 
-/// Sincroniza token al backend si hay usuario logueado.
-/// Siempre intenta sincronizar para evitar tokens stale en la DB
-/// (ej. tras limpiar la DB durante pruebas o reinicio del servidor).
-Future<void> _syncFcmIfLoggedIn() async {
-  final prefs = await SharedPreferences.getInstance();
-  final userJson = prefs.getString('user');
-  if (userJson == null || userJson.isEmpty) return;
-
-  final user = jsonDecode(userJson) as Map<String, dynamic>;
-  final idUsuario = user['id_usuario'] ?? user['IdUsuario'];
-  if (idUsuario == null) return;
-
-  // ✅ En iOS hay que esperar el APNS token antes de pedir el FCM token
-  if (Platform.isIOS) {
-    final apnsToken = await FirebaseMessaging.instance.getAPNSToken();
-    if (apnsToken == null) return; // Simulador o sin permisos → salir sin error
-  }
-
-  String? fcmToken;
-  try {
-    fcmToken = await FirebaseMessaging.instance.getToken();
-  } catch (e) {
-    print("⚠️ No se pudo obtener FCM token: $e");
-    return;
-  }
-
-  if (fcmToken == null || fcmToken.isEmpty) return;
-
-  // Siempre sincronizamos en cada arranque para garantizar que la DB
-  // tenga el token vigente, independientemente del caché local.
-  final ok = await UsersApi().updateFcmToken(
-    int.parse(idUsuario.toString()),
-    fcmToken,
-  );
-  if (ok) {
-    await prefs.setString('last_fcm_token_sent', fcmToken);
-    print("✅ FCM token sincronizado en arranque");
-  } else {
-    print("❌ No se pudo sincronizar FCM token en arranque");
-  }
-}
-
-/// Escucha refresh de token y lo amnda al backend
-Future<void> _listenFcmRefresh() async {
-  final prefs = await SharedPreferences.getInstance();
-  final userJson = prefs.getString('user');
-  if (userJson == null || userJson.isEmpty) return;
-
-  final user = jsonDecode(userJson) as Map<String, dynamic>;
-  final idUsuario = user['id_usuario'] ?? user['IdUsuario'];
-  if (idUsuario == null) return;
-
-  FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
-    if (newToken.isEmpty) return;
-
-    final lastSent = prefs.getString('last_fcm_token_sent');
-    if (lastSent == newToken) return;
-
-    final ok = await UsersApi().updateFcmToken(
-      int.parse(idUsuario.toString()),
-      newToken,
-    );
-    if (ok) {
-      await prefs.setString('last_fcm_token_sent', newToken);
-      print("✅ FCM token actualizado por refresh");
-    } else {
-      print("❌ Falló update FCM token por refresh");
-    }
-  });
-}
+/// Registro del token de notificaciones.
+///
+/// Todo lo que había aquí (esperar APNs, pedir el token, mandarlo, escuchar el
+/// refresco) vive ahora en `FcmRegistro`, porque estaba duplicado en el login
+/// con reglas distintas y esa diferencia era el bug: la copia del login no
+/// esperaba el token de APNs.
+Future<void> _syncFcmIfLoggedIn() => FcmRegistro.registrar(motivo: 'arranque');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -163,6 +145,15 @@ void main() async {
     } catch (_) {}
   };
   await notiService.requestPermissions();
+
+  // Además del permiso del plugin local: en iOS, ESTE es el que hace que la
+  // app se registre en APNs. Sin él, el token de APNs podía no llegar nunca y
+  // el dispositivo se quedaba sin notificaciones.
+  await FcmRegistro.pedirPermiso();
+
+  // Se engancha sin comprobar si hay sesión: quien inicie sesión en este mismo
+  // arranque también necesita la escucha, y antes se salía temprano.
+  FcmRegistro.escucharRefresco();
 
   // Foreground: mostrar notificación local cuando la app está abierta
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -205,8 +196,8 @@ void main() async {
   await TokenStorage().migrateLegacyToken();
 
   // ✅ Importante: sincronizar token si ya está logueado (entra directo a home)
+  // El refresco ya se engancha arriba, antes del login.
   await _syncFcmIfLoggedIn();
-  await _listenFcmRefresh();
 
   final prefs = await SharedPreferences.getInstance();
   final userJson = prefs.getString('user');
@@ -226,6 +217,18 @@ void main() async {
   HttpOverrides.global = MyHttpOverrides();
 
   runApp(MyApp(initialRoute: initialRoute));
+
+  // Aviso de version nueva. Va despues de runApp porque necesita un contexto
+  // de navegacion para mostrar el dialogo, y se queda escuchando el ciclo de
+  // vida para volver a consultar cuando la app regresa de la tienda.
+  // Si falla no pasa nada: el servicio se traga cualquier error.
+  updateService = UpdateService(appNavigatorKey)..iniciar();
+
+  // Que hacer cuando el servidor rechaza la sesion (401). Pasa cuando la
+  // cerraron desde otro dispositivo, cuando se alcanzo el limite de 5
+  // sesiones activas y esta era la mas antigua, o si desactivaron la cuenta.
+  // ApiHttp ya borro el token; aqui se limpia el resto y se manda al login.
+  ApiHttp.onSesionInvalida = _cerrarSesionPorTokenInvalido;
   FirebaseMessaging.onMessageOpenedApp.listen(
     (message) => _openSurveyFromNotification(message.data),
   );
@@ -295,6 +298,9 @@ class MyApp extends StatelessWidget {
         'agenda_detail': (context) => const AgendaDetailPage(),
         'reportes': (context) => const ReportesPage(),
         'poblacion': (context) => const PoblacionPage(),
+        'version_app': (context) => const VersionAppPage(),
+        'alumnos_prueba': (context) => const AlumnosPruebaPage(),
+        'promover_cuenta': (context) => const PromoverCuentaPage(),
         'notifications': (_) => const NotificationsPage(),
         'notificaciones_historial': (_) => const NotificacionesHistorialPage(),
         'cumpleaños': (context) => const BirthdaysPage(),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:edi301/services/fcm_registro.dart';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -7,8 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/token_storage.dart';
 import '../core/api_client_http.dart';
 import '../core/api_error.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:edi301/services/users_api.dart';
 import 'package:edi301/services/socket_service.dart';
 import 'package:edi301/src/pages/Family/family_match_modal.dart';
 
@@ -21,7 +20,6 @@ class LoginController {
   late BuildContext _ctx;
 
   final TokenStorage _tokenStorage = TokenStorage();
-  final UsersApi _usersApi = UsersApi();
 
   void init(BuildContext context) => _ctx = context;
 
@@ -122,27 +120,18 @@ class LoginController {
       // Guardar sesión local
       await prefs.setString('user', jsonEncode(data));
 
-      // ✅ Registrar token FCM siempre en cada login
-      // (no usamos lastSent aquí para garantizar que el backend siempre tenga el token vigente,
-      //  especialmente si la DB fue limpiada o el token expiró)
-      if (idUsuario != null) {
-        try {
-          final fcmToken = await FirebaseMessaging.instance.getToken();
-          if (fcmToken != null && fcmToken.isNotEmpty) {
-            print("🔥 Registrando FCM Token en login: $fcmToken");
-            final ok = await _usersApi.updateFcmToken(
-              int.parse(idUsuario.toString()),
-              fcmToken,
-            );
-            print("✅ ¿Registro exitoso en servidor?: $ok");
-            if (ok) {
-              await prefs.setString('last_fcm_token_sent', fcmToken);
-            }
-          }
-        } catch (e) {
-          print("No se pudo registrar el token FCM: $e");
-        }
-      }
+      // Aquí estaba el bug de iOS.
+      //
+      // Esta copia llamaba a getToken() directamente, sin esperar el token de
+      // APNs, mientras que la del arranque sí lo esperaba. En iOS getToken()
+      // falla si APNs no está listo, y justo en el primer inicio de sesión
+      // tras instalar no lo está: el token no se mandaba nunca y ese
+      // dispositivo se quedaba sin notificaciones hasta que se reiniciaba la
+      // app. Ahora las dos rutas usan el mismo código, que espera y reintenta.
+      //
+      // Se registra en cada login aunque el token no haya cambiado: cada
+      // inicio de sesión crea una fila de sesión nueva con el token vacío.
+      await FcmRegistro.registrar(motivo: 'login');
 
       final rol = (data['rol'] ?? data['role'] ?? '').toString();
       final tipoUsuario = (data['TipoUsuario'] ?? data['tipoUsuario'] ?? '')

@@ -11,7 +11,7 @@ class ApiHttp extends http.BaseClient {
   factory ApiHttp() => _i;
 
   /// Se puede reemplazar por ambiente al compilar:
-  /// flutter run --dart-define=API_BASE_URL=http://192.168.100.7:3000
+  /// flutter run --dart-define=API_BASE_URL=http://10.50.0.57:3000
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://edi301.apps.isdapps.uk',
@@ -46,6 +46,15 @@ class ApiHttp extends http.BaseClient {
     return Uri.parse('$base$path');
   }
 
+  /// Qué hacer cuando el servidor dice que la sesión ya no vale. Lo registra
+  /// main.dart; aquí solo se avisa, para no meter navegación dentro del
+  /// cliente HTTP ni crear una dependencia circular con main.
+  static Future<void> Function()? onSesionInvalida;
+
+  /// Evita que diez peticiones fallando a la vez disparen diez cierres de
+  /// sesión y diez navegaciones al login.
+  bool _cerrandoSesion = false;
+
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
     final token = await _readToken();
@@ -62,7 +71,30 @@ class ApiHttp extends http.BaseClient {
       }
     }
 
-    return _inner.send(request).timeout(_timeout);
+    final res = await _inner.send(request).timeout(_timeout);
+
+    // Un 401 en una petición que SÍ llevaba token significa que la sesión
+    // dejó de ser válida: la cerraron desde otro dispositivo, se alcanzó el
+    // límite de 5 sesiones activas y esta era la más antigua, o la cuenta se
+    // desactivó.
+    //
+    // Sin esto la app se queda con un token muerto y muestra un error en cada
+    // pantalla, sin forma de llegar al login. Se comprueba `token != null` a
+    // propósito: durante el propio inicio de sesión no hay token, y ahí un
+    // 401 sí significa credenciales incorrectas.
+    if (res.statusCode == 401 && token != null && !_cerrandoSesion) {
+      _cerrandoSesion = true;
+      try {
+        await _tokenStorage.clear();
+        await onSesionInvalida?.call();
+      } catch (_) {
+        // Nunca dejar que la limpieza tape la respuesta original.
+      } finally {
+        _cerrandoSesion = false;
+      }
+    }
+
+    return res;
   }
 
   Future<http.Response> getJson(

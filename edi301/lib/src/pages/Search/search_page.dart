@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:edi301/core/api_client_http.dart';
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +23,14 @@ class _SearchPageState extends State<SearchPage> {
   final ValueNotifier<List<FamilyMini>> _familias = ValueNotifier([]);
   final ValueNotifier<List<UserMini>> _externos = ValueNotifier([]);
   bool _searched = false;
+
+  /// Espera a que la persona deje de teclear antes de preguntarle al
+  /// servidor. Sin esto, escribir "Hernandez" lanzaba una busqueda por letra.
+  Timer? _debounce;
+
+  /// Numero de la busqueda en curso. Cada llamada toma el siguiente; al
+  /// volver del servidor, una respuesta con un numero viejo se descarta.
+  int _busquedaActual = 0;
 
   final _api = SearchApi();
   final ChatApi _chatApi = ChatApi();
@@ -52,6 +62,7 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _qCtrl.dispose();
     _loading.dispose();
     _alumnos.dispose();
@@ -61,36 +72,65 @@ class _SearchPageState extends State<SearchPage> {
     super.dispose();
   }
 
+  void _limpiarResultados() {
+    _alumnos.value = [];
+    _empleados.value = [];
+    _familias.value = [];
+    _externos.value = [];
+  }
+
+  /// El parpadeo que se veia venia de aqui.
+  ///
+  /// Las respuestas no llegan en el orden en que se piden: la de "Her" podia
+  /// llegar despues de la de "Hernandez" y pisarla. Por eso cada busqueda toma
+  /// un numero y, al volver, comprueba que sigue siendo la ultima antes de
+  /// tocar la pantalla.
   Future<void> _runSearch([String? raw]) async {
+    // Si esto viene de pulsar "buscar", no tiene sentido que ademas dispare
+    // el temporizador pendiente un instante despues.
+    _debounce?.cancel();
+
     final q = (raw ?? _qCtrl.text).trim();
+    final mia = ++_busquedaActual;
+
     if (q.isEmpty) {
-      _alumnos.value = [];
-      _empleados.value = [];
-      _familias.value = [];
-      _externos.value = [];
+      _limpiarResultados();
+      _loading.value = false;
       setState(() => _searched = false);
       return;
     }
+
     _loading.value = true;
     try {
       final r = await _api.searchAll(q);
+      if (!mounted || mia != _busquedaActual) return;
       _alumnos.value = r.alumnos;
       _empleados.value = r.empleados;
       _familias.value = r.familias;
       _externos.value = r.externos;
+    } on BusquedaSaturada {
+      if (!mounted || mia != _busquedaActual) return;
+      // Aqui NO se borra lo que ya habia. Quedarse en blanco por un limite de
+      // peticiones se lee como "no existe esa persona", que es justo lo
+      // contrario de lo que paso.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Demasiadas búsquedas seguidas. Espera unos segundos.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
     } catch (_) {
-      _alumnos.value = [];
-      _empleados.value = [];
-      _familias.value = [];
-      _externos.value = [];
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo completar la búsqueda')),
-        );
-      }
+      if (!mounted || mia != _busquedaActual) return;
+      _limpiarResultados();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo completar la búsqueda')),
+      );
     } finally {
-      _loading.value = false;
-      setState(() => _searched = true);
+      // Una respuesta atrasada tampoco apaga el indicador de la busqueda nueva.
+      if (mounted && mia == _busquedaActual) {
+        _loading.value = false;
+        setState(() => _searched = true);
+      }
     }
   }
 
@@ -330,7 +370,21 @@ class _SearchPageState extends State<SearchPage> {
       textInputAction: TextInputAction.search,
       onSubmitted: _runSearch,
       onChanged: (v) {
-        if (v.trim().length >= 3) _runSearch(v);
+        _debounce?.cancel();
+        final q = v.trim();
+        // Borrar el texto limpia la pantalla; antes se quedaban colgados los
+        // resultados de la busqueda anterior.
+        if (q.isEmpty) {
+          _runSearch('');
+          return;
+        }
+        if (q.length < 3) return;
+        // 350 ms: lo bastante corto para que se sienta inmediato y lo bastante
+        // largo para que una palabra entera sea una sola peticion.
+        _debounce = Timer(
+          const Duration(milliseconds: 350),
+          () => _runSearch(q),
+        );
       },
       decoration: InputDecoration(
         hintText: 'Ingrese matrícula, # de empleado o nombre de familia',

@@ -229,9 +229,19 @@ class _RegisterPageState extends State<RegisterPage> {
         const SizedBox(height: 30),
         _buildOtpRow(),
         const SizedBox(height: 20),
+        // "Continuar" y no "Validar Código": la comprobación la hace el
+        // servidor al crear la cuenta. Decir aquí que se validó sería mentira.
         _buttonAction(
-          text: 'Validar Código',
+          text: 'Continuar',
           onPressed: _controller.verifyCode,
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: () => _controller.reenviarCodigo(),
+          child: const Text(
+            'Reenviar código',
+            style: TextStyle(color: Colors.white70),
+          ),
         ),
       ],
     );
@@ -247,7 +257,7 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         const SizedBox(height: 20),
         const Text(
-          '¡Verificación exitosa! \nAhora crea tu contraseña:',
+          'Ahora crea tu contraseña:',
           style: TextStyle(color: Colors.white, fontSize: 16),
           textAlign: TextAlign.center,
         ),

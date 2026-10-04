@@ -1,7 +1,7 @@
+import 'package:edi301/auth/token_storage.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../core/api_client_http.dart';
 
 class PublicacionesApi {
@@ -18,16 +18,10 @@ class PublicacionesApi {
     try {
       final uri = Uri.parse('${ApiHttp.baseUrl}/api/publicaciones');
       final request = http.MultipartRequest('POST', uri);
-      final prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('token');
-
-      if (token == null) {
-        final userStr = prefs.getString('user');
-        if (userStr != null) {
-          final u = jsonDecode(userStr);
-          token = u['token'] ?? u['session_token'] ?? u['access_token'];
-        }
-      }
+      // Una sola fuente de verdad: el almacen seguro. Antes esto leia
+      // prefs.getString('token'), una clave que el login ya no escribe, y
+      // sobrevivia por el respaldo del JSON 'user'.
+      final token = await TokenStorage().read();
 
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
@@ -66,15 +60,10 @@ class PublicacionesApi {
 
   Future<List<dynamic>> getPendientes(int idFamilia) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      String? token = prefs.getString('token');
-      if (token == null) {
-        final uStr = prefs.getString('user');
-        if (uStr != null) {
-          token = jsonDecode(uStr)['session_token'];
-        }
-      }
+      // Una sola fuente de verdad: el almacen seguro. Antes esto leia
+      // prefs.getString('token'), una clave que el login ya no escribe, y
+      // sobrevivia por el respaldo del JSON 'user'.
+      final token = await TokenStorage().read();
 
       final url = Uri.parse(
         '${ApiHttp.baseUrl}/api/publicaciones/familia/$idFamilia/pendientes',
@@ -136,19 +125,8 @@ class PublicacionesApi {
 
   Future<List<dynamic>> getMisPosts() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      String? token = prefs.getString('token');
-      if (token == null) {
-        final userStr = prefs.getString('user');
-        if (userStr != null) {
-          final userJson = jsonDecode(userStr);
-          token =
-              userJson['token'] ??
-              userJson['session_token'] ??
-              userJson['access_token'];
-        }
-      }
+      // Una sola fuente de verdad: el almacen seguro.
+      final token = await TokenStorage().read();
 
       if (token == null) {
         print("No encontré token en el celular.");
@@ -182,15 +160,10 @@ class PublicacionesApi {
   /// a través de la membresía del usuario en EDI.Miembros_Familia.
   Future<List<dynamic>> getMisPendientes() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('token');
-      if (token == null) {
-        final uStr = prefs.getString('user');
-        if (uStr != null) {
-          final u = jsonDecode(uStr);
-          token = u['token'] ?? u['session_token'] ?? u['access_token'];
-        }
-      }
+      // Una sola fuente de verdad: el almacen seguro. Antes esto leia
+      // prefs.getString('token'), una clave que el login ya no escribe, y
+      // sobrevivia por el respaldo del JSON 'user'.
+      final token = await TokenStorage().read();
 
       final url = Uri.parse(
         '${ApiHttp.baseUrl}/api/publicaciones/mis-pendientes',
@@ -218,14 +191,10 @@ class PublicacionesApi {
 
   Future<bool> responderSolicitud(int idPost, String nuevoEstado) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('token');
-      if (token == null) {
-        final uStr = prefs.getString('user');
-        if (uStr != null) {
-          token = jsonDecode(uStr)['session_token'];
-        }
-      }
+      // Una sola fuente de verdad: el almacen seguro. Antes esto leia
+      // prefs.getString('token'), una clave que el login ya no escribe, y
+      // sobrevivia por el respaldo del JSON 'user'.
+      final token = await TokenStorage().read();
 
       final url = Uri.parse(
         '${ApiHttp.baseUrl}/api/publicaciones/$idPost/estado',

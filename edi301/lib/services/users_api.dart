@@ -55,8 +55,16 @@ class UsersApi {
   /// El backend conserva las relaciones (familia, mensajes, publicaciones)
   /// y libera el correo, matrícula y núm. empleado para permitir que la
   /// persona se registre nuevamente con los mismos datos si así lo desea.
-  Future<void> deleteMyAccount() async {
-    final res = await _http.deleteJson('/api/usuarios/me');
+  ///
+  /// El código viaja en la misma petición: el servidor lo verifica y da de
+  /// baja en una sola operación, o no hace ninguna de las dos. Antes la app
+  /// comprobaba el código por su cuenta y luego pedía la baja, así que
+  /// llamando directo a la ruta se saltaba la comprobación entera.
+  Future<void> deleteMyAccount(String codigo) async {
+    final res = await _http.deleteJson(
+      '/api/usuarios/me',
+      data: {'codigo': codigo},
+    );
     if (res.statusCode >= 400) {
       throw Exception(parseHttpError(res));
     }
@@ -310,6 +318,13 @@ class UsersApi {
   }
 
   /// Verifica si el correo existe en la BD. Lanza [Exception] con mensaje amigable si no existe.
+  /// Comprueba si un correo tiene cuenta.
+  ///
+  /// Ya NO se usa en la recuperación de contraseña. Respondía 404 cuando el
+  /// correo no estaba registrado, y eso convertía la API en una forma cómoda
+  /// de averiguar quién tiene cuenta en la universidad. El flujo nuevo pide
+  /// el código sin preguntar antes, y el servidor contesta lo mismo exista o
+  /// no la cuenta.
   Future<void> checkEmailExists(String email) async {
     final res = await _http.postJson(
       '/api/auth/verificar-correo',
@@ -320,16 +335,91 @@ class UsersApi {
     }
   }
 
-  Future<bool> resetPassword(String email, String newPassword) async {
-    try {
-      final res = await _http.postJson(
-        '/api/auth/reset-password',
-        data: {'correo': email, 'nuevaContrasena': newPassword},
-      );
-      return res.statusCode == 200;
-    } catch (e) {
-      print('Error en resetPassword: $e');
-      return false;
+  /// Pide al SERVIDOR que mande un código al correo.
+  ///
+  /// Antes esto lo hacía la app llamando directo al servicio de OTP, con las
+  /// credenciales de servicio escritas dentro del código y, por tanto, dentro
+  /// del APK. Ahora la app solo dice "manda un código a este correo".
+  ///
+  /// `proposito`: RESET, REGISTRO, BAJA o PROMOCION.
+  ///
+  /// Lanza si el correo no tiene cuenta (404) o si ya la tiene cuando no
+  /// debería (409). Quien llama NO debe avanzar de pantalla si esto lanza.
+  ///
+  /// Devuelve el mensaje del servidor para mostrarlo tal cual: así el texto
+  /// vive en un solo sitio y no hay que recompilar la app para cambiarlo.
+  Future<String> enviarCodigoVerificacion(
+    String correo, {
+    String proposito = 'RESET',
+  }) async {
+    final res = await _http.postJson(
+      '/api/auth/enviar-codigo',
+      data: {'correo': correo, 'proposito': proposito},
+    );
+    if (res.statusCode >= 400) {
+      throw Exception(parseHttpError(res));
     }
+    try {
+      final body = jsonDecode(res.body);
+      if (body is Map && body['message'] != null) {
+        return body['message'].toString();
+      }
+    } catch (_) {}
+    return 'Te enviamos un código a tu correo.';
   }
+
+  /// Cambia la contraseña. El código se manda EN LA MISMA petición.
+  ///
+  /// Esto es lo importante del cambio: ya no hay un paso "verificar código"
+  /// separado que la app pudiera saltarse o interpretar mal. El servidor
+  /// verifica y cambia en la misma operación, o no hace nada.
+  Future<ResultadoReset> resetPasswordConCodigo(
+    String correo,
+    String codigo,
+    String nuevaContrasena,
+  ) async {
+    final res = await _http.postJson(
+      '/api/auth/reset-password',
+      data: {
+        'correo': correo,
+        'codigo': codigo,
+        'nuevaContrasena': nuevaContrasena,
+      },
+    );
+
+    if (res.statusCode == 200) return const ResultadoReset.exito();
+
+    // `motivo` dice a qué paso volver sin tener que leer el texto del error.
+    String? motivo;
+    try {
+      final body = jsonDecode(res.body);
+      if (body is Map) motivo = body['motivo']?.toString();
+    } catch (_) {}
+
+    return ResultadoReset.error(
+      mensaje: parseHttpError(res),
+      codigoInvalido: motivo == 'codigo',
+    );
+  }
+}
+
+/// Resultado de cambiar la contraseña.
+///
+/// Se distingue el código inválido del resto de errores porque la pantalla
+/// tiene que reaccionar distinto: con un código malo hay que volver a pedirlo,
+/// con una contraseña débil la persona se queda donde está corrigiéndola.
+class ResultadoReset {
+  final bool ok;
+  final bool codigoInvalido;
+  final String mensaje;
+
+  const ResultadoReset.exito()
+      : ok = true,
+        codigoInvalido = false,
+        mensaje = 'Contraseña actualizada con éxito';
+
+  const ResultadoReset.error({
+    required this.mensaje,
+    this.codigoInvalido = false,
+  }) : ok = false;
 }

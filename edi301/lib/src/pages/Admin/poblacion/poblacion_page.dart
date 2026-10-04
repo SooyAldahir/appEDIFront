@@ -107,6 +107,7 @@ class _PoblacionPageState extends State<PoblacionPage> {
                 const SizedBox(height: 12),
                 _barraProporcion(padres, hijos),
                 const SizedBox(height: 20),
+                _periodoPrueba(data['periodo_prueba']),
                 _excluidos(totales),
                 const SizedBox(height: 20),
                 _tablaRoles(roles),
@@ -235,6 +236,59 @@ class _PoblacionPageState extends State<PoblacionPage> {
               : '${(hijos / padres).toStringAsFixed(2)} hijos por cada padre',
           style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
         ),
+      ],
+    );
+  }
+
+  /// Alumnos en periodo de prueba.
+  ///
+  /// Ya están contados dentro de "Hijos": son ALUMNO con rol HijoEDI, no un
+  /// tipo aparte. Se muestran igualmente porque la pregunta que sigue siempre
+  /// es cuántos de esos alumnos todavía no tienen matrícula.
+  ///
+  /// Si la migración 011 aún no se ha corrido, el backend manda esto vacío y
+  /// el bloque no se dibuja, en vez de romper el reporte entero.
+  Widget _periodoPrueba(dynamic bruto) {
+    if (bruto is! Map) return const SizedBox.shrink();
+    final p = Map<String, dynamic>.from(bruto);
+    final enPrueba = _int(p['en_prueba']);
+    final vencidos = _int(p['en_prueba_vencidos']);
+    final promovidos = _int(p['ya_promovidos']);
+    if (enPrueba == 0 && promovidos == 0) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('En periodo de prueba',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const SizedBox(height: 2),
+              Text(
+                'Incluidos ya en "Hijos". Se listan aparte porque son los que '
+                'todavía no tienen matrícula.',
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 12),
+              _renglon('Sin matrícula ahora mismo', enPrueba),
+              if (vencidos > 0)
+                _renglon(
+                  'De esos, pasados de ${_int(p['dias_periodo'])} días',
+                  vencidos,
+                ),
+              _renglon('Ya promovidos (histórico)', promovidos),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
       ],
     );
   }

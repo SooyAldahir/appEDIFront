@@ -98,19 +98,41 @@ List<FamilyMini> _parseFamilies(dynamic v) {
   return const [];
 }
 
+/// El servidor respondio 429: demasiadas busquedas en poco tiempo.
+///
+/// Se distingue del resto de errores a proposito. Un 429 no significa "no hay
+/// resultados", significa "pregunta otra vez en un momento", y la pantalla
+/// tiene que decir eso en lugar de quedarse en blanco.
+class BusquedaSaturada implements Exception {
+  const BusquedaSaturada();
+  @override
+  String toString() => 'Demasiadas busquedas seguidas';
+}
+
 class SearchApi {
   final ApiHttp _http = ApiHttp();
 
   Future<dynamic> _safeGet(String path, {Map<String, dynamic>? query}) async {
     try {
       final res = await _http.getJson(path, query: query);
+      // El 429 no se traga: es el unico error que la pantalla necesita
+      // distinguir, porque la respuesta correcta es esperar, no rendirse.
+      if (res.statusCode == 429) throw const BusquedaSaturada();
       if (res.statusCode >= 400) return const [];
       return jsonDecode(res.body);
+    } on BusquedaSaturada {
+      rethrow;
     } catch (_) {
       return const [];
     }
   }
 
+  /// Dos peticiones por busqueda, no cuatro.
+  ///
+  /// Antes eran: tres a /api/usuarios (identicas salvo por `tipo`) mas una o
+  /// dos de familias. Con el buscador disparando en cada tecla, escribir un
+  /// apellido gastaba decenas de peticiones y chocaba con el limite del
+  /// servidor, que responde 429 y deja la pantalla en blanco.
   Future<SearchResult> searchAll(String input) async {
     final q = input.trim();
     if (q.length < 2) {
@@ -123,44 +145,29 @@ class SearchApi {
     }
 
     final isNumeric = RegExp(r'^\d+$').hasMatch(q);
-    final alumnosF = _safeGet(
+
+    // Los tres tipos en una sola llamada: el backend acepta la lista separada
+    // por comas y devuelve TipoUsuario en cada fila, que es con lo que se
+    // reparten abajo.
+    final usuariosF = _safeGet(
       '/api/usuarios',
-      query: {'tipo': 'ALUMNO', 'q': q},
+      query: {'tipo': 'ALUMNO,EMPLEADO,EXTERNO', 'q': q},
     );
-    final empleadosF = _safeGet(
-      '/api/usuarios',
-      query: {'tipo': 'EMPLEADO', 'q': q},
-    );
-    final externosF = _safeGet(
-      '/api/usuarios',
-      query: {'tipo': 'EXTERNO', 'q': q},
-    );
-    final familiasByMatF = isNumeric
+
+    // Para un numero se hacian dos llamadas, una con `matricula` y otra con
+    // `numEmpleado`. Son la misma: el backend compara el valor contra las dos
+    // columnas en la misma consulta, asi que la segunda devolvia exactamente
+    // lo mismo que la primera.
+    final familiasF = isNumeric
         ? _safeGet(
             '/api/usuarios/familias/by-doc/search',
             query: {'matricula': q},
           )
-        : Future.value(const []);
-    final familiasByEmpF = isNumeric
-        ? _safeGet(
-            '/api/usuarios/familias/by-doc/search',
-            query: {'numEmpleado': q},
-          )
-        : Future.value(const []);
-    final familiasByNameF = !isNumeric
-        ? _safeGet('/api/familias/search', query: {'name': q})
-        : Future.value(const []);
+        : _safeGet('/api/familias/search', query: {'name': q});
 
-    final resps = await Future.wait<dynamic>([
-      alumnosF,
-      empleadosF,
-      familiasByMatF,
-      familiasByEmpF,
-      familiasByNameF,
-      externosF,
-    ]);
+    final resps = await Future.wait<dynamic>([usuariosF, familiasF]);
 
-    List<dynamic> _ensureList(dynamic d) {
+    List<dynamic> ensureList(dynamic d) {
       if (d == null) return const [];
       if (d is List) return d;
       if (d is Map && d.containsKey('data') && d['data'] is List) {
@@ -175,43 +182,22 @@ class SearchApi {
       return const [];
     }
 
-    final alumnos = _ensureList(resps[0])
+    final usuarios = ensureList(resps[0])
         .map((e) => UserMini.fromJson(Map<String, dynamic>.from(e)))
-        .where((u) => u.tipo.toUpperCase() == 'ALUMNO')
         .toList();
 
-    final empleados = _ensureList(resps[1])
-        .map((e) => UserMini.fromJson(Map<String, dynamic>.from(e)))
-        .where((u) => u.tipo.toUpperCase() == 'EMPLEADO')
-        .toList();
+    List<UserMini> soloDe(String tipo) =>
+        usuarios.where((u) => u.tipo.toUpperCase() == tipo).toList();
 
-    final externos = _ensureList(resps[5])
-        .map((e) => UserMini.fromJson(Map<String, dynamic>.from(e)))
-        .where((u) => u.tipo.toUpperCase() == 'EXTERNO')
+    final familias = ensureList(resps[1])
+        .map((e) => FamilyMini.fromJson(Map<String, dynamic>.from(e)))
         .toList();
-
-    List<FamilyMini> familias;
-    if (isNumeric) {
-      final a = _ensureList(
-        resps[2],
-      ).map((e) => FamilyMini.fromJson(Map<String, dynamic>.from(e))).toList();
-      final b = _ensureList(
-        resps[3],
-      ).map((e) => FamilyMini.fromJson(Map<String, dynamic>.from(e))).toList();
-      final map = <int, FamilyMini>{};
-      for (final f in [...a, ...b]) map[f.id] = f;
-      familias = map.values.toList();
-    } else {
-      familias = _ensureList(
-        resps[4],
-      ).map((e) => FamilyMini.fromJson(Map<String, dynamic>.from(e))).toList();
-    }
 
     return SearchResult(
-      alumnos: alumnos,
-      empleados: empleados,
+      alumnos: soloDe('ALUMNO'),
+      empleados: soloDe('EMPLEADO'),
       familias: familias,
-      externos: externos,
+      externos: soloDe('EXTERNO'),
     );
   }
 }

@@ -1,6 +1,14 @@
 import 'package:edi301/src/widgets/responsive_content.dart';
 import 'package:flutter/material.dart';
 
+/// Panel de control del administrador.
+///
+/// Organizado por **lo que hace cada cosa**, no por el tamaño de la tarjeta.
+/// Antes había una fila que repartía el ancho entre todas las tarjetas que le
+/// cupieran: con tres se veía bien, pero al agregar Población y Versión
+/// quedaron cinco apretadas en un renglón. Ahora cada sección es una
+/// cuadrícula que se acomoda sola, así que agregar una opción nueva no
+/// descuadra nada.
 class AdminPage extends StatelessWidget {
   const AdminPage({super.key});
 
@@ -8,7 +16,7 @@ class AdminPage extends StatelessWidget {
   static const _gold = Color.fromRGBO(245, 188, 6, 1);
   static const _navyL = Color.fromRGBO(30, 85, 135, 1);
 
-  // Módulo principal (ancho completo)
+  // Lo más usado, y lo único que va destacado a ancho completo.
   static const _primary = _AdminItem(
     label: 'Consultar Familias',
     sub: 'Directorio, detalles y reportes',
@@ -18,118 +26,138 @@ class AdminPage extends StatelessWidget {
     accent: _gold,
   );
 
-  // Grid 2x2
-  static const _grid = [
-    _AdminItem(
-      label: 'Agregar\nFamilia',
-      sub: 'Nueva familia',
-      icon: Icons.add_home_rounded,
-      route: 'add_family',
-      gradient: [Color(0xFF1565C0), Color(0xFF0D47A1)],
-      accent: Color(0xFF82B1FF),
-    ),
-    _AdminItem(
-      label: 'Asignar\nAlumnos',
-      sub: 'A familia existente',
-      icon: Icons.school_rounded,
-      route: 'add_alumns',
-      gradient: [Color(0xFF00695C), Color(0xFF004D40)],
-      accent: Color(0xFF80CBC4),
-    ),
-    _AdminItem(
-      label: 'Tutor\nExterno',
-      sub: 'Sin correo inst.',
-      icon: Icons.person_add_alt_1_rounded,
-      route: 'add_tutor',
-      gradient: [Color(0xFF6A1B9A), Color(0xFF4A148C)],
-      accent: Color(0xFFCE93D8),
-    ),
-    _AdminItem(
-      label: 'Cumpleaños',
-      sub: 'Pasados y próximos',
-      icon: Icons.cake_rounded,
-      route: 'cumpleaños',
-      gradient: [Color(0xFFC62828), Color(0xFFB71C1C)],
-      accent: Color(0xFFEF9A9A),
-    ),
+  static const _secciones = <_Seccion>[
+    _Seccion('Familias', [
+      _AdminItem(
+        label: 'Agregar familia',
+        sub: 'Nueva familia',
+        icon: Icons.add_home_rounded,
+        route: 'add_family',
+        gradient: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+        accent: Color(0xFF82B1FF),
+      ),
+      _AdminItem(
+        label: 'Asignar alumnos',
+        sub: 'A familia existente',
+        icon: Icons.school_rounded,
+        route: 'add_alumns',
+        gradient: [Color(0xFF00695C), Color(0xFF004D40)],
+        accent: Color(0xFF80CBC4),
+      ),
+      _AdminItem(
+        label: 'Tutor externo',
+        sub: 'Sin correo institucional',
+        icon: Icons.person_add_alt_1_rounded,
+        route: 'add_tutor',
+        gradient: [Color(0xFF6A1B9A), Color(0xFF4A148C)],
+        accent: Color(0xFFCE93D8),
+      ),
+      // Va junto a "Tutor externo" porque comparten el problema —gente sin
+      // correo institucional— pero son cosas distintas: un alumno a prueba SI
+      // es alumno, ocupa lugar de hijo EDI y cuenta en la poblacion.
+      _AdminItem(
+        label: 'Alumnos a prueba',
+        sub: 'Sin matrícula todavía',
+        icon: Icons.hourglass_top_rounded,
+        route: 'alumnos_prueba',
+        gradient: [Color(0xFF00695C), Color(0xFF00382F)],
+        accent: Color(0xFF80CBC4),
+      ),
+      _AdminItem(
+        label: 'Renovación de ciclo',
+        sub: 'Ventana, solicitudes y vaciado',
+        icon: Icons.refresh_rounded,
+        route: 'renovaciones_admin',
+        gradient: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
+        accent: Color(0xFFA5D6A7),
+      ),
+    ]),
+
+    _Seccion('Comunicación', [
+      // Se marca como destacada para que resalte con un borde, pero ocupa una
+      // celda como las demás: antes era de ancho completo y dominaba la
+      // pantalla siendo de las funciones que menos se usan.
+      _AdminItem(
+        label: 'Alerta instantánea',
+        sub: 'Notifica a todos ahora',
+        icon: Icons.campaign_rounded,
+        route: 'broadcast',
+        gradient: [Color(0xFFB71C1C), Color(0xFF7F0000)],
+        accent: Color(0xFFFF8A80),
+        destacada: true,
+      ),
+      _AdminItem(
+        label: 'Agenda',
+        sub: 'Eventos',
+        icon: Icons.event_rounded,
+        route: 'agenda',
+        gradient: [Color(0xFFE65100), Color(0xFFBF360C)],
+        accent: Color(0xFFFFCC80),
+      ),
+      _AdminItem(
+        label: 'Encuestas',
+        sub: 'Crear, muestrear y ver',
+        icon: Icons.poll_rounded,
+        route: 'encuestas',
+        gradient: [Color(0xFF4527A0), Color(0xFF311B92)],
+        accent: Color(0xFFB39DDB),
+      ),
+      _AdminItem(
+        label: 'Cumpleaños',
+        sub: 'Pasados, próximos y mensaje',
+        icon: Icons.cake_rounded,
+        route: 'cumpleaños',
+        gradient: [Color(0xFFC62828), Color(0xFFB71C1C)],
+        accent: Color(0xFFEF9A9A),
+      ),
+    ]),
+
+    _Seccion('Reportes y datos', [
+      _AdminItem(
+        label: 'Reportes PDF',
+        sub: 'Exportar familias',
+        icon: Icons.picture_as_pdf_rounded,
+        route: 'reportes',
+        gradient: [Color(0xFF37474F), Color(0xFF263238)],
+        accent: Color(0xFFB0BEC5),
+      ),
+      _AdminItem(
+        label: 'Población',
+        sub: 'Conteo de usuarios',
+        icon: Icons.groups_rounded,
+        route: 'poblacion',
+        gradient: [Color(0xFF00838F), Color(0xFF006064)],
+        accent: Color(0xFF80DEEA),
+      ),
+    ]),
+
+    _Seccion('Configuración', [
+      _AdminItem(
+        label: 'Administradores',
+        sub: 'Asignar rol de Admin',
+        icon: Icons.manage_accounts_rounded,
+        route: 'assign_admin',
+        gradient: [Color(0xFF4A148C), Color(0xFF2E004F)],
+        accent: Color(0xFFCE93D8),
+      ),
+      _AdminItem(
+        label: 'Límite de hijos EDI',
+        sub: 'Máximo global por familia',
+        icon: Icons.tune_rounded,
+        route: 'limite_hijos_edi',
+        gradient: [Color(0xFF00695C), Color(0xFF004D40)],
+        accent: Color(0xFF80CBC4),
+      ),
+      _AdminItem(
+        label: 'Versión de la app',
+        sub: 'Avisar actualización',
+        icon: Icons.system_update_rounded,
+        route: 'version_app',
+        gradient: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+        accent: Color(0xFF90CAF9),
+      ),
+    ]),
   ];
-
-  // Fila inferior. Agenda y Encuestas viven aquí porque se quitaron de la
-  // barra de navegación del admin.
-  static const _bottom = [
-    _AdminItem(
-      label: 'Agenda',
-      sub: 'Eventos',
-      icon: Icons.event_rounded,
-      route: 'agenda',
-      gradient: [Color(0xFFE65100), Color(0xFFBF360C)],
-      accent: Color(0xFFFFCC80),
-    ),
-    _AdminItem(
-      label: 'Encuestas',
-      sub: 'Crear y ver',
-      icon: Icons.poll_rounded,
-      route: 'encuestas',
-      gradient: [Color(0xFF4527A0), Color(0xFF311B92)],
-      accent: Color(0xFFB39DDB),
-    ),
-    _AdminItem(
-      label: 'Reportes PDF',
-      sub: 'Exportar datos',
-      icon: Icons.picture_as_pdf_rounded,
-      route: 'reportes',
-      gradient: [Color(0xFF37474F), Color(0xFF263238)],
-      accent: Color(0xFFB0BEC5),
-    ),
-    // Censo de usuarios: insumo para dimensionar muestras de encuestas.
-    _AdminItem(
-      label: 'Población',
-      sub: 'Conteo de usuarios',
-      icon: Icons.groups_rounded,
-      route: 'poblacion',
-      gradient: [Color(0xFF00695C), Color(0xFF004D40)],
-      accent: Color(0xFF80CBC4),
-    ),
-  ];
-
-  // Card de Gestionar Admins (ancho completo, debajo del grid)
-  static const _adminCard = _AdminItem(
-    label: 'Gestionar Administradores',
-    sub: 'Asignar rol de Admin a usuarios',
-    icon: Icons.manage_accounts_rounded,
-    route: 'assign_admin',
-    gradient: [Color(0xFF4A148C), Color(0xFF2E004F)],
-    accent: Color(0xFFCE93D8),
-  );
-
-  // Card de Alerta Instantánea (ancho completo, destacada)
-  static const _alertCard = _AdminItem(
-    label: 'Alerta Instantánea',
-    sub: 'Notifica a todos los usuarios ahora',
-    icon: Icons.campaign_rounded,
-    route: 'broadcast',
-    gradient: [Color(0xFFB71C1C), Color(0xFF7F0000)],
-    accent: Color(0xFFFF8A80),
-  );
-
-  // Card de Renovación de ciclo (ancho completo)
-  static const _renovacionCard = _AdminItem(
-    label: 'Renovación de ciclo',
-    sub: 'Abrir ventana, ver solicitudes y vaciar familias',
-    icon: Icons.refresh_rounded,
-    route: 'renovaciones_admin',
-    gradient: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
-    accent: Color(0xFFA5D6A7),
-  );
-
-  static const _limiteHijosCard = _AdminItem(
-    label: 'Límite de hijos EDI',
-    sub: 'Máximo global por familia',
-    icon: Icons.groups_rounded,
-    route: 'limite_hijos_edi',
-    gradient: [Color(0xFF00695C), Color(0xFF004D40)],
-    accent: Color(0xFF80CBC4),
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -139,77 +167,42 @@ class AdminPage extends StatelessWidget {
         child: ResponsiveContent(
           child: CustomScrollView(
             slivers: [
-              // ── Header ──────────────────────────────────────────────────
               SliverToBoxAdapter(child: _buildHeader()),
 
-              // ── Primary card ────────────────────────────────────────────
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 sliver: SliverToBoxAdapter(child: _PrimaryCard(item: _primary)),
               ),
 
-              // ── Grid 2x2 ────────────────────────────────────────────────
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.05,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (ctx, i) => _GridCard(item: _grid[i]),
-                    childCount: _grid.length,
+              for (final seccion in _secciones) ...[
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
+                  sliver: SliverToBoxAdapter(
+                    child: _TituloSeccion(texto: seccion.titulo),
                   ),
                 ),
-              ),
-
-              // ── Gestionar Admins ─────────────────────────────────────────
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _PrimaryCard(item: _adminCard),
-                ),
-              ),
-
-              // ── Alerta Instantánea ───────────────────────────────────────
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _PrimaryCard(item: _alertCard),
-                ),
-              ),
-
-              // ── Renovación de ciclo ──────────────────────────────────────
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _PrimaryCard(item: _renovacionCard),
-                ),
-              ),
-
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _PrimaryCard(item: _limiteHijosCard),
-                ),
-              ),
-
-              // ── Bottom row ───────────────────────────────────────────────
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                sliver: SliverToBoxAdapter(
-                  child: Row(
-                    children: [
-                      for (int i = 0; i < _bottom.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 10),
-                        Expanded(child: _BottomCard(item: _bottom[i])),
-                      ],
-                    ],
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverGrid(
+                    // maxCrossAxisExtent en vez de un número fijo de columnas:
+                    // en teléfono salen 2, en tableta 3 o 4 según el ancho, sin
+                    // que las tarjetas se estiren hasta verse deformes.
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 210,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.05,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (ctx, i) => _GridCard(item: seccion.items[i]),
+                      childCount: seccion.items.length,
+                    ),
                   ),
                 ),
-              ),
+              ],
+
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
             ],
           ),
         ),
@@ -243,9 +236,9 @@ class AdminPage extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: _gold.withOpacity(0.2),
+                  color: _gold.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _gold.withOpacity(0.4)),
+                  border: Border.all(color: _gold.withValues(alpha: 0.4)),
                 ),
                 child: const Text(
                   'ADMINISTRADOR',
@@ -273,7 +266,7 @@ class AdminPage extends StatelessWidget {
           Text(
             'Gestiona familias, alumnos y más',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.65),
+              color: Colors.white.withValues(alpha: 0.65),
               fontSize: 13,
             ),
           ),
@@ -283,7 +276,14 @@ class AdminPage extends StatelessWidget {
   }
 }
 
-// ── Data model ────────────────────────────────────────────────────────────────
+// ── Modelo ────────────────────────────────────────────────────────────────────
+
+class _Seccion {
+  final String titulo;
+  final List<_AdminItem> items;
+  const _Seccion(this.titulo, this.items);
+}
+
 class _AdminItem {
   final String label;
   final String sub;
@@ -292,6 +292,10 @@ class _AdminItem {
   final List<Color> gradient;
   final Color accent;
 
+  /// Le pone un borde visible para que salte a la vista sin ocupar más
+  /// espacio. Pensado para acciones que hay que encontrar con prisa.
+  final bool destacada;
+
   const _AdminItem({
     required this.label,
     required this.sub,
@@ -299,10 +303,40 @@ class _AdminItem {
     required this.route,
     required this.gradient,
     required this.accent,
+    this.destacada = false,
   });
 }
 
-// ── Primary card (full width) ─────────────────────────────────────────────────
+// ── Encabezado de sección ─────────────────────────────────────────────────────
+
+class _TituloSeccion extends StatelessWidget {
+  final String texto;
+  const _TituloSeccion({required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          texto.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+            color: Colors.blueGrey.shade600,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(height: 1, color: Colors.blueGrey.shade100),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Tarjeta destacada (ancho completo) ────────────────────────────────────────
+
 class _PrimaryCard extends StatelessWidget {
   final _AdminItem item;
   const _PrimaryCard({required this.item});
@@ -312,38 +346,36 @@ class _PrimaryCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, item.route),
       child: Container(
-        height: 90,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: item.gradient,
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: item.gradient.first.withOpacity(0.45),
+              color: item.gradient.first.withValues(alpha: 0.35),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.all(20),
         child: Row(
           children: [
             Container(
-              width: 52,
-              height: 52,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
-                color: item.accent.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(14),
+                color: item.accent.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(item.icon, color: item.accent, size: 28),
+              child: Icon(item.icon, color: item.accent, size: 30),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -354,12 +386,12 @@ class _PrimaryCard extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     item.sub,
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.65),
-                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 12.5,
                     ),
                   ),
                 ],
@@ -367,7 +399,7 @@ class _PrimaryCard extends StatelessWidget {
             ),
             Icon(
               Icons.arrow_forward_ios_rounded,
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               size: 16,
             ),
           ],
@@ -377,7 +409,8 @@ class _PrimaryCard extends StatelessWidget {
   }
 }
 
-// ── Grid card ─────────────────────────────────────────────────────────────────
+// ── Tarjeta de cuadrícula ─────────────────────────────────────────────────────
+
 class _GridCard extends StatelessWidget {
   final _AdminItem item;
   const _GridCard({required this.item});
@@ -394,106 +427,52 @@ class _GridCard extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(20),
+          border: item.destacada
+              ? Border.all(color: item.accent.withValues(alpha: 0.85), width: 2)
+              : null,
           boxShadow: [
             BoxShadow(
-              color: item.gradient.first.withOpacity(0.4),
-              blurRadius: 12,
+              color: item.gradient.first
+                  .withValues(alpha: item.destacada ? 0.5 : 0.35),
+              blurRadius: item.destacada ? 16 : 12,
               offset: const Offset(0, 5),
             ),
           ],
         ),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 46,
-              height: 46,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: item.accent.withOpacity(0.18),
-                borderRadius: BorderRadius.circular(13),
+                color: item.accent.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(item.icon, color: item.accent, size: 24),
+              child: Icon(item.icon, color: item.accent, size: 22),
             ),
             const Spacer(),
             Text(
               item.label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 15,
+                fontSize: 14.5,
                 fontWeight: FontWeight.bold,
-                height: 1.2,
+                height: 1.15,
               ),
             ),
             const SizedBox(height: 3),
             Text(
               item.sub,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Bottom card ───────────────────────────────────────────────────────────────
-class _BottomCard extends StatelessWidget {
-  final _AdminItem item;
-  const _BottomCard({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, item.route),
-      child: Container(
-        height: 96,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: item.gradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: item.gradient.first.withOpacity(0.35),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        // Layout vertical: con tres tarjetas en la fila no cabe el ícono
-        // al lado del texto en pantallas angostas.
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(item.icon, color: item.accent, size: 26),
-            const SizedBox(height: 7),
-            Text(
-              item.label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12.5,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              item.sub,
-              textAlign: TextAlign.center,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 10,
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 10.5,
+                height: 1.2,
               ),
             ),
           ],

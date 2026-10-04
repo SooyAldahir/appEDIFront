@@ -1,7 +1,7 @@
+import 'package:edi301/auth/token_storage.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edi301/core/api_client_http.dart';
 
 class BroadcastPage extends StatefulWidget {
@@ -88,15 +88,10 @@ class _BroadcastPageState extends State<BroadcastPage> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString('token');
-      if (token == null) {
-        final uStr = prefs.getString('user');
-        if (uStr != null) {
-          final u = jsonDecode(uStr);
-          token = u['token'] ?? u['session_token'] ?? u['access_token'];
-        }
-      }
+      // Una sola fuente de verdad: el almacen seguro. Antes esto leia
+      // prefs.getString('token'), una clave que el login ya no escribe, y
+      // sobrevivia por el respaldo del JSON 'user'.
+      final token = await TokenStorage().read();
 
       final url = Uri.parse('${ApiHttp.baseUrl}/api/alertas/broadcast');
       final res = await http.post(

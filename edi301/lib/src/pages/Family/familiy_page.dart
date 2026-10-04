@@ -87,6 +87,14 @@ class _FamilyPageState extends State<FamiliyPage> {
       return family;
     });
     _availableFamiliesFuture = _fetchAvailableFamilies();
+
+    // Se registran aunque todavía no haya familia: `familia_asignada` llega
+    // por la sala personal justo a quien acaba de entrar en una, que por
+    // definición no estaba en la sala de esa familia.
+    for (final ev in _eventosMiembros) {
+      _socketService.off(ev, _onCambioDeMiembros);
+      _socketService.on(ev, _onCambioDeMiembros);
+    }
     String _userRole = '';
     int? _userId;
   }
@@ -98,11 +106,74 @@ class _FamilyPageState extends State<FamiliyPage> {
   /// PageView, así que el timer nunca se detenía). Ahora escucha el mismo
   /// evento que el chat familiar y solo consulta cuando de verdad llegó algo;
   /// el timer queda como respaldo espaciado por si el socket está caído.
-  void _startUnreadPolling(int idFamilia) {
+  /// Cambios que obligan a repintar la familia.
+  ///
+  /// Esta pantalla solo escuchaba mensajes nuevos, así que si un admin asignaba
+  /// un alumno, quienes ya estaban en la familia no lo veían aparecer hasta
+  /// cerrar y volver a abrir la app.
+  static const List<String> _eventosMiembros = [
+    'miembro_agregado',
+    'miembro_eliminado',
+    'miembros_actualizados',
+    'nuevos_alumnos_asignados',
+    // Llegan por la sala personal cuando a ESTA persona la meten en una
+    // familia o la sacan de ella.
+    'familia_asignada',
+    'familia_removida',
+  ];
+
+  Timer? _reboteMiembros;
+
+  /// Asignar varios alumnos de golpe dispara varios eventos seguidos. Sin el
+  /// rebote serían varias recargas completas de la pantalla.
+  void _onCambioDeMiembros(dynamic _) {
+    if (!mounted) return;
+    _reboteMiembros?.cancel();
+    _reboteMiembros = Timer(const Duration(milliseconds: 400), _recargarFamilia);
+  }
+
+  void _recargarFamilia() {
+    if (!mounted) return;
+    setState(() {
+      _familyFuture = _fetchFamilyData().then((family) {
+        // Puede que la familia sea otra, la primera, o ninguna. Hay que
+        // moverse de sala en los tres casos: quedarse escuchando la sala de
+        // una familia de la que ya no formas parte es recibir avisos ajenos.
+        if (family != null && family.id != null) {
+          _asegurarSalaFamilia(family.id!);
+        } else {
+          _salirDeLaSalaFamilia();
+        }
+        return family;
+      });
+      _availableFamiliesFuture = _fetchAvailableFamilies();
+    });
+  }
+
+  /// Sale de la sala de familia y deja de contar mensajes sin leer.
+  void _salirDeLaSalaFamilia() {
+    if (_unreadFamilyId == null) return;
+    _socketService.leaveRoom('familia_$_unreadFamilyId');
+    _unreadFamilyId = null;
+    _unreadTimer?.cancel();
+    ChatFamilyPage.familyUnread.value = 0;
+  }
+
+  /// Entra a la sala de la familia, saliendo antes de la anterior si cambió.
+  void _asegurarSalaFamilia(int idFamilia) {
+    if (_unreadFamilyId == idFamilia) return;
+    if (_unreadFamilyId != null) {
+      _socketService.leaveRoom('familia_$_unreadFamilyId');
+    }
+    _socketService.joinFamilyRoom(idFamilia);
     _unreadFamilyId = idFamilia;
+  }
+
+  void _startUnreadPolling(int idFamilia) {
+    _asegurarSalaFamilia(idFamilia);
     _checkFamilyUnread(idFamilia);
 
-    _socketService.joinFamilyRoom(idFamilia);
+    _socketService.off('nuevo_mensaje_familia', _onMensajeFamiliaParaBadge);
     _socketService.on('nuevo_mensaje_familia', _onMensajeFamiliaParaBadge);
 
     _unreadTimer?.cancel();
@@ -136,7 +207,11 @@ class _FamilyPageState extends State<FamiliyPage> {
   void dispose() {
     _unreadTimer?.cancel();
     _unreadDebounce?.cancel();
+    _reboteMiembros?.cancel();
     _socketService.off('nuevo_mensaje_familia', _onMensajeFamiliaParaBadge);
+    for (final ev in _eventosMiembros) {
+      _socketService.off(ev, _onCambioDeMiembros);
+    }
     if (_unreadFamilyId != null) {
       _socketService.leaveRoom('familia_$_unreadFamilyId');
     }
@@ -246,10 +321,10 @@ class _FamilyPageState extends State<FamiliyPage> {
       final int? familyId = await _controller.resolveFamilyId();
       if (familyId == null) return null;
 
-      final prefs = await SharedPreferences.getInstance();
-      final String? authToken = prefs.getString('token');
-
-      final data = await _familiaApi.getById(familyId, authToken: authToken);
+      // No se lee el token a mano: ApiHttp lo adjunta en cada peticion.
+      // Antes venia de prefs.getString('token'), una clave que el login ya
+      // no escribe, asi que siempre llegaba null.
+      final data = await _familiaApi.getById(familyId);
       if (data != null) return Family.fromJson(data);
       return null;
     } catch (e) {
